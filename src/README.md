@@ -8,19 +8,19 @@ Non Common Lisp approaches
 
 ### Status
 
-[x] integers
-[x] strings with SBCL/Unicode
-[x] tuples
-[x] lists
-[x] dicts
-[x] function return-values
-[] function arguments
-[] python variable values
-[] error handling
-[] garbage collection touches
-[] numpy and non-numpy arrays
-[] arbitrary module import
-[] lisp callbacks
+- [x] integers
+- [x] strings with SBCL/Unicode
+- [x] tuples
+- [x] lists
+- [x] dicts
+- [x] function return-values
+- [ ] function arguments
+- [ ] python variable values
+- [ ] error handling
+- [ ] garbage collection touches
+- [ ] numpy and non-numpy arrays
+- [ ] arbitrary module import
+- [ ] lisp callbacks
 
 ... and much more ...
 
@@ -33,16 +33,6 @@ However, when capable, the CFFI approach can be a 50 times faster than py4cl2.
 ```lisp
 CL-USER> (py4cl2/cffi:raw-py "def foo(): return str(1)")
 0
-CL-USER> (time (dotimes (i 10000)
-                 (py4cl2/cffi:pycall "foo")))
-Evaluation took:
-  0.012 seconds of real time
-  0.012838 seconds of total run time (0.012739 user, 0.000099 system)
-  108.33% CPU
-  28,338,236 processor cycles
-  983,040 bytes consed
-
-NIL
 CL-USER> (time (dotimes (i 10000)
                  (py4cl2/cffi:pycall "foo")))
 Evaluation took:
