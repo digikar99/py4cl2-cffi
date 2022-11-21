@@ -24,14 +24,27 @@
   (let ((tuple (foreign-funcall "PyTuple_New" :int (length o) :pointer)))
     (loop :for elt :in o
           :for pos :from 0
-          :do (assert (zerop (foreign-funcall "PyTuple_SetItem"
+          :do (unless (zerop (foreign-funcall "PyTuple_SetItem"
                                               :pointer tuple
                                               :int pos
                                               :pointer (pythonize elt)
-                                              :int))))
+                                              :int))
+                (python-may-be-error)))
     tuple))
 
-(defmethod pythonize-list (list)
+(defmethod pythonize ((o vector))
+  (let ((list (foreign-funcall "PyList_New" :int (length o) :pointer)))
+    (loop :for elt :across o
+          :for pos :from 0
+          :do (unless (zerop (foreign-funcall "PyList_SetItem"
+                                              :pointer list
+                                              :int pos
+                                              :pointer (pythonize elt)
+                                              :int))
+                (python-may-be-error)))
+    list))
+
+(defun pythonize-list (list)
   (let ((tuple (foreign-funcall "PyTuple_New" :int (length list) :pointer)))
     (loop :for elt :in list
           :for pos :from 0
