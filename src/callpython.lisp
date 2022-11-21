@@ -35,7 +35,4 @@
               (if (null-pointer-p may-be-exception-type)
                   ;; return-value
                   (lispify return-value)
-                  (progn
-                    (foreign-funcall "PyErr_PrintEx")
-                    (foreign-funcall "PyErr_Clear")
-                    (error "A python error occured")))))))))
+                  (python-error))))))))

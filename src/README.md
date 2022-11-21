@@ -15,8 +15,9 @@ Non Common Lisp approaches
 - [x] dicts
 - [x] function return-values
 - [x] function arguments
+- [x] output (partially)
+- [x] error output (partially)
 - [ ] python variable values
-- [ ] error handling
 - [ ] garbage collection touches
 - [ ] numpy and non-numpy arrays
 - [ ] arbitrary module import
