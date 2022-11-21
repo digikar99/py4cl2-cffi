@@ -4,6 +4,8 @@
 
 int PyCheck_Long(PyObject* o){return PyLong_Check(o);}
 
+int PyCheck_Float(PyObject* o){return PyFloat_Check(o);}
+
 int PyCheck_Unicode(PyObject* o){return PyUnicode_Check(o);}
 
 int PyCheck_Tuple(PyObject* o){return PyTuple_Check(o);}

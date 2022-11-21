@@ -12,6 +12,10 @@
   (assert (not (zerop (foreign-funcall "PyCheck_Long" :pointer o :int))))
   (foreign-funcall "PyLong_AsLong" :pointer o :long))
 
+(define-lispifier "float" (o)
+  (assert (not (zerop (foreign-funcall "PyCheck_Float" :pointer o :int))))
+  (foreign-funcall "PyLong_AsLong" :pointer o :long))
+
 (define-lispifier "str" (o)
   (assert (not (zerop (foreign-funcall "PyCheck_Unicode" :pointer o :int))))
   (nth-value 0
@@ -21,7 +25,7 @@
   (assert (not (zerop (foreign-funcall "PyCheck_Tuple" :pointer o :int))))
   (let ((py-size (foreign-funcall "PyTuple_Size" :pointer o :int)))
     (loop :for i :below py-size
-          :collect (pyobject->lisp (foreign-funcall "PyTuple_GetItem" :pointer o
+          :collect (lispify (foreign-funcall "PyTuple_GetItem" :pointer o
                                                                       :int i
                                                                       :pointer)))))
 
@@ -31,7 +35,7 @@
          (vec     (make-array py-size :element-type t)))
     (loop :for i :below py-size
           :do (setf (svref vec i)
-                    (pyobject->lisp (foreign-funcall "PyList_GetItem" :pointer o
+                    (lispify (foreign-funcall "PyList_GetItem" :pointer o
                                                                       :int i
                                                                       :pointer))))
     vec))
@@ -46,19 +50,44 @@
                                           :pointer py-keys
                                           :int i
                                           :pointer)
-          :for key := (pyobject->lisp py-key)
-          :for value := (pyobject->lisp (foreign-funcall "PyDict_GetItem"
+          :for key := (lispify py-key)
+          :for value := (lispify (foreign-funcall "PyDict_GetItem"
                                                          :pointer o
                                                          :pointer py-key
                                                          :pointer))
           :do (setf (gethash key hash-table) value))
     hash-table))
 
-(defun pyobject->lisp (pyobject)
+(defstruct python-object
+  "A pointer to a python object which couldn't be translated into a Lisp value.
+TYPE slot is the python type string
+POINTER slot points to the object"
+  type
+  pointer)
+
+(defvar *print-python-object* t
+  "If non-NIL, python's 'str' is called on the python-object before printing.")
+
+(defmethod print-object ((o python-object) s)
+  (print-unreadable-object (o s :type t :identity t)
+    (with-slots (type pointer) o
+      (if *print-python-object*
+          (progn
+            (terpri s)
+            (pprint-logical-block (s nil :per-line-prefix "  ")
+              (write-string (lispify (foreign-funcall "PyObject_Str" :pointer pointer :pointer))
+                            s))
+            (terpri s))
+          (format s ":POINTER ~A :TYPE ~A" pointer
+                  (lispify (foreign-funcall "PyObject_Str" :pointer type :pointer)))))))
+
+(defun lispify (pyobject)
   (declare (type foreign-pointer pyobject))
   (let* ((pyobject-type (foreign-funcall "PyObject_Type"
                                          :pointer pyobject
                                          :pointer))
          (lispifier (assoc-value *py-type-lispifier-table* pyobject-type :test #'pointer-eq)))
     ;; (print (list pyobject-type lispifier))
-    (funcall lispifier pyobject)))
+    (if lispifier
+        (funcall lispifier pyobject)
+        (make-python-object :pointer pyobject :type pyobject-type))))

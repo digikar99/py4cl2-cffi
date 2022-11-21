@@ -14,7 +14,7 @@ Non Common Lisp approaches
 - [x] lists
 - [x] dicts
 - [x] function return-values
-- [ ] function arguments
+- [x] function arguments
 - [ ] python variable values
 - [ ] error handling
 - [ ] garbage collection touches
