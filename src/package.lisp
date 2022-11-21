@@ -3,6 +3,7 @@
   (:export #:pystart
            #:pystop
            #:raw-py
+           #:pyvalue
            #:pycall))
 
 (in-package :py4cl2/cffi)

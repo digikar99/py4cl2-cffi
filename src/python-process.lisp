@@ -12,14 +12,15 @@
     (dolist (lib ;; (uiop:directory-files
              ;;  #P"/media/common-storage/miniconda3/lib/python3.8/config-3.8-x86_64-linux-gnu/")
              ;; TODO: Avoid hardcoding paths and test it on CI
-             (cons #P"/home/shubhamkar/quicklisp/local-projects/py4cl2/cffi/libpychecks.so"
-                   (loop :for lib :in libraries
-                         :nconcing
-                         (uiop:directory-files
-                          #P"/media/common-storage/miniconda3/lib/" (format nil "lib~A.so*" lib)))))
+             (nconc
+              (loop :for lib :in libraries
+                    :nconcing
+                    (uiop:directory-files
+                     #P"/media/common-storage/miniconda3/lib/" (format nil "lib~A.so*" lib)))
+              '(#P"/home/shubhamkar/quicklisp/local-projects/py4cl2/cffi/libpychecks.so")))
       (load-foreign-library lib))))
 
-(defun python-error ()
+(defun python-may-be-error ()
   (let ((may-be-error (foreign-funcall "PyErr_Occurred" :pointer)))
     (unless (null-pointer-p may-be-error)
       (foreign-funcall "PyErr_PrintEx")
@@ -29,12 +30,23 @@
 (defun raw-py (code-string)
   (with-foreign-string (str code-string)
     (unless (zerop (foreign-funcall "PyRun_SimpleString" :pointer str :int))
-      (python-error))))
+      (python-may-be-error))))
 
-(defvar *py-main-module* nil
-  "Pointer to the __main__ module of the embedded python.")
-(defvar *py-builtins-module* nil
-  "Pointer to the builtin module of the embedded python.")
+(defvar *py-module-pointer-table* (make-hash-table :test #'equal)
+  "Key: A string indicating module name
+Value: The pointer to the module in embedded python")
+(declaim (type hash-table *py-module-pointer-table*))
+
+(defun py-module-pointer (name)
+  (declare (type string name))
+  (or (nth-value 0 (gethash name *py-module-pointer-table*))
+      (setf (py-module-pointer name)
+            (foreign-funcall "PyImport_AddModule" :string name :pointer))))
+
+(defun (setf py-module-pointer) (module-pointer name)
+  (declare (type string name))
+  (setf (gethash name *py-module-pointer-table*) module-pointer))
+
 (defvar *py-global-dict* nil
   "Pointer to the dictionary mapping names to PyObjects in the global namespace of embedded python.")
 (defvar *py-builtins-dict* nil
@@ -93,21 +105,17 @@
     (bt:join-thread python-error-output-reader-open-thread))
   (python-output-thread)
 
-  (setq *py-main-module*
-        (with-foreign-string (main "__main__")
-          (foreign-funcall "PyImport_AddModule" :pointer main :pointer)))
-  (setq *py-builtins-module*
-        (with-foreign-string (mod "builtins")
-          (foreign-funcall "PyImport_AddModule" :pointer mod :pointer)))
+  (dolist (mod '("__main__" "builtins" "sys"))
+    (setf (py-module-pointer mod)
+          (foreign-funcall "PyImport_AddModule" :string mod :pointer)))
   (setq *py-global-dict*
-        (foreign-funcall "PyModule_GetDict" :pointer *py-main-module* :pointer))
+        (foreign-funcall "PyModule_GetDict" :pointer (py-module-pointer "__main__") :pointer))
   (setq *py-builtins-dict*
-        (foreign-funcall "PyModule_GetDict" :pointer *py-builtins-module* :pointer))
+        (foreign-funcall "PyModule_GetDict" :pointer (py-module-pointer "builtins") :pointer))
   t)
 
 (defun pystop ()
-  (setq *py-main-module* nil)
-  (setq *py-builtins-module* nil)
+  (setq *py-module-pointer-table* (make-hash-table :test #'equal))
   (setq *py-global-dict* nil)
   (setq *py-builtins-dict* nil)
   (raw-py "close(sys.stdout)")
@@ -121,7 +129,7 @@
                      :pointer name
                      :pointer)))
 
-(defun pyvalue* (name &optional (module *py-main-module*))
+(defun pyvalue* (name &optional (module (py-module-pointer "__main__")))
   "Get the pointer to the value associated with NAME in MODULE"
   (declare (type string name)
            (type foreign-pointer module))
@@ -135,10 +143,39 @@
                        :pointer cname
                        :pointer))))
 
-(defun pyvalue (name &optional (module *py-main-module*))
+(defun (setf pyvalue*) (value name &optional (module (py-module-pointer "__main__")))
+  "Set the value associated with NAME in MODULE to the value pointed by VALUE pointer"
+  (declare (type string name)
+           (type foreign-pointer module value))
+  (assert (not (null-pointer-p module)))
+  (let ((module-dict (foreign-funcall "PyModule_GetDict"
+                                      :pointer module
+                                      :pointer)))
+    (unless (zerop (foreign-funcall "PyDict_SetItemString"
+                                    :pointer module-dict
+                                    :string name
+                                    :pointer value
+                                    :int))
+      (python-may-be-error))
+    t))
+
+
+
+(defun pyvalue (name &optional (module (py-module-pointer "__main__")))
   "Get the lispified value associated with NAME in MODULE"
   (declare (type string name)
-           (type foreign-pointer module))
-  (lispify (pyvalue* name module)))
+           (type (or string foreign-pointer) module))
+  (lispify (pyvalue* name (etypecase module
+                            (string (py-module-pointer module))
+                            (foreign-pointer module)))))
+
+(defun (setf pyvalue) (value name &optional (module (py-module-pointer "__main__")))
+  "Set the value associated with NAME in MODULE to the VALUE after pythonizing it"
+  (declare (type string name)
+           (type (or string foreign-pointer) module))
+  (setf (pyvalue* name (etypecase module
+                         (string (py-module-pointer module))
+                         (foreign-pointer module)))
+        (pythonize value)))
 
 (pystart) ;; FIXME: Better way to do things
