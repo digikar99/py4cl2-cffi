@@ -14,7 +14,7 @@
 
 (define-lispifier "float" (o)
   (assert (not (zerop (foreign-funcall "PyCheck_Float" :pointer o :int))))
-  (foreign-funcall "PyLong_AsLong" :pointer o :long))
+  (foreign-funcall "PyFloat_AsDouble" :pointer o :double))
 
 (define-lispifier "str" (o)
   (assert (not (zerop (foreign-funcall "PyCheck_Unicode" :pointer o :int))))

@@ -13,6 +13,10 @@
     (warn "Given integer ~S is too bit to be interpreted as a C long" o))
   (foreign-funcall "PyLong_FromLong" :long o :pointer))
 
+(defmethod pythonize ((o float))
+  ;; TODO: Different numpy float types: float32 and float64
+  (foreign-funcall "PyFloat_FromDouble" :double (coerce o 'double-float) :pointer))
+
 (defmethod pythonize ((o string))
   (foreign-funcall "PyUnicode_FromString" :string o :pointer))
 
