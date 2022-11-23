@@ -169,5 +169,3 @@ Value: The pointer to the module in embedded python")
                          (string (py-module-pointer module))
                          (foreign-pointer module)))
         (pythonize value)))
-
-(pystart) ;; FIXME: Better way to do things
