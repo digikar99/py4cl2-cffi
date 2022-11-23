@@ -36,6 +36,7 @@ PY4CL2/CFFI-CONFIG> (setq *python-shared-object-path* #P"/home/user/miniconda3/l
 
 ### Status
 
+- [ ] garbage collection touches (partial) [important]
 - [x] integers
 - [x] strings with SBCL/Unicode
 - [x] tuples
@@ -47,10 +48,9 @@ PY4CL2/CFFI-CONFIG> (setq *python-shared-object-path* #P"/home/user/miniconda3/l
 - [x] output (partially)
 - [x] error output (partially)
 - [x] python variable values
-- [ ] garbage collection touches
+- [ ] arbitrary module import (partial) [important]
 - [ ] numpy and non-numpy arrays
 - [ ] numpy floats
-- [ ] arbitrary module import (partial)
 - [ ] lisp callbacks
 
 ... and much more ...

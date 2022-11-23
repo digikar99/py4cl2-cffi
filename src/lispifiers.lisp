@@ -35,7 +35,7 @@
     vec))
 
 (define-lispifier "dict" (o)
-  (let ((py-size (foreign-funcall "PyDict_Size" :pointer o :int))
+  (let ((py-size (foreign-funcall "PyDict_Size" :pointer o :long))
         (hash-table (make-hash-table :test #'equalp))
         (py-keys (foreign-funcall "PyDict_Keys" :pointer o :pointer)))
     (loop :for i :below py-size
@@ -60,7 +60,7 @@
                           nil
                           (foreign-string-to-lisp
                            (foreign-funcall "PyTypeObject_Name"
-                                            :pointer pyobject-type
+                                            :pointer (pytrack pyobject-type)
                                             :pointer))))
          ;; FIXME: What about names in modules?
          (lispifier (assoc-value *py-type-lispifier-table* pytype-name :test #'string=)))
