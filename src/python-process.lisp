@@ -3,6 +3,8 @@
 ;; Basic Reference: https://www.linuxjournal.com/article/8497
 ;; Multithreading reference: https://www.linuxjournal.com/article/3641
 
+(defvar *python-libraries-loaded-p* nil)
+
 (defun load-python-and-libraries ()
   (load-foreign-library *python-shared-object-path*)
   (dolist (lib (loop :for lib :in *python-additional-libraries*
@@ -10,19 +12,17 @@
                      (uiop:directory-files
                       *python-additional-libraries-search-path* (format nil "lib~A.so*" lib))))
     (load-foreign-library lib))
-  (load-foreign-library *utils-shared-object-path*))
+  (load-foreign-library *utils-shared-object-path*)
+  (setq *python-libraries-loaded-p* t))
 
-(defun python-may-be-error ()
-  (let ((may-be-error (foreign-funcall "PyErr_Occurred" :pointer)))
-    (unless (null-pointer-p may-be-error)
-      (foreign-funcall "PyErr_PrintEx")
-      (foreign-funcall "PyErr_Clear")
-      (error "A python error occured"))))
+(declaim (inline python-alive-p python-start-if-not-alive))
+(defun python-alive-p ()
+  (unless *python-libraries-loaded-p*
+    (load-python-and-libraries))
+  (/= 0 (foreign-funcall "Py_IsInitialized" :int)))
 
-(defun raw-py (code-string)
-  (with-foreign-string (str code-string)
-    (unless (zerop (foreign-funcall "PyRun_SimpleString" :pointer str :int))
-      (python-may-be-error))))
+(defun python-start-if-not-alive ()
+  (unless (python-alive-p) (pystart)))
 
 (defvar *py-module-pointer-table* (make-hash-table :test #'equal)
   "Key: A string indicating module name
@@ -32,8 +32,10 @@ Value: The pointer to the module in embedded python")
 (defun py-module-pointer (name)
   (declare (type string name))
   (or (nth-value 0 (gethash name *py-module-pointer-table*))
-      (setf (py-module-pointer name)
-            (foreign-funcall "PyImport_AddModule" :string name :pointer))))
+      (progn
+        (python-start-if-not-alive)
+        (setf (py-module-pointer name)
+              (foreign-funcall "PyImport_AddModule" :string name :pointer)))))
 
 (defun (setf py-module-pointer) (module-pointer name)
   (declare (type string name))
@@ -106,15 +108,38 @@ Value: The pointer to the module in embedded python")
         (foreign-funcall "PyModule_GetDict" :pointer (py-module-pointer "builtins") :pointer))
   t)
 
+(defun python-may-be-error ()
+  (python-start-if-not-alive)
+  (let ((may-be-error (foreign-funcall "PyErr_Occurred" :pointer)))
+    (unless (null-pointer-p may-be-error)
+      (foreign-funcall "PyErr_PrintEx")
+      (foreign-funcall "PyErr_Clear")
+      (error "A python error occured"))))
+
+(defun raw-py (code-string)
+  (python-start-if-not-alive)
+  (unless (zerop (foreign-funcall "PyRun_SimpleString" :string code-string :int))
+    (python-may-be-error)))
+
 (defun pystop ()
   (setq *py-module-pointer-table* (make-hash-table :test #'equal))
   (setq *py-global-dict* nil)
   (setq *py-builtins-dict* nil)
-  (raw-py "close(sys.stdout)")
-  (raw-py "close(sys.stderr)")
-  (foreign-funcall "Py_Finalize"))
+  (when (python-alive-p)
+    (raw-py "close(sys.stdout)")
+    (raw-py "close(sys.stderr)")
+    ;; It is okay to call Py_FinalizeEx even when python is not initialized
+    (let ((value (foreign-funcall "Py_FinalizeEx" :int)))
+      (cond ((zerop value)
+             t)
+            ((= -1 value)
+             (error "-1 return value from Py_FinalizeEx indicating an error"))
+            (t
+             (error "Unexpected ~D return value from Py_FinalizeEx (expected 0 or -1)"
+                    value))))))
 
 (defun pytype (name)
+  (python-start-if-not-alive)
   (with-foreign-string (name name)
     (foreign-funcall "PyDict_GetItemString"
                      :pointer *py-builtins-dict*
@@ -126,6 +151,7 @@ Value: The pointer to the module in embedded python")
   (declare (type string name)
            (type foreign-pointer module))
   (assert (not (null-pointer-p module)))
+  (python-start-if-not-alive)
   (let ((module-dict (foreign-funcall "PyModule_GetDict"
                                       :pointer module
                                       :pointer)))
@@ -140,6 +166,7 @@ Value: The pointer to the module in embedded python")
   (declare (type string name)
            (type foreign-pointer module value))
   (assert (not (null-pointer-p module)))
+  (python-start-if-not-alive)
   (let ((module-dict (foreign-funcall "PyModule_GetDict"
                                       :pointer module
                                       :pointer)))

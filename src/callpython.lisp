@@ -10,29 +10,29 @@
             (pythonize-plist (subseq lisp-args first-keyword-position)))))
 
 (defun pycall (name &rest args)
-  (with-foreign-string (cname name)
-    (let* ((pyfun (foreign-funcall "PyDict_GetItemString"
-                                   :pointer *py-global-dict*
-                                   :pointer cname
-                                   :pointer))
-           (pyfun (cond ((null-pointer-p pyfun)
-                         (foreign-funcall "PyDict_GetItemString"
-                                          :pointer *py-builtins-dict*
-                                          :pointer cname
-                                          :pointer))
-                        (t
-                         pyfun))))
-      (if (null-pointer-p pyfun)
-          (error "Python function ~A is not defined" name)
-          (multiple-value-bind (args kwargs)
-              (args-and-kwargs args)
-            (let* ((return-value (foreign-funcall "PyObject_Call"
-                                                  :pointer pyfun
-                                                  :pointer args
-                                                  :pointer kwargs
-                                                  :pointer))
-                   (may-be-exception-type (foreign-funcall "PyErr_Occurred" :pointer)))
-              (if (null-pointer-p may-be-exception-type)
-                  ;; return-value
-                  (lispify return-value)
-                  (python-may-be-error))))))))
+  (python-start-if-not-alive)
+  (let* ((pyfun (foreign-funcall "PyDict_GetItemString"
+                                 :pointer *py-global-dict*
+                                 :string name
+                                 :pointer))
+         (pyfun (cond ((null-pointer-p pyfun)
+                       (foreign-funcall "PyDict_GetItemString"
+                                        :pointer *py-builtins-dict*
+                                        :string name
+                                        :pointer))
+                      (t
+                       pyfun))))
+    (if (null-pointer-p pyfun)
+        (error "Python function ~A is not defined" name)
+        (multiple-value-bind (args kwargs)
+            (args-and-kwargs args)
+          (let* ((return-value (foreign-funcall "PyObject_Call"
+                                                :pointer pyfun
+                                                :pointer args
+                                                :pointer kwargs
+                                                :pointer))
+                 (may-be-exception-type (foreign-funcall "PyErr_Occurred" :pointer)))
+            (if (null-pointer-p may-be-exception-type)
+                ;; return-value
+                (lispify return-value)
+                (python-may-be-error)))))))
