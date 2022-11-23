@@ -35,4 +35,4 @@
               (if (null-pointer-p may-be-exception-type)
                   ;; return-value
                   (lispify return-value)
-                  (python-error))))))))
+                  (python-may-be-error))))))))

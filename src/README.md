@@ -6,6 +6,34 @@ Non Common Lisp approaches
 - see [this reddit thread](https://www.reddit.com/r/lisp/comments/yuipy7/pyffi_use_python_from_racket/) for PyFFI in racket, as well as Gambit Scheme
 - [PyCall in Julia](https://github.com/JuliaPy/PyCall.jl)
 
+### Configuration
+
+```lisp
+CL-USER> (ql:quickload "py4cl2/cffi-config")
+To load "py4cl2/cffi-config":
+  Load 1 ASDF system:
+    py4cl2/cffi-config
+; Loading "py4cl2/cffi-config"
+[package py4cl2/cffi-config]
+("py4cl2/cffi-config")
+```
+
+Set the various configuration parameters in the package `py4cl2/cffi-config` (optionally, first start the lisp process in the virtual environment and then set the configuration parameters):
+
+- `*python-additional-libraries*`
+- `*python-additional-libraries-search-path*`
+- `*python-include-path*`
+- `*python-shared-object-path*`
+
+One can use the `python3-config` or equivalent to find these parameters. (See [../.github/workflows/CI-cffi.yml](../.github/workflows/CI-cffi.yml) For instance, the following lisp command sets the parameters to their appropriate values on the author's PC using a miniconda environment:
+
+```lisp
+PY4CL2/CFFI-CONFIG> (setq *python-shared-object-path* #P"/home/user/miniconda3/lib/libpython3.8.so"
+                          *python-include-path* #P"/home/user/miniconda3/include/python3.8/"
+                          *python-additional-libraries-search-path* #P"/home/user/miniconda3/lib/")
+#P"/home/user/miniconda3/lib/"
+```
+
 ### Status
 
 - [x] integers
@@ -13,14 +41,16 @@ Non Common Lisp approaches
 - [x] tuples
 - [x] lists
 - [x] dicts
+- [x] double floats
 - [x] function return-values
 - [x] function arguments
 - [x] output (partially)
 - [x] error output (partially)
-- [ ] python variable values
+- [x] python variable values
 - [ ] garbage collection touches
 - [ ] numpy and non-numpy arrays
-- [ ] arbitrary module import
+- [ ] numpy floats
+- [ ] arbitrary module import (partial)
 - [ ] lisp callbacks
 
 ... and much more ...

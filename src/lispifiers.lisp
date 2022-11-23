@@ -58,29 +58,6 @@
           :do (setf (gethash key hash-table) value))
     hash-table))
 
-(defstruct python-object
-  "A pointer to a python object which couldn't be translated into a Lisp value.
-TYPE slot is the python type string
-POINTER slot points to the object"
-  type
-  pointer)
-
-(defvar *print-python-object* t
-  "If non-NIL, python's 'str' is called on the python-object before printing.")
-
-(defmethod print-object ((o python-object) s)
-  (print-unreadable-object (o s :type t :identity t)
-    (with-slots (type pointer) o
-      (if *print-python-object*
-          (progn
-            (terpri s)
-            (pprint-logical-block (s nil :per-line-prefix "  ")
-              (write-string (lispify (foreign-funcall "PyObject_Str" :pointer pointer :pointer))
-                            s))
-            (terpri s))
-          (format s ":POINTER ~A :TYPE ~A" pointer
-                  (lispify (foreign-funcall "PyObject_Str" :pointer type :pointer)))))))
-
 (defun lispify (pyobject)
   (declare (type foreign-pointer pyobject))
   (let* ((pyobject-type (foreign-funcall "PyObject_Type"

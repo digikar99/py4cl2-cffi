@@ -1,24 +1,16 @@
 (in-package :py4cl2/cffi)
 
-;; (defcstruct pyobject )
-
 ;; Basic Reference: https://www.linuxjournal.com/article/8497
 ;; Multithreading reference: https://www.linuxjournal.com/article/3641
 
-;; TODO: Handling errors
-
-(defun load-libraries ()
-  (let ((libraries '("python3.8" "crypt" "m" "pthread" "dl" "rt")))
-    (dolist (lib ;; (uiop:directory-files
-             ;;  #P"/media/common-storage/miniconda3/lib/python3.8/config-3.8-x86_64-linux-gnu/")
-             ;; TODO: Avoid hardcoding paths and test it on CI
-             (nconc
-              (loop :for lib :in libraries
-                    :nconcing
-                    (uiop:directory-files
-                     #P"/media/common-storage/miniconda3/lib/" (format nil "lib~A.so*" lib)))
-              '(#P"/home/shubhamkar/quicklisp/local-projects/py4cl2/cffi/libpychecks.so")))
-      (load-foreign-library lib))))
+(defun load-python-and-libraries ()
+  (load-foreign-library *python-shared-object-path*)
+  (dolist (lib (loop :for lib :in *python-additional-libraries*
+                     :nconcing
+                     (uiop:directory-files
+                      *python-additional-libraries-search-path* (format nil "lib~A.so*" lib))))
+    (load-foreign-library lib))
+  (load-foreign-library *utils-shared-object-path*))
 
 (defun python-may-be-error ()
   (let ((may-be-error (foreign-funcall "PyErr_Occurred" :pointer)))
@@ -85,7 +77,7 @@ Value: The pointer to the module in embedded python")
   (unless (probe-file #P"/tmp/py4cl2-cffi-error-output")
     (uiop:run-program "mkfifo /tmp/py4cl2-cffi-error-output" :output t :error-output *error-output*))
 
-  (load-libraries)
+  (load-python-and-libraries)
   (foreign-funcall "Py_Initialize")
   (raw-py "import sys")
   (let ((python-output-reader-open-thread
