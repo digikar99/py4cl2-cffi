@@ -7,7 +7,6 @@
   `(setf (assoc-value *py-type-lispifier-table* ,name :test #'string=)
          (lambda (,pyobject-var) ,@body)))
 
-;; FIXME: Should the checks be exact?
 (define-lispifier "int" (o)
   (foreign-funcall "PyLong_AsLong" :pointer o :long))
 
@@ -22,8 +21,8 @@
   (let ((py-size (foreign-funcall "PyTuple_Size" :pointer o :int)))
     (loop :for i :below py-size
           :collect (lispify (foreign-funcall "PyTuple_GetItem" :pointer o
-                                                                      :int i
-                                                                      :pointer)))))
+                                                               :int i
+                                                               :pointer)))))
 
 (define-lispifier "list" (o)
   (let* ((py-size (foreign-funcall "PyList_Size" :pointer o :int))
@@ -31,8 +30,8 @@
     (loop :for i :below py-size
           :do (setf (svref vec i)
                     (lispify (foreign-funcall "PyList_GetItem" :pointer o
-                                                                      :int i
-                                                                      :pointer))))
+                                                               :int i
+                                                               :pointer))))
     vec))
 
 (define-lispifier "dict" (o)
@@ -46,9 +45,9 @@
                                           :pointer)
           :for key := (lispify py-key)
           :for value := (lispify (foreign-funcall "PyDict_GetItem"
-                                                         :pointer o
-                                                         :pointer py-key
-                                                         :pointer))
+                                                  :pointer o
+                                                  :pointer py-key
+                                                  :pointer))
           :do (setf (gethash key hash-table) value))
     hash-table))
 
@@ -57,13 +56,17 @@
   (let* ((pyobject-type (foreign-funcall "PyObject_Type"
                                          :pointer pyobject
                                          :pointer))
-         (pytype-name (foreign-string-to-lisp
-                       (foreign-funcall "PyTypeObject_Name"
-                                        :pointer pyobject-type
-                                        :pointer)))
+         (pytype-name (if (null-pointer-p pyobject-type)
+                          nil
+                          (foreign-string-to-lisp
+                           (foreign-funcall "PyTypeObject_Name"
+                                            :pointer pyobject-type
+                                            :pointer))))
          ;; FIXME: What about names in modules?
          (lispifier (assoc-value *py-type-lispifier-table* pytype-name :test #'string=)))
-    ;; (print (list pyobject-type lispifier))
-    (if lispifier
-        (funcall lispifier pyobject)
-        (make-python-object :pointer pyobject :type pyobject-type))))
+    (cond ((null-pointer-p pyobject-type)
+           nil)
+          ((null lispifier)
+           (make-python-object :pointer pyobject :type pyobject-type))
+          (t
+           (funcall lispifier pyobject)))))

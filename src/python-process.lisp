@@ -41,6 +41,12 @@ Value: The pointer to the module in embedded python")
   (declare (type string name))
   (setf (gethash name *py-module-pointer-table*) module-pointer))
 
+(defun py-module-dict (name)
+  (declare (type string name))
+  (foreign-funcall "PyModule_GetDict"
+                   :pointer (py-module-pointer name)
+                   :pointer))
+
 (defvar *py-global-dict* nil
   "Pointer to the dictionary mapping names to PyObjects in the global namespace of embedded python.")
 (defvar *py-builtins-dict* nil
