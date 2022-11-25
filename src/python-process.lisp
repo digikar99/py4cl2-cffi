@@ -87,6 +87,9 @@ Value: The pointer to the module in embedded python")
 
   (load-python-and-libraries)
   (foreign-funcall "Py_Initialize")
+  (setq *numpy-c-api-pointer*
+        (float-features:with-float-traps-masked (:overflow)
+          (foreign-funcall "import_numpy" :pointer)))
   (raw-py "import sys")
   (let ((python-output-reader-open-thread
           ;; Need to do this in a separate initialization thread to deal with
@@ -161,11 +164,10 @@ Value: The pointer to the module in embedded python")
   (let ((module-dict (foreign-funcall "PyModule_GetDict"
                                       :pointer module
                                       :pointer)))
-    (with-foreign-string (cname name)
-      (foreign-funcall "PyDict_GetItemString"
-                       :pointer module-dict
-                       :pointer cname
-                       :pointer))))
+    (foreign-funcall "PyDict_GetItemString"
+                     :pointer module-dict
+                     :string name
+                     :pointer)))
 
 (defun (setf pyvalue*) (value name &optional (module (py-module-pointer "__main__")))
   "Set the value associated with NAME in MODULE to the value pointed by VALUE pointer"

@@ -10,7 +10,8 @@
             (pythonize-plist (subseq lisp-args first-keyword-position)))))
 
 (defun pycall (name &rest args)
-  (declare (type string name))
+  (declare (type string name)
+           (optimize debug))
   (python-start-if-not-alive)
   (multiple-value-bind (module name)
       (let ((dot-pos (position #\. name)))
@@ -42,15 +43,17 @@
           (multiple-value-bind (args kwargs)
               (args-and-kwargs args)
             (unwind-protect
-                 (let* ((return-value (pytrack
-                                       (foreign-funcall "PyObject_Call"
-                                                        :pointer pyfun
-                                                        :pointer args
-                                                        :pointer kwargs
-                                                        :pointer)))
+                 (let* ((return-value (foreign-funcall "PyObject_Call"
+                                                       :pointer pyfun
+                                                       :pointer args
+                                                       :pointer kwargs
+                                                       :pointer))
                         (may-be-exception-type (foreign-funcall "PyErr_Occurred" :pointer)))
                    (if (null-pointer-p may-be-exception-type)
                        ;; return-value
-                       (lispify return-value)
+                       (let ((lispified-return-value (lispify return-value)))
+                         (unless (typep lispified-return-value 'python-object)
+                           (pytrack return-value))
+                         lispified-return-value)
                        (python-may-be-error)))
               (pygc)))))))

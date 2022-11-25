@@ -65,6 +65,9 @@ a New Reference"
   (let ((num-bits (* 8 (cffi:foreign-type-size :long))))
     `(signed-byte ,num-bits)))
 
+(defmethod pythonize ((o #+sbcl sb-sys:system-area-pointer
+                         #-sbcl foreign-pointer))
+  o)
 (defmethod pythonize ((o python-object)) (python-object-pointer o))
 
 (defmethod pythonize ((o integer))
@@ -98,19 +101,64 @@ a New Reference"
      tuple)))
 
 (defmethod pythonize ((o vector))
+  (if (typep o '(vector t))
+      (pytrack
+       (let ((list (foreign-funcall "PyList_New" :int (length o) :pointer)))
+         (loop :for elt :across o
+               :for pyelt := (pythonize elt)
+               :for pos :from 0
+               :do (if (zerop (foreign-funcall "PyList_SetItem"
+                                               :pointer list
+                                               :int pos
+                                               :pointer pyelt
+                                               :int))
+                       (pyuntrack pyelt)
+                       (python-may-be-error)))
+         list))
+      (pythonize-array o)))
+
+(defmethod pythonize ((o array))
+  (pythonize-array o))
+
+(defun pythonize-array (array)
   (pytrack
-   (let ((list (foreign-funcall "PyList_New" :int (length o) :pointer)))
-     (loop :for elt :across o
-           :for pyelt := (pythonize elt)
-           :for pos :from 0
-           :do (if (zerop (foreign-funcall "PyList_SetItem"
-                                           :pointer list
-                                           :int pos
-                                           :pointer pyelt
-                                           :int))
-                   (pyuntrack pyelt)
-                   (python-may-be-error)))
-     list)))
+   (let* ((typenum (foreign-funcall "PyArray_typenum_from_element_type"
+                                    :string (array-element-typecode array)
+                                    :int))
+          (py-array-descr (numpy-funcall "PyArray_DescrFromType" :int typenum :pointer))
+          (ndarray-type   (foreign-funcall "PyDict_GetItemString"
+                                           :pointer (py-module-dict "numpy")
+                                           :string "ndarray"
+                                           :pointer))
+          (ndims          (array-rank array)))
+     (with-foreign-objects ((dims    :long ndims))
+       (dotimes (i ndims)
+         (setf (mem-aref dims :long i) (array-dimension array i)))
+       (with-pointer-to-vector-data (array-data (sb-ext:array-storage-vector array))
+         (numpy-funcall "PyArray_NewFromDescr"
+                        :pointer ndarray-type
+                        :pointer py-array-descr
+                        :int ndims
+                        :pointer dims
+                        :pointer (null-pointer)
+                        :pointer array-data
+                        :int (logior +npy-array-c-contiguous+ +npy-array-writeable+) ; flags
+                        :pointer (null-pointer)
+                        :pointer))))))
+
+(defun array-element-typecode (array)
+  (declare (optimize speed))
+  (eswitch ((array-element-type array) :test #'type=)
+    ('single-float "f32")
+    ('double-float "f64")
+    ('(signed-byte 64) "sb64")
+    ('(signed-byte 32) "sb32")
+    ('(signed-byte 16) "sb16")
+    ('(signed-byte 08) "sb8")
+    ('(unsigned-byte 64) "ub64")
+    ('(unsigned-byte 32) "ub32")
+    ('(unsigned-byte 16) "ub16")
+    ('(unsigned-byte 08) "ub8")))
 
 (defun pythonize-list (list)
   (pytrack
@@ -123,7 +171,7 @@ a New Reference"
                                                :int pos
                                                :pointer pyelt
                                                :int)))
-           (pyuntrack pyelt))
+               (pyuntrack pyelt))
      tuple)))
 
 (defmethod pythonize ((o symbol))

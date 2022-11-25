@@ -49,7 +49,7 @@ PY4CL2/CFFI-CONFIG> (setq *python-shared-object-path* #P"/home/user/miniconda3/l
 - [x] error output (partially)
 - [x] python variable values
 - [ ] arbitrary module import (partial) [important]
-- [ ] numpy and non-numpy arrays
+- [ ] numpy and non-numpy arrays (partial)
 - [ ] numpy floats
 - [ ] lisp callbacks
 
@@ -89,5 +89,23 @@ Evaluation took:
 NIL
 ```
 
+Also, passing arrays by reference:
+
+```lisp
+PY4CL2/CFFI> (let ((a (aops:rand* 'single-float 10))
+                   (b (aops:rand* 'single-float 10)))
+               (print a)
+               (print b)
+               (sb-sys:with-pinned-objects (a b)
+                 (pycall "numpy.add" a b :out a))
+               a)
+
+#(0.5093733 0.615062 0.5520501 0.4115485 0.35940528 0.0056368113 0.31019592
+  0.4214077 0.32522345 0.2879219)
+#(0.23799527 0.9120656 0.99672806 0.54783416 0.91948783 0.14750922 0.68077135
+  0.75351477 0.17053545 0.6163509)
+#(0.7473686 1.5271276 1.5487782 0.95938265 1.2788931 0.15314603 0.9909673
+  1.1749225 0.4957589 0.9042728)
+```
 
 
