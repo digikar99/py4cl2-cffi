@@ -14,7 +14,7 @@
            (optimize debug))
   (python-start-if-not-alive)
   (multiple-value-bind (module name)
-      (let ((dot-pos (position #\. name)))
+      (let ((dot-pos (position #\. name :from-end t)))
         (if dot-pos
             (values (subseq name 0 dot-pos)
                     (subseq name (1+ dot-pos)))
@@ -57,3 +57,23 @@
                          lispified-return-value)
                        (python-may-be-error)))
               (pygc)))))))
+
+(defun pyslot-value (object slot-name)
+  (declare (type string slot-name)
+           (optimize debug))
+  (python-start-if-not-alive)
+  (unwind-protect
+       (let* ((object (pythonize object))
+              (return-value (foreign-funcall "PyObject_GetAttrString"
+                                             :pointer object
+                                             :string slot-name
+                                             :pointer))
+              (may-be-exception-type (foreign-funcall "PyErr_Occurred" :pointer)))
+         (if (null-pointer-p may-be-exception-type)
+             ;; return-value
+             (let ((lispified-return-value (lispify return-value)))
+               (unless (typep lispified-return-value 'python-object)
+                 (pytrack return-value))
+               lispified-return-value)
+             (python-may-be-error)))
+    (pygc)))

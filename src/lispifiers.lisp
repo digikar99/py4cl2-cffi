@@ -51,6 +51,36 @@
           :do (setf (gethash key hash-table) value))
     hash-table))
 
+(define-lispifier "numpy.ndarray" (o)
+  (declare (optimize debug))
+  (let* ((dims     (pyslot-value o "shape"))
+         (element-type (let* ((*read-eval* nil)
+                              (*package* (find-package :cl)))
+                         (read-from-string
+                          (foreign-string-to-lisp
+                           (foreign-funcall "PyArray_element_type_from_array"
+                                            :pointer o :pointer)))))
+         (from-vec  (foreign-funcall "PyArray_Data" :pointer o :pointer))
+         (array     (make-array dims :element-type element-type))
+         (num-bytes (* (array-element-type-num-bytes array)
+                       (reduce #'* dims :initial-value 1))))
+    (with-pointer-to-vector-data (to-vec (sb-ext:array-storage-vector array))
+      (foreign-funcall "memcpy" :pointer to-vec :pointer from-vec :int num-bytes))
+    array))
+
+(defun array-element-type-num-bytes (array)
+  (eswitch ((array-element-type array) :test #'type=)
+    ('single-float 4)
+    ('double-float 8)
+    ('(signed-byte 64) 8)
+    ('(signed-byte 32) 4)
+    ('(signed-byte 16) 2)
+    ('(signed-byte 08) 1)
+    ('(unsigned-byte 64) 8)
+    ('(unsigned-byte 32) 4)
+    ('(unsigned-byte 16) 2)
+    ('(unsigned-byte 08) 1)))
+
 (defun lispify (pyobject)
   (declare (type foreign-pointer pyobject))
   (let* ((pyobject-type (foreign-funcall "PyObject_Type"

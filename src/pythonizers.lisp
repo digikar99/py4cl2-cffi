@@ -122,22 +122,21 @@ a New Reference"
 
 (defun pythonize-array (array)
   (pytrack
-   (let* ((typenum (foreign-funcall "PyArray_typenum_from_element_type"
-                                    :string (array-element-typecode array)
-                                    :int))
-          (py-array-descr (numpy-funcall "PyArray_DescrFromType" :int typenum :pointer))
-          (ndarray-type   (foreign-funcall "PyDict_GetItemString"
-                                           :pointer (py-module-dict "numpy")
-                                           :string "ndarray"
-                                           :pointer))
-          (ndims          (array-rank array)))
+   (let* ((descr        (foreign-funcall "PyArray_Descr_from_element_type_code"
+                                         :string (array-element-typecode array)
+                                         :pointer))
+          (ndarray-type (foreign-funcall "PyDict_GetItemString"
+                                         :pointer (py-module-dict "numpy")
+                                         :string "ndarray"
+                                         :pointer))
+          (ndims        (array-rank array)))
      (with-foreign-objects ((dims    :long ndims))
        (dotimes (i ndims)
          (setf (mem-aref dims :long i) (array-dimension array i)))
        (with-pointer-to-vector-data (array-data (sb-ext:array-storage-vector array))
          (numpy-funcall "PyArray_NewFromDescr"
                         :pointer ndarray-type
-                        :pointer py-array-descr
+                        :pointer descr
                         :int ndims
                         :pointer dims
                         :pointer (null-pointer)
@@ -147,6 +146,9 @@ a New Reference"
                         :pointer))))))
 
 (defun array-element-typecode (array)
+  ;; This is necessary, because not all lisps using these specific names as the
+  ;; element-types. Element-types returned by different lisps (eg: SBCL vs ECL)
+  ;; would only be TYPE= to each other, and not STRING=
   (declare (optimize speed))
   (eswitch ((array-element-type array) :test #'type=)
     ('single-float "f32")

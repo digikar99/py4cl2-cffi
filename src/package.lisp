@@ -6,6 +6,7 @@
            #:pystop
            #:raw-py
            #:pyvalue
-           #:pycall))
+           #:pycall
+           #:pyslot-value))
 
 (in-package :py4cl2/cffi)

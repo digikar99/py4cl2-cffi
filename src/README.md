@@ -48,10 +48,12 @@ PY4CL2/CFFI-CONFIG> (setq *python-shared-object-path* #P"/home/user/miniconda3/l
 - [x] output (partially)
 - [x] error output (partially)
 - [x] python variable values
+- [x] numpy arrays to CL arrays
+- [ ] numpy arrays to non-CL arrays
 - [ ] arbitrary module import (partial) [important]
-- [ ] numpy and non-numpy arrays (partial)
 - [ ] numpy floats
 - [ ] lisp callbacks
+- [ ] optimizing pythonizers and lispifiers using static-dispatch
 
 ... and much more ...
 
@@ -105,7 +107,22 @@ PY4CL2/CFFI> (let ((a (aops:rand* 'single-float 10))
 #(0.23799527 0.9120656 0.99672806 0.54783416 0.91948783 0.14750922 0.68077135
   0.75351477 0.17053545 0.6163509)
 #(0.7473686 1.5271276 1.5487782 0.95938265 1.2788931 0.15314603 0.9909673
-  1.1749225 0.4957589 0.9042728)
+1.1749225 0.4957589 0.9042728)
+
+PY4CL2/CFFI> (let ((a (aops:rand* 'double-float '(3 3))))
+               (print a)
+               (sb-sys:with-pinned-objects (a)
+                 (pycall "numpy.linalg.svd" a)))
+#2A((0.8441753387451172d0 0.3109557628631592d0 0.34773027896881104d0)
+    (0.3423733711242676d0 0.6038261651992798d0 0.41209208965301514d0)
+    (0.5945597887039185d0 0.06366562843322754d0 0.6331008672714233d0))
+(#2A((-0.6544319939294636d0 0.16762183299479871d0 -0.7373070503019551d0)
+     (-0.49635147614988473d0 -0.8308400431254119d0 0.2516744620798731d0)
+     (-0.5703980868177386d0 0.5306672628331492d0 0.6269276503009229d0))
+ #(1.4307829399574157d0 0.45313956971575653d0 0.296282569712987d0)
+ #2A((-0.7419215134897116d0 -0.37708316610163206d0 -0.5544012569104664d0)
+     (0.380805690816161d0 -0.917542287614819d0 0.11446910622779849d0)
+     (-0.5518509705193625d0 -0.12619206108679556d0 0.8243397782804759d0)))
 ```
 
 
