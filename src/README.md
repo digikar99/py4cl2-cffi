@@ -125,4 +125,22 @@ PY4CL2/CFFI> (let ((a (aops:rand* 'double-float '(3 3))))
      (-0.5518509705193625d0 -0.12619206108679556d0 0.8243397782804759d0)))
 ```
 
+### A quick and dirty import-module as a function
 
+```lisp
+PY4CL2/CFFI> (import-module "matplotlib.pyplot" :as "plt")
+T
+PY4CL2/CFFI> (pycall "plt.plot"
+                     (iota 10)
+                     (mapcar (lambda (x) (* x x))
+                             (iota 10)))
+#(#<PYTHON-OBJECT :type <class 'matplotlib.lines.Line2D'>
+  Line2D(_line0)
+ {1006670F83}>)
+PY4CL2/CFFI> (pycall "plt.show")
+#<PYTHON-OBJECT :type <class 'NoneType'>
+  None
+ {1006672273}>
+```
+
+<img margin="auto" width="75%" src="./plt-example.png"></img>

@@ -7,6 +7,7 @@
            #:raw-py
            #:pyvalue
            #:pycall
-           #:pyslot-value))
+           #:pyslot-value
+           #:import-module))
 
 (in-package :py4cl2/cffi)
