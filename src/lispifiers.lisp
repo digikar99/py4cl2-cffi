@@ -52,7 +52,6 @@
     hash-table))
 
 (define-lispifier "numpy.ndarray" (o)
-  (declare (optimize debug))
   (let* ((dims     (pyslot-value o "shape"))
          (element-type (let* ((*read-eval* nil)
                               (*package* (find-package :cl)))
@@ -61,6 +60,7 @@
                            (foreign-funcall "PyArray_element_type_from_array"
                                             :pointer o :pointer)))))
          (from-vec  (foreign-funcall "PyArray_Data" :pointer o :pointer))
+         ;; FIXME: Strides
          (array     (make-array dims :element-type element-type))
          (num-bytes (* (array-element-type-num-bytes array)
                        (reduce #'* dims :initial-value 1))))
@@ -95,6 +95,8 @@
          ;; FIXME: What about names in modules?
          (lispifier (assoc-value *py-type-lispifier-table* pytype-name :test #'string=)))
     (cond ((null-pointer-p pyobject-type)
+           nil)
+          ((string= pytype-name "NoneType")
            nil)
           ((null lispifier)
            (make-python-object :pointer pyobject :type pyobject-type))

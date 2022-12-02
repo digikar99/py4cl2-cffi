@@ -86,19 +86,7 @@ a New Reference"
   (pytrack (foreign-funcall "PyUnicode_FromString" :string o :pointer)))
 
 (defmethod pythonize ((o list))
-  (pytrack
-   (let ((tuple (foreign-funcall "PyTuple_New" :int (length o) :pointer)))
-     (loop :for elt :in o
-           :for pyelt := (pythonize elt)
-           :for pos :from 0
-           :do (if (zerop (foreign-funcall "PyTuple_SetItem"
-                                           :pointer tuple
-                                           :int pos
-                                           :pointer pyelt
-                                           :int))
-                   (pyuntrack pyelt)
-                   (python-may-be-error)))
-     tuple)))
+  (pythonize-list o))
 
 (defmethod pythonize ((o vector))
   (if (typep o '(vector t))
@@ -116,6 +104,22 @@ a New Reference"
                        (python-may-be-error)))
          list))
       (pythonize-array o)))
+
+(defmethod pythonize ((o hash-table))
+  (pytrack
+   (let ((dict (foreign-funcall "PyDict_New" :pointer)))
+     (maphash (lambda (key value)
+                (let ((key   (pythonize key))
+                      (value (pythonize value)))
+                  (if (zerop (foreign-funcall "PyDict_SetItem"
+                                              :pointer dict
+                                              :pointer key
+                                              :pointer value
+                                              :int))
+                      nil ;; No reference stealing
+                      (python-may-be-error))))
+              o)
+     dict)))
 
 (defmethod pythonize ((o array))
   (pythonize-array o))

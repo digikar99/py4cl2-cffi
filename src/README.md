@@ -37,18 +37,21 @@ PY4CL2/CFFI-CONFIG> (setq *python-shared-object-path* #P"/home/user/miniconda3/l
 ### Status
 
 - [ ] garbage collection touches (partial) [important]
+  - An effort has been made to keep a track of reference counts; but if something is missed, and users notice a memory leak, feel free to [raise an issue](https://github.com/digikar99/py4cl2/issues/new)!
+- [x] function return-values
+- [x] function arguments
 - [x] integers
 - [x] strings with SBCL/Unicode
 - [x] tuples
 - [x] lists
 - [x] dicts
 - [x] double floats
-- [x] function return-values
-- [x] function arguments
+- [x] numpy arrays to CL arrays
 - [x] output (partially)
 - [x] error output (partially)
 - [x] python variable values
-- [x] numpy arrays to CL arrays
+- [x] object slots
+- [x] methods
 - [ ] numpy arrays to non-CL arrays
 - [ ] arbitrary module import (partial) [important]
 - [ ] numpy floats
@@ -56,6 +59,12 @@ PY4CL2/CFFI-CONFIG> (setq *python-shared-object-path* #P"/home/user/miniconda3/l
 - [ ] optimizing pythonizers and lispifiers using static-dispatch
 
 ... and much more ...
+
+### Limitations
+
+Goals are less ambitious than burgled-batteries. We aim to get "most" libraries working, with a special focus on functional python.
+- Only specialized arrays can be passed by reference. Other values will be passed by value.
+- The goal is getting the functional aspects of python - those python functions that do not modify their inputs should "work". Non-functional python functions can only work with arrays. Other functions that modify their inputs will not work.
 
 ### Why
 
