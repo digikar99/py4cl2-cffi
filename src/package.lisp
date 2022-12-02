@@ -4,7 +4,8 @@
            #:python-alive-p
            #:python-start-if-not-alive
            #:pystop
-           #:raw-py
+           #:raw-pyeval
+           #:raw-pyexec
            #:pyvalue
            #:pycall
            #:pyslot-value

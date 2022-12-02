@@ -90,21 +90,21 @@ Value: The pointer to the module in embedded python")
   (setq *numpy-c-api-pointer*
         (float-features:with-float-traps-masked (:overflow)
           (foreign-funcall "import_numpy" :pointer)))
-  (raw-py "import sys")
+  (raw-pyexec "import sys")
   (let ((python-output-reader-open-thread
           ;; Need to do this in a separate initialization thread to deal with
           ;; blocking 'open' for named pipes
           (bt:make-thread
            (lambda ()
              (setq *py-output-stream* (open "/tmp/py4cl2-cffi-output" :direction :input))))))
-    (raw-py "sys.stdout = open('/tmp/py4cl2-cffi-output', 'w')")
+    (raw-pyexec "sys.stdout = open('/tmp/py4cl2-cffi-output', 'w')")
     (bt:join-thread python-output-reader-open-thread))
   (let ((python-error-output-reader-open-thread
           (bt:make-thread
            (lambda ()
              (setq *py-error-output-stream*
                    (open #P"/tmp/py4cl2-cffi-error-output" :direction :input))))))
-    (raw-py "sys.stderr = open('/tmp/py4cl2-cffi-error-output', 'w')")
+    (raw-pyexec "sys.stderr = open('/tmp/py4cl2-cffi-error-output', 'w')")
     (bt:join-thread python-error-output-reader-open-thread))
   (python-output-thread)
 
@@ -125,10 +125,45 @@ Value: The pointer to the module in embedded python")
       (foreign-funcall "PyErr_Clear")
       (error "A python error occured"))))
 
-(defun raw-py (code-string)
+(defun raw-py (cmd-char &rest code-strings)
+  "CMD-CHAR should be #\e for eval and #\x for exec.
+
+Unlike PY4CL or PY4CL2, the use of RAW-PY, RAW-PYEVAL and RAW-PYEXEC,
+PYEVAL, PYEXEC should be avoided unless necessary.
+Instead, use PYCALL, PYVALUE, (SETF PYVALUE), PYSLOT-VALUE, (SETF PYSLOT-VALUE), and PYMETHOD.
+
+RAW-PY, RAW-PYEVAL, RAW-PYEXEC are only provided for backward compatibility."
   (python-start-if-not-alive)
-  (unless (zerop (foreign-funcall "PyRun_SimpleString" :string code-string :int))
-    (python-may-be-error)))
+  (unless (zerop (foreign-funcall "PyRun_SimpleString"
+                                  :string (apply #'concatenate
+                                                 'string
+                                                 (ecase cmd-char
+                                                   (#\e "_ = ")
+                                                   (#\x ""))
+                                                 code-strings)
+                                  :int))
+    (python-may-be-error))
+  (ecase cmd-char
+    (#\e (pyvalue "_"))
+    (#\x (values))))
+
+(defun raw-pyeval (&rest code-strings)
+  "
+Unlike PY4CL or PY4CL2, the use of RAW-PY, RAW-PYEVAL and RAW-PYEXEC,
+PYEVAL, PYEXEC should be avoided unless necessary.
+Instead, use PYCALL, PYVALUE, (SETF PYVALUE), PYSLOT-VALUE, (SETF PYSLOT-VALUE), and PYMETHOD.
+
+RAW-PY, RAW-PYEVAL, RAW-PYEXEC are only provided for backward compatibility."
+  (apply #'raw-py #\e code-strings))
+
+(defun raw-pyexec (&rest code-strings)
+  "
+Unlike PY4CL or PY4CL2, the use of RAW-PY, RAW-PYEVAL and RAW-PYEXEC,
+PYEVAL, PYEXEC should be avoided unless necessary.
+Instead, use PYCALL, PYVALUE, (SETF PYVALUE), PYSLOT-VALUE, (SETF PYSLOT-VALUE), and PYMETHOD.
+
+RAW-PY, RAW-PYEVAL, RAW-PYEXEC are only provided for backward compatibility."
+  (apply #'raw-py #\x code-strings))
 
 (defun pystop ()
   (setq *py-module-pointer-table* (make-hash-table :test #'equal))
