@@ -46,6 +46,7 @@
                        (setq return-value arg)))
                    pythonized-args args)
              (%pycall-return-value return-value))
+        ;; FIXME: When to call CLEAR-LISP-OBJECTS
         (pygc)))))
 
 (defun pycall (name &rest args)

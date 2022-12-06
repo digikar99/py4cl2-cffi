@@ -115,6 +115,35 @@ Value: The pointer to the module in embedded python")
         (foreign-funcall "PyModule_GetDict" :pointer (py-module-pointer "__main__") :pointer))
   (setq *py-builtins-dict*
         (foreign-funcall "PyModule_GetDict" :pointer (py-module-pointer "builtins") :pointer))
+
+  (foreign-funcall "set_lisp_callback_fn_ptr" :pointer (callback lisp-callback-fn))
+  (raw-pyexec "
+import ctypes
+py4cl_utils = ctypes.cdll.LoadLibrary(\"/home/shubhamkar/quicklisp/local-projects/py4cl2/cffi/libpy4cl-utils.so\")
+
+class _py4cl_LispCallbackObject (object):
+    \"\"\"
+    Represents a lisp function which can be called.
+
+    An object is used rather than a lambda, so that the lifetime
+    can be monitoried, and the function removed from a hash map
+    \"\"\"
+    lisp_callback_fn = getattr(py4cl_utils, \"LispCallback_helper\")
+    lisp_callback_fn.restype = ctypes.py_object
+    def __init__(self, handle):
+        \"\"\"
+        handle    A number, used to refer to the object in Lisp
+        \"\"\"
+        self.handle = handle
+    def __call__(self, *args, **kwargs):
+        if args is None: args = tuple()
+        if kwargs is None: kwargs = dict()
+        return _py4cl_LispCallbackObject.lisp_callback_fn(
+          ctypes.c_int(self.handle),
+          ctypes.py_object(args),
+          ctypes.py_object(kwargs)
+        )
+")
   t)
 
 (defun python-may-be-error ()

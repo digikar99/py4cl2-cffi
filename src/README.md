@@ -52,6 +52,9 @@ PY4CL2/CFFI-CONFIG> (setq *python-shared-object-path* #P"/home/user/miniconda3/l
 - [x] python variable values
 - [x] object slots
 - [x] methods
+- [x] python stdout to lisp stdout (asynchronous)
+- [ ] `with-python-output`
+- [x] callbacks
 - [ ] numpy arrays to non-CL arrays
 - [ ] arbitrary module import (partial) [important]
 - [ ] numpy floats
@@ -100,7 +103,7 @@ Evaluation took:
 NIL
 ```
 
-Also, passing arrays by reference:
+#### Passing arrays by reference:
 
 ```lisp
 PY4CL2/CFFI> (let ((a (aops:rand* 'single-float 10))
@@ -134,7 +137,20 @@ PY4CL2/CFFI> (let ((a (aops:rand* 'double-float '(3 3))))
      (-0.5518509705193625d0 -0.12619206108679556d0 0.8243397782804759d0)))
 ```
 
-### A quick and dirty import-module as a function
+#### Callbacks
+
+```lisp
+PY4CL2/CFFI> (raw-pyexec "def foo(fn, *args, **kwargs): return fn(*args, **kwargs)")
+
+; No value
+PY4CL2/CFFI> (pycall "foo" (lambda (d e &rest args &key a b &allow-other-keys)
+                             (declare (ignore a b))
+                             (list* d e args))
+                     8 9 :a 2 :b 3 :d 5)
+(8 9 "d" 5 "b" 3 "a" 2)
+```
+
+#### A quick and dirty import-module as a function
 
 ```lisp
 PY4CL2/CFFI> (import-module "matplotlib.pyplot" :as "plt")

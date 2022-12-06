@@ -124,6 +124,31 @@ a New Reference"
 (defmethod pythonize ((o array))
   (pythonize-array o))
 
+(defcallback lisp-callback-fn :pointer ((handle :int) (args :pointer) (kwargs :pointer))
+  (handler-case
+      (let ((lisp-callback (lisp-object handle)))
+        (pythonize (apply lisp-callback
+                          (nconc (unless (null-pointer-p args)
+                                   (lispify args))
+                                 (unless (null-pointer-p kwargs)
+                                   (loop :for i :from 0
+                                         :for elt
+                                           :in (hash-table-plist
+                                                (lispify kwargs))
+                                         :collect (if (evenp i)
+                                                      (intern (lispify-name elt) :keyword)
+                                                      elt)))))))
+    (error (c)
+      (foreign-funcall "PyErr_SetString"
+                       :pointer (pytype "Exception")
+                       :string (format nil "~A" c))
+      (pythonize 0))))
+
+(defmethod pythonize ((o function))
+  (let ((lisp-callback-object
+          (pycall "_py4cl_LispCallbackObject" (object-handle o))))
+    (pytrack (python-object-pointer lisp-callback-object))))
+
 (defun pythonize-array (array)
   (pytrack
    (let* ((descr        (foreign-funcall "PyArray_Descr_from_element_type_code"
@@ -182,7 +207,7 @@ a New Reference"
 
 (defmethod pythonize ((o symbol))
   (if (null o)
-      (null-pointer)
+      (pythonize-list ())
       (let* ((name (symbol-name o))
              (len  (length name)))
         (pythonize (cond ((and (eq #\* (char name 0))

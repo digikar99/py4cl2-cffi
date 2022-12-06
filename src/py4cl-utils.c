@@ -8,6 +8,17 @@
 const char* PyTypeObject_Name(PyTypeObject* o){return o->tp_name;}
 const char* PyTypeObject_Doc(PyTypeObject* o){return o->tp_doc;}
 
+void *lisp_callback_fn_ptr = NULL;
+void set_lisp_callback_fn_ptr(void* ptr){
+  lisp_callback_fn_ptr = ptr;
+}
+
+PyObject* LispCallback_helper(int handle, PyObject* args, PyObject* kwargs){
+  PyObject* (*fn_ptr)(int, PyObject*, PyObject*);
+  fn_ptr = lisp_callback_fn_ptr;
+  return (*fn_ptr)(handle, args, kwargs);
+}
+
 void** import_numpy(){
   _import_array();
   return PyArray_API;

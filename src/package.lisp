@@ -1,5 +1,5 @@
 (defpackage :py4cl2/cffi
-  (:use :cl :cffi :alexandria :py4cl2/cffi-config)
+  (:use :cl :cffi :alexandria :py4cl2/cffi-config :iterate)
   (:export #:pystart
            #:python-alive-p
            #:python-start-if-not-alive
