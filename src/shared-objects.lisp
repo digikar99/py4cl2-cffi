@@ -20,8 +20,11 @@
     (uiop:run-program
      (format nil
              ;; /media/common-storage/miniconda3/include/python3.8
-             "gcc -I'~A' -I'~A'python3.8/site-packages/numpy/core/include/numpy/ -c -Wall -Werror -fpic py4cl-utils.c && gcc -shared -o libpy4cl-utils.so py4cl-utils.o"
+             "gcc -I'~A' -I'~A/core/include/numpy/' -c -Wall -Werror -fpic py4cl-utils.c && gcc -shared -o libpy4cl-utils.so py4cl-utils.o"
              (namestring *python-include-path*)
+             (string-trim (list #\newline)
+                          (uiop:run-program "python3 -c 'import numpy; print(numpy.__path__[0])'"
+                                            :output :string :error-output *error-output*))
              (namestring (directory-namestring *python-shared-object-path*)))
      :error-output *error-output*
      :output *standard-output*)))
