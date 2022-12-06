@@ -80,10 +80,10 @@ Value: The pointer to the module in embedded python")
 
 (defun pystart ()
 
-  (unless (probe-file #P"/tmp/py4cl2-cffi-output")
-    (uiop:run-program "mkfifo /tmp/py4cl2-cffi-output" :output t :error-output *error-output*))
-  (unless (probe-file #P"/tmp/py4cl2-cffi-error-output")
-    (uiop:run-program "mkfifo /tmp/py4cl2-cffi-error-output" :output t :error-output *error-output*))
+  (uiop:delete-file-if-exists #P"/tmp/py4cl2-cffi-output")
+  (uiop:run-program "mkfifo /tmp/py4cl2-cffi-output" :output t :error-output *error-output*)
+  (uiop:delete-file-if-exists #P"/tmp/py4cl2-cffi-error-output")
+  (uiop:run-program "mkfifo /tmp/py4cl2-cffi-error-output" :output t :error-output *error-output*)
 
   (load-python-and-libraries)
   (foreign-funcall "Py_Initialize")
@@ -199,8 +199,8 @@ RAW-PY, RAW-PYEVAL, RAW-PYEXEC are only provided for backward compatibility."
   (setq *py-global-dict* nil)
   (setq *py-builtins-dict* nil)
   (when (python-alive-p)
-    (raw-py "close(sys.stdout)")
-    (raw-py "close(sys.stderr)")
+    (raw-py #\e "sys.stdout.close()")
+    (raw-py #\e "sys.stderr.close()")
     ;; It is okay to call Py_FinalizeEx even when python is not initialized
     (let ((value (foreign-funcall "Py_FinalizeEx" :int)))
       (cond ((zerop value)

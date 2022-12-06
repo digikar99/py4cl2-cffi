@@ -24,8 +24,7 @@
              (namestring *python-include-path*)
              (string-trim (list #\newline)
                           (uiop:run-program "python3 -c 'import numpy; print(numpy.__path__[0])'"
-                                            :output :string :error-output *error-output*))
-             (namestring (directory-namestring *python-shared-object-path*)))
+                                            :output :string :error-output *error-output*)))
      :error-output *error-output*
      :output *standard-output*)))
 
