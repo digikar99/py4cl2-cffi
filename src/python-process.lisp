@@ -252,19 +252,40 @@ RAW-PY, RAW-PYEVAL, RAW-PYEXEC are only provided for backward compatibility."
 
 
 
-(defun pyvalue (name &optional (module (py-module-pointer "__main__")))
-  "Get the lispified value associated with NAME in MODULE"
-  (declare (type string name)
-           (type (or string foreign-pointer) module))
-  (lispify (pyvalue* name (etypecase module
-                            (string (py-module-pointer module))
-                            (foreign-pointer module)))))
+(defun pyvalue (python-variable-name)
+  "Get the lispified value associated with NAME"
+  (declare (type string python-variable-name))
+  (multiple-value-bind (module name)
+      (let* ((name python-variable-name)
+             (dot-pos (position #\. name :from-end t)))
+        (if dot-pos
+            (values (subseq name 0 dot-pos)
+                    (subseq name (1+ dot-pos)))
+            (values nil name)))
+    (let* ((value (cond (module
+                         (pyvalue* name (py-module-pointer module)))
+                        (t
+                         (pyvalue* name (py-module-pointer "__main__"))))))
+      (if (null-pointer-p value)
+          (error "~A is undefined in python" python-variable-name)
+          (lispify value)))))
 
-(defun (setf pyvalue) (value name &optional (module (py-module-pointer "__main__")))
-  "Set the value associated with NAME in MODULE to the VALUE after pythonizing it"
-  (declare (type string name)
-           (type (or string foreign-pointer) module))
-  (setf (pyvalue* name (etypecase module
-                         (string (py-module-pointer module))
-                         (foreign-pointer module)))
-        (pythonize value)))
+(defun (setf pyvalue) (new-value python-variable-name)
+  "Set the value associated with NAME to the NEW-VALUE after pythonizing the value"
+  (declare (type string python-variable-name))
+  (unwind-protect
+       (multiple-value-bind (module name)
+           (let* ((name python-variable-name)
+                  (dot-pos (position #\. name :from-end t)))
+             (if dot-pos
+                 (values (subseq name 0 dot-pos)
+                         (subseq name (1+ dot-pos)))
+                 (values nil name)))
+         (let* ((value (cond (module
+                              (pyvalue* name (py-module-pointer module)))
+                             (t
+                              (pyvalue* name (py-module-pointer "__main__"))))))
+           (if (null-pointer-p value)
+               (error "~A is undefined in python" python-variable-name)
+               (setf (pyvalue* value) (pythonize new-value)))))
+    (pygc)))

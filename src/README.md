@@ -54,11 +54,10 @@ PY4CL2/CFFI-CONFIG> (setq *python-shared-object-path* #P"/home/user/miniconda3/l
 - [x] methods
 - [x] python stdout to lisp stdout (asynchronous, make sure to `sys.stdout.flush()`)
 - [ ] `with-python-output`
-- [x] callbacks
+- [x] lisp callbacks
 - [ ] numpy arrays to non-CL arrays
 - [ ] arbitrary module import (partial) [important]
 - [ ] numpy floats
-- [ ] lisp callbacks
 - [ ] optimizing pythonizers and lispifiers using static-dispatch
 
 ... and much more ...
