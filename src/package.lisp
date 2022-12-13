@@ -6,6 +6,7 @@
            #:pystop
            #:raw-pyeval
            #:raw-pyexec
+           #:pyerror
            #:pyvalue
            #:pycall
            #:pyslot-value

@@ -146,13 +146,19 @@ class _py4cl_LispCallbackObject (object):
 ")
   t)
 
+(define-condition pyerror (error)
+  ()
+  (:report (lambda (condition stream)
+             (declare (ignore condition))
+             (format stream "A python error occured"))))
+
 (defun python-may-be-error ()
   (python-start-if-not-alive)
   (let ((may-be-error (foreign-funcall "PyErr_Occurred" :pointer)))
     (unless (null-pointer-p may-be-error)
       (foreign-funcall "PyErr_PrintEx")
       (foreign-funcall "PyErr_Clear")
-      (error "A python error occured"))))
+      (error 'pyerror))))
 
 (defun raw-py (cmd-char &rest code-strings)
   "CMD-CHAR should be #\e for eval and #\x for exec.
