@@ -10,6 +10,7 @@
            #:pyvalue
            #:pycall
            #:pyslot-value
+           #:pyhelp
            #:import-module))
 
 (in-package :py4cl2/cffi)

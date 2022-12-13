@@ -107,3 +107,9 @@
                                     :pointer)))
     (or (apply #'%pycall method args)
         (lispify pyobject))))
+
+(defun pyhelp (string-or-python-callable)
+  (pycall "help" string-or-python-callable)
+  (pymethod (pyvalue "sys.stdout") "flush")
+  nil)
+
