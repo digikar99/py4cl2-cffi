@@ -66,13 +66,19 @@
 
 (defun get-arg-list (fullname lisp-package)
   "Returns a list of two lists: PARAMETER-LIST and PASS_LIST"
-  (%get-arg-list (intern (raw-pyeval "str(type(" fullname "))[8:-2]")
+  (declare (optimize debug))
+  (import-module "inspect")
+  (%get-arg-list (intern (foreign-funcall "PyTypeObject_Name"
+                                          :pointer (python-object-pointer
+                                                    (pycall "type" (pyvalue fullname)))
+                                          :string)
                          :keyword)
                  fullname
                  lisp-package))
 
-(defmethod %get-arg-list ((package (eql :|numpy.ufunc|)) fullname lisp-package)
-  (let* ((n (pyeval fullname ".nin"))
+(defmethod %get-arg-list ((package (eql :|numpy.ufunc|))
+                          fullname lisp-package)
+  (let* ((n (pyslot-value (pyvalue fullname) "nin"))
          (arg-list-without-keys
            (iter (for ch in-string "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
              (for i below n)
@@ -82,11 +88,13 @@
       ((declare (ignore out where))
        (apply #'pycall ,fullname ,@arg-list-without-keys keys)))))
 
-(defmethod %get-arg-list ((package (eql :|builtin_function_or_method|)) fullname lisp-package)
+(defmethod %get-arg-list ((package (eql :|builtin_function_or_method|))
+                          fullname lisp-package)
   `((&rest args)
     (() (apply #'pycall ,fullname args))))
 
-(defmethod %get-arg-list ((package (eql :|type|)) fullname lisp-package)
+(defmethod %get-arg-list ((package (eql :|type|))
+                          fullname lisp-package)
   `((&rest args)
     (() (apply #'pycall ,fullname args))))
 
@@ -96,30 +104,48 @@
 
 ;; https://stackoverflow.com/questions/2677185/how-can-i-read-a-functions-signature-including-default-argument-values
 (defmethod %get-arg-list (package fullname lisp-package)
-
   (flet ((ensure-tuple->list (object)
            (if (and (stringp object) (string= object "()"))
                nil
                (coerce object 'list))))
     
     (handler-case      
-        (let* ((parameters         (handler-case (raw-pyeval "tuple(inspect.signature("
-                                                             fullname ").parameters.values())")
-                                     ;; math.hypot does not have a signature; math.acos does
-                                     (pyerror (e)
-                                       (when (search "no signature found"
-                                                     (slot-value e 'text))
-                                         (signal 'default-arg-list-necessary)))
-                                     (t nil)))
-               (parameter-kinds    (raw-pyeval "tuple(map(lambda p: p.kind.name, "
-                                               (%pythonize parameters) "))"))
+        (let* ((parameters
+                 ;; (pycall "tuple"
+                 ;;         (chain* `("inspect.signature" ,(pyvalue fullname))
+                 ;;                 "parameters"
+                 ;;                 '("values")))
+                 ;; math.hypot does not have a signature; math.acos does
+                 (handler-case (pycall "tuple"
+                                       (chain* `("inspect.signature" ,(pyvalue fullname))
+                                               "parameters"
+                                               '("values")))
+                   ;; math.hypot does not have a signature; math.acos does
+                   (pyerror (e)
+                     ;; (when (search "no signature found"
+                     ;;               (slot-value e 'text))
+                     ;;   (signal 'default-arg-list-necessary))
+                     )
+                   (t (e)
+                     (print e)
+                     nil)))
+               (parameter-kinds    (mapcar (lambda (p)
+                                             (chain* p "kind" "name"))
+                                           parameters))
                ;; names do not contain * or ** for var args
-               (parameter-names    (raw-pyeval "tuple(map(lambda p: p.name, "
-                                               (%pythonize parameters) "))"))
-               (parameter-defaults (raw-pyeval "tuple(map(lambda p: p.default, "
-                                               (%pythonize parameters) "))"))
-               (parameter-empty-p  (raw-pyeval "tuple(map(lambda p: p.default == inspect._empty, "
-                                               (%pythonize parameters) "))"))
+               (parameter-names    (mapcar (lambda (p)
+                                             (chain* p "name"))
+                                           parameters))
+               (parameter-defaults (mapcar (lambda (p)
+                                             (chain* p "default"))
+                                           parameters))
+               (parameter-empty-p  (let ((inspect.empty
+                                           (pyvalue* "inspect._empty")))
+                                     (mapcar (lambda (d)
+                                               (and (python-object-p d)
+                                                    (pointer-eq inspect.empty
+                                                                (python-object-pointer d))))
+                                             parameter-defaults)))
                rest keyword-rest)
           
           (iter
@@ -133,9 +159,10 @@
                    parameter-empty-p  (ensure-tuple->list parameter-empty-p))
              
              (loop :for default :in parameter-defaults
+                   :for empty-p :in parameter-empty-p
                    ;; Needs that True translates to T; False translates to NIL
                    :if (and (typep default 'python-object)
-                            (not (raw-pyeval "inspect._empty == " (%pythonize default))))
+                            (not empty-p))
                      :do (signal 'default-is-python-object)))
             
             (for kind      in parameter-kinds)
@@ -171,11 +198,16 @@
 
             (alexandria:switch (kind :test 'string=)
               ("POSITIONAL_ONLY"
-               (appending `((pythonize ,arg-symbol) ",")           into positional-pass))
+               (appending `(,arg-symbol)
+                 into positional-pass))
               ("KEYWORD_ONLY"
-               (appending `(,name "=" (pythonize ,arg-symbol) ",") into keyword-pass))
+               (appending `(,(intern (symbol-name arg-symbol) :keyword)
+                            ,arg-symbol)
+                 into keyword-pass))
               ("POSITIONAL_OR_KEYWORD"
-               (appending `(,name "=" (pythonize ,arg-symbol) ",") into keyword-pass)))
+               (appending `(,(intern (symbol-name arg-symbol) :keyword)
+                            ,arg-symbol)
+                 into keyword-pass)))
 
             (finally
              (return-from %get-arg-list
@@ -187,31 +219,29 @@
                   `((,@positional ,@(when optional `(&optional ,@optional))
                                   &rest ,keyword-rest
                                   ,@(when keyword `(&key ,@keyword &allow-other-keys)))
-                    (() (apply #'raw-pyeval ,fullname "("
+                    (() (apply #'pycall ,fullname
                                ,@positional-pass
                                ,@keyword-pass
-                               (pythonize-kwargs
-                                (loop :for (symbol default) :in ',keyword
-                                      :do (remf ,keyword-rest
-                                                (find-symbol (symbol-name symbol)
-                                                             :keyword))
-                                      :finally (return ,keyword-rest)))))))
+                               ;; FIXME
+                               (loop :for (symbol default) :in ',keyword
+                                     :do (remf ,keyword-rest
+                                               (find-symbol (symbol-name symbol)
+                                                            :keyword))
+                                     :finally (return ,keyword-rest))))))
                  (keyword
                   `((,@positional ,@(when optional `(&optional ,@optional))
                                   ,@(when keyword `(&key ,@keyword)))
-                    (() (raw-pyeval ,fullname "("
-                                    ,@positional-pass
-                                    ,@keyword-pass
-                                    ")"))))
+                    (() (pycall ,fullname
+                                ,@positional-pass
+                                ,@keyword-pass))))
                  (rest
                   `((,@positional ,@(when optional `(&optional ,@optional)) &rest ,rest)
-                    (() (raw-pyeval ,fullname "("
-                                    ,@positional-pass "*" (pythonize ,rest) ")"))))
+                    (() (pycall ,fullname
+                                ;; FIXME
+                                ,@positional-pass "*" (pythonize ,rest)))))
                  (t
                   `((,@positional ,@(when optional `(&optional ,@optional)))
-                    (() (raw-pyeval ,fullname "("
-                                    ,@positional-pass
-                                    ")")))))))))
+                    (() (pycall ,fullname ,@positional-pass)))))))))
       
       (default-arg-list-necessary (c)
         (declare (ignore c))
