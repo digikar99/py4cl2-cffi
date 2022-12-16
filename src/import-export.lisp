@@ -40,6 +40,29 @@
            (python-may-be-error))))
   t)
 
+(defun pymethod-list (python-object &key (as-vector nil))
+  (import-module "inspect")
+  (let ((method-vector (mapcar #'first
+                               (pycall "tuple"
+                                       (pycall "inspect.getmembers"
+                                               python-object
+                                               (pyvalue "callable"))))))
+    (if as-vector method-vector (coerce method-vector 'list))))
+
+(defun pyslot-list (python-object &key (as-vector nil))
+  (import-module "inspect")
+  (raw-pyexec "
+def _py4cl_non_callable(ele):
+  import inspect
+  return not(inspect.isroutine(ele))")
+  (let ((slot-vector
+          (mapcar #'first
+                  (pycall "tuple"
+                          (pycall "inspect.getmembers"
+                                  python-object
+                                  (pyvalue "_py4cl_non_callable"))))))
+    (if as-vector slot-vector (coerce slot-vector 'list))))
+
 (defun builtin-p (pymodule-name)
   "Some builtin functions like 'sum' do not take keyword args."
   (or (null pymodule-name)

@@ -36,7 +36,7 @@ PY4CL2/CFFI-CONFIG> (setq *python-shared-object-path* #P"/home/user/miniconda3/l
 
 ### Status
 
-- [ ] garbage collection touches (partial) [important]
+- [x] garbage collection touches
   - An effort has been made to keep a track of reference counts; but if something is missed, and users notice a memory leak, feel free to [raise an issue](https://github.com/digikar99/py4cl2/issues/new)!
 - [x] function return-values
 - [x] function arguments
@@ -56,7 +56,7 @@ PY4CL2/CFFI-CONFIG> (setq *python-shared-object-path* #P"/home/user/miniconda3/l
 - [ ] `with-python-output`
 - [x] lisp callbacks
 - [ ] numpy arrays to non-CL arrays
-- [ ] arbitrary module import (partial) [important]
+- [x] arbitrary module import
 - [ ] numpy floats
 - [ ] optimizing pythonizers and lispifiers using static-dispatch
 
@@ -168,3 +168,25 @@ PY4CL2/CFFI> (pycall "plt.show")
 ```
 
 <img margin="auto" width="75%" src="./plt-example.png"></img>
+
+#### numpy
+
+```lisp
+PY4CL2/CFFI> (defpymodule "numpy" t :silent t)
+T
+PY4CL2/CFFI> (numpy.random:random '(2 3 4))
+#3A(((0.9556724994386294d0 0.9207667929741092d0 0.38080996781642207d0
+      0.36058417847643864d0)
+     (0.1939761803809288d0 0.052707969761970785d0 0.5641774015926598d0
+      0.34218703751890367d0)
+     (0.663085466238284d0 0.8208948328437302d0 0.768715035806218d0
+      0.8225795094037658d0))
+    ((0.9523448513613038d0 0.8293149376922084d0 0.6616993552816121d0
+      0.560839589292125d0)
+     (0.004265522613073891d0 0.8874616779694773d0 0.45500882951834853d0
+      0.34081255137211874d0)
+     (0.3041085477740366d0 0.4351811902627044d0 0.031589664841209175d0
+      0.6375274178283377d0)))
+PY4CL2/CFFI> (numpy:sum * :axis '(0 2))
+#(5.622032172332849d0 2.8405971707274817d0 4.483681664998286d0)
+```

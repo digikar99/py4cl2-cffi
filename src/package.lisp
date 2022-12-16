@@ -13,6 +13,10 @@
            #:pyhelp
            #:chain*
            #:import-module
-           #:import-function))
+           #:import-function
+           #:pymethod-list
+           #:pyslot-list
+           #:defpyfun
+           #:defpymodule))
 
 (in-package :py4cl2/cffi)
