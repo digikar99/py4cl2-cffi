@@ -15,13 +15,6 @@
     (values (pythonize-list (subseq lisp-args 0 first-keyword-position))
             (pythonize-plist (subseq lisp-args first-keyword-position)))))
 
-(defmacro with-python-exceptions (&body body)
-  (with-gensyms (may-be-exception-type)
-    `(let* ((,may-be-exception-type (foreign-funcall "PyErr_Occurred" :pointer)))
-       (if (null-pointer-p ,may-be-exception-type)
-           (locally ,@body)
-           (python-may-be-error)))))
-
 (defun %pycall-return-value (return-value)
   (with-python-exceptions
     ;; FIXME: Why did we write it this way?

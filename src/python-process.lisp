@@ -156,13 +156,44 @@ class _py4cl_LispCallbackObject (object):
                  condition
                (apply #'format stream format-control format-arguments)))))
 
+(defvar *retrieving-exceptions-p* nil
+  "Set to non-NIL inside PYTHON-MAY-BE-ERROR to avoid infinite recursion.")
+
 (defun python-may-be-error ()
   (python-start-if-not-alive)
-  (let ((may-be-error (foreign-funcall "PyErr_Occurred" :pointer)))
-    (unless (null-pointer-p may-be-error)
-      (foreign-funcall "PyErr_PrintEx")
-      (foreign-funcall "PyErr_Clear")
-      (error 'pyerror))))
+  (let ((may-be-error-type (foreign-funcall "PyErr_Occurred" :pointer))
+        (*retrieving-exceptions-p* t))
+    (unless (null-pointer-p may-be-error-type)
+      (with-foreign-objects ((ptype  :pointer)
+                             (pvalue :pointer)
+                             (ptraceback :pointer))
+        (foreign-funcall "PyErr_Fetch"
+                         :pointer ptype
+                         :pointer pvalue
+                         :pointer ptraceback)
+        (let* ((type      (mem-aref ptype :pointer))
+               (value     (mem-aref pvalue :pointer))
+               (traceback (mem-aref ptraceback :pointer))
+               (value-str
+                 (foreign-string-to-lisp
+                  (foreign-funcall "PyUnicode_AsUTF8"
+                                   :pointer (foreign-funcall "PyObject_Str"
+                                                             :pointer value
+                                                             :pointer)
+                                   :pointer)))
+               (traceback-str
+                 (if (null-pointer-p traceback)
+                     (pycall "traceback.format_exception" value)
+                     (pycall "traceback.format_exception" type value traceback))))
+          (error 'pyerror
+                 :format-control "A python error occurred:~%  ~A~%~%Traceback:~%~%~A"
+                 :format-arguments (list value-str traceback-str)))))))
+
+(defmacro with-python-exceptions (&body body)
+  (with-gensyms (may-be-exception-type)
+    `(progn
+       (unless *retrieving-exceptions-p* (python-may-be-error))
+       (locally ,@body))))
 
 (defmacro ensure-non-null-pointer (pointer
                                    &key (format-control nil format-control-p)
