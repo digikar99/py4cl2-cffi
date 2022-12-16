@@ -49,7 +49,7 @@
   (if ensure-unique
       (let ((callable-type (cond ((pycall "inspect.isfunction" pyfullname)
                                   'function)
-                                 ((pyeval "inspect.isclass" pyfullname)
+                                 ((pycall "inspect.isclass" pyfullname)
                                   'class)
                                  (t t)))
             (lisp-fun-name (lispify-name pyfun-name)))
@@ -177,10 +177,14 @@ Arguments:
 ;;; In fact, all packages are modules; but all modules are not packages.
 (defun defpysubmodules (pymodule-name lisp-package continue-ignoring-errors)
   (let ((submodules
-          (pyeval "tuple((modname, ispkg) for importer, modname, ispkg in "
-                  "pkgutil.iter_modules("
-                  pymodule-name
-                  ".__path__))")))
+          (when (pycall "hasattr" (pyvalue pymodule-name) "__path__")
+            (mapcar (lambda (elt)
+                      (let ((modname (pyslot-value elt "name"))
+                            (ispkg   (pyslot-value elt "ispkg")))
+                        (list modname ispkg)))
+                    (pycall "tuple"
+                            (pycall "pkgutil.iter_modules"
+                                    (pyslot-value (pyvalue pymodule-name) "__path__")))))))
     (when (and (stringp submodules)
                (string= "()" submodules))
       (setq submodules nil))
@@ -194,8 +198,9 @@ Arguments:
                  ;; We maintain these semantics.
                  ;; The below form errors in the case of submodules and
                  ;; therefore returns NIL.
-                 (ignore-errors (pyeval "type(" submodule-fullname
-                                        ") == type(pkgutil)")))
+                 (ignore-errors (python-object-eq
+                                 (pycall "type" (pyvalue "pkgutil"))
+                                 (pycall "type" (pyvalue submodule-fullname)))))
         (let ((*is-submodule* t))
           (collect
               (macroexpand-1
@@ -343,17 +348,13 @@ Returns multiple values:
         (format t "~&Defining ~A for accessing python package ~A..~%"
                 lisp-package
                 package-in-python))
-      (let* ((fun-names ;; (pyeval "tuple(name for name, fn in inspect.getmembers("
-                        ;;         package-in-python
-                        ;;         ", callable) if name[0] != '_')")
-                        (print
-                         (loop :for (name fn)
-                                 :in (pycall "tuple"
-                                             (pycall "inspect.getmembers"
-                                                     (pyvalue package-in-python)
-                                                     (pyvalue "callable")))
-                               :if (not (starts-with #\_ name))
-                                 :collect name)))
+      (let* ((fun-names (loop :for (name fn)
+                                :in (pycall "tuple"
+                                            (pycall "inspect.getmembers"
+                                                    (pyvalue package-in-python)
+                                                    (pyvalue "callable")))
+                              :if (not (starts-with #\_ name))
+                                :collect name))
              ;; Get the package name by passing through reader,
              ;; rather than using STRING-UPCASE
              ;; so that the result reflects changes to the readtable

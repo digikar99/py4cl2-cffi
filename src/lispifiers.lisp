@@ -17,6 +17,14 @@
   (nth-value 0
              (foreign-string-to-lisp (foreign-funcall "PyUnicode_AsUTF8" :pointer o :pointer))))
 
+(define-lispifier "bool" (o)
+  (cond ((pointer-eq o (pyvalue* "True"))
+         t)
+        ((pointer-eq o (pyvalue* "False"))
+         nil)
+        (t
+         (error "Object at ~S is a bool but is neither 'True' or 'False'" o))))
+
 (define-lispifier "tuple" (o)
   (let ((py-size (foreign-funcall "PyTuple_Size" :pointer o :int)))
     (loop :for i :below py-size

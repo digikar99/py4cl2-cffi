@@ -35,24 +35,40 @@ This avoids inadvertent calls to DecRef during recursions.")
      ;; FIXME: When to call CLEAR-LISP-OBJECTS
      (pygc)))
 
-(defun pytrack (python-object)
+(defun pytrack (python-object-pointer)
   "Call this function when the foreign function of the Python C-API returns
 a New Reference"
-  (declare (type foreign-pointer python-object)
+  (declare (type foreign-pointer python-object-pointer)
            (optimize speed))
-  (unless (null-pointer-p python-object)
-    (setf (gethash (pointer-address python-object) *python-new-references*) t))
-  python-object)
+  (unless (null-pointer-p python-object-pointer)
+    (setf (gethash (pointer-address python-object-pointer) *python-new-references*) t))
+  python-object-pointer)
 
-(defun pyuntrack (python-object)
+(defun pyuntrack (python-object-pointer)
   "Call this function when the foreign function of the Python C-API steals
 a New Reference"
-  (declare (type foreign-pointer python-object)
+  (declare (type foreign-pointer python-object-pointer)
            (optimize speed))
   (let ((ht   *python-new-references*)
-        (addr (pointer-address python-object)))
+        (addr (pointer-address python-object-pointer)))
     (remhash addr ht))
   nil)
+
+;;; Unknown python objects
+(defstruct python-object
+  "A pointer to a python object which couldn't be translated into a Lisp value.
+TYPE slot is the python type string
+POINTER slot points to the object"
+  type
+  pointer)
+
+(defvar *print-python-object* t
+  "If non-NIL, python's 'str' is called on the python-object before printing.")
+
+(defun python-object-eq (o1 o2)
+  (declare (type python-object o1 o2))
+  (pointer-eq (python-object-pointer o1)
+              (python-object-pointer o2)))
 
 (defmethod print-object ((o python-object) s)
   (print-unreadable-object (o s :type t :identity t)
