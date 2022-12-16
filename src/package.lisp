@@ -11,6 +11,7 @@
            #:pycall
            #:pyslot-value
            #:pyhelp
+           #:chain*
            #:import-module
            #:import-function))
 
