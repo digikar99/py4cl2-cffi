@@ -1,14 +1,31 @@
 (in-package :py4cl2/cffi)
 
-(defstruct python-object
-  "A pointer to a python object which couldn't be translated into a Lisp value.
-TYPE slot is the python type string
-POINTER slot points to the object"
-  type
-  pointer)
+;;; Object Handles - for not really translated lisp objects
 
-(defvar *print-python-object* t
-  "If non-NIL, python's 'str' is called on the python-object before printing.")
+(defvar *handle-counter* 0)
+(defvar *lisp-objects* (make-hash-table :test #'eql))
+
+(defun clear-lisp-objects ()
+  "Clear the *lisp-objects* object store, allowing them to be GC'd"
+  (setf *lisp-objects* (make-hash-table :test #'eql)
+        *handle-counter* 0))
+
+(defun free-handle (handle)
+  "Remove an object with HANDLE from the hash table"
+  (remhash handle *lisp-objects*))
+
+(defun lisp-object (handle)
+  "Get the lisp object corresponding to HANDLE"
+  (or (gethash handle *lisp-objects*)
+      (error "Invalid Handle.")))
+
+(defun object-handle (object)
+  "Store OBJECT and return a handle"
+  (let ((handle (incf *handle-counter*)))
+    (setf (gethash handle *lisp-objects*) object)
+    handle))
+
+;;; Reference counting utilities
 
 (defvar *python-new-references* (make-hash-table)
   "A foreign object returned as a result of python C API function that
