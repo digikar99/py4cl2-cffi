@@ -11,6 +11,7 @@
            #:pycall
            #:pyslot-value
            #:pyhelp
-           #:import-module))
+           #:import-module
+           #:import-function))
 
 (in-package :py4cl2/cffi)
