@@ -16,12 +16,24 @@ returns a new reference should call PYTRACK.
 
 PYGC will then decrement the references when called.")
 
+(defvar *top-level-p* t
+  "Used inside PYGC and WITH-PYGC to avoid calling PYGC at non-top levels.
+This avoids inadvertent calls to DecRef during recursions.")
+
 (defun pygc ()
-  (maphash-keys (lambda (key)
-                  (cffi:foreign-funcall "Py_DecRef" :pointer (make-pointer key))
-                  (remhash key *python-new-references*))
-                *python-new-references*)
+  (when *top-level-p*
+    (maphash-keys (lambda (key)
+                    (cffi:foreign-funcall "Py_DecRef" :pointer (make-pointer key))
+                    (remhash key *python-new-references*))
+                  *python-new-references*))
   nil)
+
+(defmacro with-pygc (&body body)
+  `(unwind-protect
+     (let ((*top-level-p* nil))
+       ,@body)
+     ;; FIXME: When to call CLEAR-LISP-OBJECTS
+     (pygc)))
 
 (defun pytrack (python-object)
   "Call this function when the foreign function of the Python C-API returns

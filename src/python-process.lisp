@@ -147,10 +147,14 @@ class _py4cl_LispCallbackObject (object):
   t)
 
 (define-condition pyerror (error)
-  ()
+  ((format-control   :initarg :format-control
+                     :initform "A python error occured")
+   (format-arguments :initarg :format-arguments
+                     :initform ()))
   (:report (lambda (condition stream)
-             (declare (ignore condition))
-             (format stream "A python error occured"))))
+             (with-slots (format-control format-arguments)
+                 condition
+               (apply #'format stream format-control format-arguments)))))
 
 (defun python-may-be-error ()
   (python-start-if-not-alive)
@@ -159,6 +163,18 @@ class _py4cl_LispCallbackObject (object):
       (foreign-funcall "PyErr_PrintEx")
       (foreign-funcall "PyErr_Clear")
       (error 'pyerror))))
+
+(defmacro ensure-non-null-pointer (pointer
+                                   &key (format-control nil format-control-p)
+                                     format-arguments)
+  (once-only (pointer)
+    `(if (null-pointer-p ,pointer)
+         ,(if format-control-p
+              `(error 'pyerror
+                      :format-control ,format-control
+                      :format-arguments ,format-arguments)
+              `(error 'pyerror))
+         ,pointer)))
 
 (defun raw-py (cmd-char &rest code-strings)
   "CMD-CHAR should be #\e for eval and #\x for exec.
@@ -225,73 +241,61 @@ RAW-PY, RAW-PYEVAL, RAW-PYEXEC are only provided for backward compatibility."
                      :pointer name
                      :pointer)))
 
-(defun pyvalue* (name &optional (module (py-module-pointer "__main__")))
-  "Get the pointer to the value associated with NAME in MODULE"
-  (declare (type string name)
-           (type foreign-pointer module))
-  (assert (not (null-pointer-p module)))
+(defun %pyvalue (python-value-or-variable)
+  "Get the foreign pointer associated with PYTHON-VALUE-OR-VARIABLE"
+  (declare (type (or foreign-pointer string) python-value-or-variable))
   (python-start-if-not-alive)
-  (let ((module-dict (foreign-funcall "PyModule_GetDict"
-                                      :pointer module
-                                      :pointer)))
-    (foreign-funcall "PyDict_GetItemString"
-                     :pointer module-dict
-                     :string name
-                     :pointer)))
+  (if (typep python-value-or-variable 'foreign-pointer)
+      python-value-or-variable
+      (let* ((name python-value-or-variable)
+             (value (foreign-funcall "PyDict_GetItemString"
+                                     :pointer (py-module-dict "__main__")
+                                     :string name
+                                     :pointer))
+             (value (if (null-pointer-p value)
+                        (foreign-funcall "PyDict_GetItemString"
+                                     :pointer (py-module-dict "builtins")
+                                     :string name
+                                     :pointer)
+                        value)))
+        (ensure-non-null-pointer value
+                                 :format-control "~A is undefined in python"
+                                 :format-arguments (list name))
+        ;; lisp references don't just vanish after being passed to a tuple/dict!
+        ;; GetItemString returns a borrowed reference, which we increment
+        (foreign-funcall "Py_IncRef" :pointer value)
+        (pytrack value))))
 
-(defun (setf pyvalue*) (value name &optional (module (py-module-pointer "__main__")))
-  "Set the value associated with NAME in MODULE to the value pointed by VALUE pointer"
-  (declare (type string name)
-           (type foreign-pointer module value))
-  (assert (not (null-pointer-p module)))
+(defun %pyslot-value (object-pointer slot-name)
+  (declare (type string slot-name)
+           (type foreign-pointer object-pointer)
+           (optimize debug))
   (python-start-if-not-alive)
-  (let ((module-dict (foreign-funcall "PyModule_GetDict"
-                                      :pointer module
-                                      :pointer)))
-    (unless (zerop (foreign-funcall "PyDict_SetItemString"
-                                    :pointer module-dict
-                                    :string name
-                                    :pointer value
-                                    :int))
-      (python-may-be-error))
-    t))
+  (with-pygc
+    (let* ((return-value (foreign-funcall "PyObject_GetAttrString"
+                                          :pointer object-pointer
+                                          :string slot-name
+                                          :pointer)))
+      (ensure-non-null-pointer return-value
+                               :format-control
+                               "~A~%in python does not have the attribute ~A"
+                               :format-arguments (list (pycall "str" object-pointer)
+                                                       slot-name)))))
 
+(defun pyvalue* (python-value-or-variable)
+  "Get the non-lispified value associated with PYTHON-VALUE-OR-VARIABLE"
+  (declare (type (or python-object string) python-value-or-variable))
+  (if (python-object-p python-value-or-variable)
+      python-value-or-variable
+      (let* ((names (split-sequence:split-sequence #\.
+                                                   python-value-or-variable)))
+        (loop :for name :in (rest names)
+              :with value := (%pyvalue (first names))
+              :do (setq value (%pyslot-value value name))
+              :finally (return value)))))
 
+(defun pyvalue (python-value-or-variable)
+  (declare (type (or python-object string) python-value-or-variable))
+  (lispify (pyvalue* python-value-or-variable)))
 
-(defun pyvalue (python-variable-name)
-  "Get the lispified value associated with NAME"
-  (declare (type string python-variable-name))
-  (multiple-value-bind (module name)
-      (let* ((name python-variable-name)
-             (dot-pos (position #\. name :from-end t)))
-        (if dot-pos
-            (values (subseq name 0 dot-pos)
-                    (subseq name (1+ dot-pos)))
-            (values nil name)))
-    (let* ((value (cond (module
-                         (pyvalue* name (py-module-pointer module)))
-                        (t
-                         (pyvalue* name (py-module-pointer "__main__"))))))
-      (if (null-pointer-p value)
-          (error "~A is undefined in python" python-variable-name)
-          (lispify value)))))
-
-(defun (setf pyvalue) (new-value python-variable-name)
-  "Set the value associated with NAME to the NEW-VALUE after pythonizing the value"
-  (declare (type string python-variable-name))
-  (unwind-protect
-       (multiple-value-bind (module name)
-           (let* ((name python-variable-name)
-                  (dot-pos (position #\. name :from-end t)))
-             (if dot-pos
-                 (values (subseq name 0 dot-pos)
-                         (subseq name (1+ dot-pos)))
-                 (values nil name)))
-         (let* ((value (cond (module
-                              (pyvalue* name (py-module-pointer module)))
-                             (t
-                              (pyvalue* name (py-module-pointer "__main__"))))))
-           (if (null-pointer-p value)
-               (error "~A is undefined in python" python-variable-name)
-               (setf (pyvalue* value) (pythonize new-value)))))
-    (pygc)))
+;; TODO: SETF versions

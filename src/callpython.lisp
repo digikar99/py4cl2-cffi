@@ -15,71 +15,63 @@
     (values (pythonize-list (subseq lisp-args 0 first-keyword-position))
             (pythonize-plist (subseq lisp-args first-keyword-position)))))
 
+(defmacro with-python-exceptions (&body body)
+  (with-gensyms (may-be-exception-type)
+    `(let* ((,may-be-exception-type (foreign-funcall "PyErr_Occurred" :pointer)))
+       (if (null-pointer-p ,may-be-exception-type)
+           (locally ,@body)
+           (python-may-be-error)))))
+
 (defun %pycall-return-value (return-value)
-  (let* ((may-be-exception-type (foreign-funcall "PyErr_Occurred" :pointer)))
-    (if (null-pointer-p may-be-exception-type)
-        ;; return-value
-        (let ((lispified-return-value (if (typep return-value 'foreign-pointer)
-                                          (lispify return-value)
-                                          return-value)))
-          (when (typep lispified-return-value 'foreign-pointer)
-            (pytrack return-value))
-          lispified-return-value)
-        (python-may-be-error))))
+  (with-python-exceptions
+    ;; FIXME: Why did we write it this way?
+    (let ((lispified-return-value (if (typep return-value 'foreign-pointer)
+                                      (lispify return-value)
+                                      return-value)))
+      (when (typep lispified-return-value 'foreign-pointer)
+        (pytrack return-value))
+      lispified-return-value)))
 
 (defun %pycall (python-callable-pointer &rest args)
-  (declare (type foreign-pointer python-callable-pointer))
-  (let ((pythonized-args (pythonize-args args)))
-    (multiple-value-bind (pos-args kwargs)
-        (args-and-kwargs pythonized-args)
-      (unwind-protect
-           (let* ((return-value (foreign-funcall "PyObject_Call"
-                                                 :pointer python-callable-pointer
-                                                 :pointer pos-args
-                                                 :pointer kwargs
-                                                 :pointer)))
-             ;; If the RETURN-VALUE is an array amongst the inputs,
-             ;; then avoid lispifying the return-value
-             (mapc (lambda (pyarg arg)
-                     (when (and (arrayp arg)
-                                (pointer-eq pyarg return-value))
-                       (setq return-value arg)))
-                   pythonized-args args)
-             (%pycall-return-value return-value))
-        ;; FIXME: When to call CLEAR-LISP-OBJECTS
-        (pygc)))))
-
-(defun pycall (name &rest args)
-  (declare (type string name)
+  (declare (type foreign-pointer python-callable-pointer)
            (optimize debug))
+  (with-pygc
+    (let ((pythonized-args (pythonize-args args)))
+      (multiple-value-bind (pos-args kwargs)
+          (args-and-kwargs pythonized-args)
+        (let* ((return-value (foreign-funcall "PyObject_Call"
+                                              :pointer python-callable-pointer
+                                              :pointer pos-args
+                                              :pointer kwargs
+                                              :pointer)))
+          ;; If the RETURN-VALUE is an array amongst the inputs,
+          ;; then avoid lispifying the return-value
+          (mapc (lambda (pyarg arg)
+                  (when (and (arrayp arg)
+                             (pointer-eq pyarg return-value))
+                    (setq return-value arg)))
+                pythonized-args args)
+          (%pycall-return-value return-value))))))
+
+(defun pyeval (&rest args)
+  ;; FIXME: This isn't how it should be? We need strings
+  (apply #'raw-pyeval (mapcar #'pythonize args)))
+
+(defun pycall (python-callable &rest args)
+  "If PYTHON-CALLABLE is a string, it is treated as the name of a
+python callable, which is then retrieved using PYVALUE*"
+  (declare (optimize debug))
   (python-start-if-not-alive)
-  (multiple-value-bind (module name)
-      (let ((dot-pos (position #\. name :from-end t)))
-        (if dot-pos
-            (values (subseq name 0 dot-pos)
-                    (subseq name (1+ dot-pos)))
-            (values nil name)))
-    (let* ((pyfun (cond (module
-                         (foreign-funcall "PyDict_GetItemString"
-                                          :pointer (py-module-dict module)
-                                          :string name
-                                          :pointer))
-                        (t
-                         (let ((global-fun
-                                 (foreign-funcall "PyDict_GetItemString"
-                                                  :pointer *py-global-dict*
-                                                  :string name
-                                                  :pointer))
-                               (builtin-fun
-                                 (foreign-funcall "PyDict_GetItemString"
-                                                  :pointer *py-builtins-dict*
-                                                  :string name
-                                                  :pointer)))
-                           (if (null-pointer-p global-fun)
-                               builtin-fun
-                               global-fun))))))
+  (with-pygc
+    (let ((pyfun (typecase python-callable
+                   (python-object
+                    (python-object-pointer python-callable))
+                   (string
+                    (pyvalue* python-callable))
+                   (t
+                    (pythonize python-callable)))))
       (if (null-pointer-p pyfun)
-          (error "Python function ~A is not defined" name)
+          (error "Python function ~A is not defined" python-callable)
           (apply #'%pycall pyfun args)))))
 
 ;;; TODO: Define (SETF PYSLOT-VALUE)
@@ -87,26 +79,19 @@
   (declare (type string slot-name)
            (optimize debug))
   (python-start-if-not-alive)
-  (unwind-protect
-       (let* ((object (pythonize object))
-              (return-value (foreign-funcall "PyObject_GetAttrString"
-                                             :pointer object
-                                             :string slot-name
-                                             :pointer)))
-         (%pycall-return-value return-value))
-    (pygc)))
+  (with-pygc
+    (let* ((object-pointer (pythonize object))
+           (return-value   (%pyslot-value object-pointer slot-name)))
+      (%pycall-return-value return-value))))
 
 (defun pymethod (object method-name &rest args)
   (declare (type string method-name)
            (optimize debug))
   (python-start-if-not-alive)
-  (let* ((pyobject (pythonize object))
-         (method   (foreign-funcall "PyObject_GetAttrString"
-                                    :pointer pyobject
-                                    :string method-name
-                                    :pointer)))
+  (let* ((object-pointer (pythonize object))
+         (method         (%pyslot-value object-pointer method-name)))
     (or (apply #'%pycall method args)
-        (lispify pyobject))))
+        (lispify object-pointer))))
 
 (defun pyhelp (string-or-python-callable)
   (pycall "help" string-or-python-callable)
