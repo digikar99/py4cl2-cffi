@@ -1,4 +1,4 @@
-(in-package :py4cl2/cffi)
+(in-package :py4cl2-cffi)
 
 (defvar *numpy-c-api-pointer*)
 

@@ -1,4 +1,4 @@
-(in-package :py4cl2/cffi)
+(in-package :py4cl2-cffi)
 
 (defun numeric-char-p (ch) (find ch "0123456789"))
 

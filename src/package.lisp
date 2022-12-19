@@ -1,5 +1,5 @@
-(defpackage :py4cl2/cffi
-  (:use :cl :cffi :alexandria :py4cl2/cffi-config :iterate)
+(defpackage :py4cl2-cffi
+  (:use :cl :cffi :alexandria :py4cl2-cffi/config :iterate)
   (:export #:pystart
            #:python-alive-p
            #:python-start-if-not-alive
@@ -31,4 +31,4 @@
            #:*defpymodule-silent-p*
            #:*print-python-object*))
 
-(in-package :py4cl2/cffi)
+(in-package :py4cl2-cffi)

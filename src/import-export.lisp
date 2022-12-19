@@ -8,7 +8,7 @@
 ;;;   containing name, signature, documentation, call method for some functions.
 ;;;   This latter hasn't been attempted yet.
 
-(in-package :py4cl2/cffi)
+(in-package :py4cl2-cffi)
 
 (defun import-function (name from &key (as nil asp))
   (declare (type string name))

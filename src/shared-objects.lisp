@@ -1,22 +1,22 @@
-(in-package :py4cl2/cffi)
+(in-package :py4cl2-cffi)
 
 (defvar *utils-source-file-path*
   (merge-pathnames
-   (asdf:component-pathname (asdf:find-system "py4cl2/cffi"))
+   (asdf:component-pathname (asdf:find-system "py4cl2-cffi"))
    #p"py4cl-utils.c"))
 
 (defvar *utils-shared-object-path*
   (merge-pathnames
-   (asdf:component-pathname (asdf:find-system "py4cl2/cffi"))
+   (asdf:component-pathname (asdf:find-system "py4cl2-cffi"))
    #p"libpy4cl-utils.so"))
 
 (defvar *numpy-utils-shared-object-path*
   (merge-pathnames
-   (asdf:component-pathname (asdf:find-system "py4cl2/cffi"))
+   (asdf:component-pathname (asdf:find-system "py4cl2-cffi"))
    #p"libnumpy-utils.so"))
 
 (defun compile-utils-shared-object ()
-  (uiop:with-current-directory ((asdf:component-pathname (asdf:find-system "py4cl2/cffi")))
+  (uiop:with-current-directory ((asdf:component-pathname (asdf:find-system "py4cl2-cffi")))
     (uiop:run-program
      (format nil
              ;; /media/common-storage/miniconda3/include/python3.8

@@ -1,4 +1,4 @@
-(in-package :py4cl2/cffi)
+(in-package :py4cl2-cffi)
 
 ;; Basic Reference: https://www.linuxjournal.com/article/8497
 ;; Multithreading reference: https://www.linuxjournal.com/article/3641
@@ -90,7 +90,8 @@ Value: The pointer to the module in embedded python")
   (setq *numpy-c-api-pointer*
         (float-features:with-float-traps-masked (:overflow)
           (foreign-funcall "import_numpy" :pointer)))
-  (raw-pyexec "import sys")
+  (import-module "sys")
+  (import-module "traceback")
   (let ((python-output-reader-open-thread
           ;; Need to do this in a separate initialization thread to deal with
           ;; blocking 'open' for named pipes
@@ -117,9 +118,9 @@ Value: The pointer to the module in embedded python")
         (foreign-funcall "PyModule_GetDict" :pointer (py-module-pointer "builtins") :pointer))
 
   (foreign-funcall "set_lisp_callback_fn_ptr" :pointer (callback lisp-callback-fn))
-  (raw-pyexec "
+  (raw-pyexec #.(format nil "
 import ctypes
-py4cl_utils = ctypes.cdll.LoadLibrary(\"/home/shubhamkar/quicklisp/local-projects/py4cl2/cffi/libpy4cl-utils.so\")
+py4cl_utils = ctypes.cdll.LoadLibrary(\"~A\")
 
 class _py4cl_LispCallbackObject (object):
     \"\"\"
@@ -143,7 +144,7 @@ class _py4cl_LispCallbackObject (object):
           ctypes.py_object(args),
           ctypes.py_object(kwargs)
         )
-")
+" (namestring *utils-shared-object-path*)))
   t)
 
 (define-condition pyerror (error)

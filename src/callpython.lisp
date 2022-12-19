@@ -1,4 +1,4 @@
-(in-package :py4cl2/cffi)
+(in-package :py4cl2-cffi)
 
 (defun pythonize-args (lisp-args)
   (loop :for arg :in lisp-args
