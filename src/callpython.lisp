@@ -107,3 +107,7 @@ python callable, which is then retrieved using PYVALUE*"
 
 (defun @ (&rest chain)
   (apply #'chain chain))
+
+(defun pyversion-info ()
+  "Return a list, using the result of python's sys.version_info."
+  (pycall "tuple" (pyvalue "sys.version_info")))

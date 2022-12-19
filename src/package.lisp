@@ -12,11 +12,14 @@
            #:pyslot-value
            #:pyhelp
            #:chain*
+           #:pyversion-info
            #:import-module
            #:import-function
            #:pymethod-list
            #:pyslot-list
            #:defpyfun
-           #:defpymodule))
+           #:defpymodule
+           #:*defpymodule-silent-p*
+           #:*print-python-object*))
 
 (in-package :py4cl2/cffi)
