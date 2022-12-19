@@ -1,0 +1,57 @@
+on: [push, pull_request]
+
+jobs:
+
+  test:
+
+    name: ${{ matrix.lisp }}
+
+    strategy:
+      matrix:
+        lisp: [sbcl, ccl]
+    runs-on: ubuntu-20.04
+
+    continue-on-error: true
+
+    steps:
+
+    - uses: actions/checkout@v2
+
+    - name: Update $PATH
+      run: |
+        echo $PATH
+        echo "PATH=$HOME/bin:$PATH" >> $GITHUB_ENV
+    - name: Check $PATH
+      run: echo $PATH
+
+    - name: Download implementation
+      env:
+        LISP: ${{ matrix.lisp }}
+      run: |
+        pwd
+        ls -l
+        bash <(curl -s https://raw.githubusercontent.com/digikar99/lisp-travis-lite/master/run.sh)
+
+    - name: Install numpy
+      run: sudo apt install python3-numpy # need to use sudo
+
+    - name: Run python-config
+      run: |
+        python3 --version
+        python3-config --libs
+        python3-config --includes
+        python3-config --ldflags
+        find '/usr/lib' -name "libpython*.so"
+
+    - name: Copy system to current directory
+      run: |
+        ls
+        pwd
+
+    - name: Test quickloading system
+      run: |
+        cl --eval '(push #P"./" ql:*local-project-directories*)' --eval '(ql:register-local-projects)' --eval '(ql:quickload "py4cl2-cffi")'
+
+    - name: Test asdf compilation
+      run: |
+        cl --eval '(push #P"./" ql:*local-project-directories*)' --eval '(asdf:compile-system "py4cl2-cffi" :force t)'
