@@ -275,3 +275,43 @@ POINTER slot points to the object"
                                                   :pointer (pythonize val)
                                                   :int))))
          dict))))
+
+(defvar *pythonizers*
+  ()
+  "Each entry in the alist *PYTHONIZERS* maps from a lisp-type to
+a single-argument PYTHON-FUNCTION-DESIGNATOR. This python function takes as input the
+\"default\" python objects and is expected to appropriately convert it to the corresponding
+python object.
+
+NOTE: This is a new feature and hence unstable; recommended to avoid in production code.")
+
+(defmacro with-pythonizers ((&rest overriding-pythonizers) &body body)
+  "Each entry of OVERRIDING-PYTHONIZERS is a two-element list of the form
+  (TYPE PYTHONIZER)
+Here, TYPE is unevaluated, while PYTHONIZER will be evaluated; the PYTHONIZER is expected
+to take a default-pythonized object (see lisp-python types translation table in docs)
+and return the appropriate object user expects.
+
+For example,
+
+  (raw-pyeval \"[1, 2, 3]\") ;=> #(1 2 3) ; the default object
+  (with-pythonizers ((vector \"tuple\"))
+    (print (pycall #'identity #(1 2 3)))
+    (print (pycall #'identity 5)))
+  ; (1 2 3)  ; coerced to tuple by the pythonizer, which then translates to list
+  ; 5        ; pythonizer uncalled for non-VECTOR
+  5
+
+NOTE: This is a new feature and hence unstable; recommended to avoid in production code."
+  `(let ((*pythonizers* (list* ,@(loop :for (type pythonizer) :in overriding-pythonizers
+                                       :collect `(cons ',type ,pythonizer))
+                               *pythonizers*)))
+     ,@body))
+
+(defun %pythonize (object)
+  "A wrapper around PYTHONIZE to take custom *PYTHONIZERS* into account."
+  (let ((default-pythonized-object (pythonize object)))
+    (loop :for (type . pythonizer) :in *pythonizers*
+          :if (typep object type)
+            :do (return-from %pythonize (pycall* pythonizer default-pythonized-object)))
+    default-pythonized-object))

@@ -102,11 +102,51 @@
                                             :pointer))))
          ;; FIXME: What about names in modules?
          (lispifier (assoc-value *py-type-lispifier-table* pytype-name :test #'string=)))
-    (cond ((null-pointer-p pyobject-type)
-           nil)
-          ((string= pytype-name "NoneType")
-           nil)
-          ((null lispifier)
-           (make-python-object :pointer pyobject :type pyobject-type))
-          (t
-           (funcall lispifier pyobject)))))
+    (customize
+     (cond ((null-pointer-p pyobject-type)
+            nil)
+           ((string= pytype-name "NoneType")
+            nil)
+           ((null lispifier)
+            (make-python-object :pointer pyobject :type pyobject-type))
+           (t
+            (funcall lispifier pyobject))))))
+
+(defvar *lispifiers*
+  ()
+  ;; FIXME: Making new objects can be expensive
+  "Each entry in the alist *LISPIFIERS* maps from a lisp-type to
+a single-argument lisp function. This function takes as input the \"default\" lisp
+objects and is expected to appropriately parse it to the corresponding lisp object.
+
+NOTE: This is a new feature and hence unstable; recommended to avoid in production code.")
+
+(defmacro with-lispifiers ((&rest overriding-lispifiers) &body body)
+  "Each entry of OVERRIDING-LISPIFIERS is a two-element list of the form
+  (TYPE LISPIFIER)
+Here, TYPE is unevaluated, while LISPIFIER will be evaluated; the LISPIFIER is expected
+to take a default-lispified object (see lisp-python types translation table in docs)
+and return the appropriate object user expects.
+
+For example,
+
+  (raw-pyeval \"[1, 2, 3]\") ;=> #(1 2 3) ; the default lispified object
+  (with-lispifiers ((vector (lambda (x) (coerce (print x) 'list))))
+    (print (raw-pyeval \"[1,2,3]\"))
+    (print (raw-pyeval 5)))
+  ; #(1 2 3) ; default lispified object
+  ; (1 2 3)  ; coerced to LIST by the lispifier
+  ; 5        ; lispifier uncalled for non-VECTOR
+  5
+
+NOTE: This is a new feature and hence unstable; recommended to avoid in production code."
+  `(let ((*lispifiers* (list* ,@(loop :for (type lispifier) :in overriding-lispifiers
+                                      :collect `(cons ',type ,lispifier))
+                              *lispifiers*)))
+     ,@body))
+
+(defun customize (object)
+  (loop :for (type . lispifier) :in *lispifiers*
+        :if (typep object type)
+          :do (return-from customize (funcall lispifier object)))
+  object)

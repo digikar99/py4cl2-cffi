@@ -8,6 +8,15 @@
            #:raw-pyexec
            #:pyerror
            #:pyvalue
+
+           #:pythonize
+           #:define-lispifier
+
+           #:*pythonizers*
+           #:with-pythonizers
+           #:*lispifiers*
+           #:with-lispifiers
+
            #:pycall
            #:pyslot-value
            #:pyhelp

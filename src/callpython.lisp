@@ -4,7 +4,7 @@
   (loop :for arg :in lisp-args
         :collect (if (keywordp arg)
                      arg
-                     (pythonize arg))))
+                     (%pythonize arg))))
 
 (defun args-and-kwargs (lisp-args)
   (let ((first-keyword-position
@@ -24,6 +24,20 @@
       (when (typep lispified-return-value 'foreign-pointer)
         (pytrack return-value))
       lispified-return-value)))
+
+(defun %pycall* (python-callable-pointer &rest args)
+  (declare (type foreign-pointer python-callable-pointer)
+           (optimize debug))
+  (with-pygc
+    (let ((pythonized-args (pythonize-args args)))
+      (multiple-value-bind (pos-args kwargs)
+          (args-and-kwargs pythonized-args)
+        (let* ((return-value (foreign-funcall "PyObject_Call"
+                                              :pointer python-callable-pointer
+                                              :pointer pos-args
+                                              :pointer kwargs
+                                              :pointer)))
+          return-value)))))
 
 (defun %pycall (python-callable-pointer &rest args)
   (declare (type foreign-pointer python-callable-pointer)
@@ -49,6 +63,22 @@
 (defun pyeval (&rest args)
   ;; FIXME: This isn't how it should be? We need strings
   (apply #'raw-pyeval (mapcar #'pythonize args)))
+(defun pycall* (python-callable &rest args)
+  "If PYTHON-CALLABLE is a string, it is treated as the name of a
+python callable, which is then retrieved using PYVALUE*"
+  (declare (optimize debug))
+  (python-start-if-not-alive)
+  (with-pygc
+    (let ((pyfun (typecase python-callable
+                   (python-object
+                    (python-object-pointer python-callable))
+                   (string
+                    (pyvalue* python-callable))
+                   (t
+                    (pythonize python-callable)))))
+      (if (null-pointer-p pyfun)
+          (error "Python function ~A is not defined" python-callable)
+          (apply #'%pycall* pyfun args)))))
 
 (defun pycall (python-callable &rest args)
   "If PYTHON-CALLABLE is a string, it is treated as the name of a
@@ -73,7 +103,7 @@ python callable, which is then retrieved using PYVALUE*"
            (optimize debug))
   (python-start-if-not-alive)
   (with-pygc
-    (let* ((object-pointer (pythonize object))
+    (let* ((object-pointer (%pythonize object))
            (return-value   (%pyslot-value object-pointer slot-name)))
       (%pycall-return-value return-value))))
 
@@ -81,7 +111,7 @@ python callable, which is then retrieved using PYVALUE*"
   (declare (type string method-name)
            (optimize debug))
   (python-start-if-not-alive)
-  (let* ((object-pointer (pythonize object))
+  (let* ((object-pointer (%pythonize object))
          (method         (%pyslot-value object-pointer method-name)))
     (or (apply #'%pycall method args)
         (lispify object-pointer))))
@@ -94,7 +124,7 @@ python callable, which is then retrieved using PYVALUE*"
 (defun %chain* (link)
   (etypecase link
     (list (apply #'pycall (first link) (rest link)))
-    (atom (pythonize link))))
+    (atom (%pythonize link))))
 
 ;; FIXME: How exactly do we want to handle strings
 (defun chain* (&rest chain)
