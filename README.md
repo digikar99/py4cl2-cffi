@@ -9,11 +9,11 @@ Non Common Lisp approaches
 ### Configuration
 
 ```lisp
-CL-USER> (ql:quickload "py4cl2/cffi-config")
-To load "py4cl2/cffi-config":
+CL-USER> (ql:quickload "py4cl2-cffi/config")
+To load "py4cl2-cffi/config":
   Load 1 ASDF system:
-    py4cl2/cffi-config
-; Loading "py4cl2/cffi-config"
+    py4cl2-cffi/config
+; Loading "py4cl2-cffi/config"
 [package py4cl2/cffi-config]
 ("py4cl2/cffi-config")
 ```
@@ -68,17 +68,19 @@ Goals are less ambitious than burgled-batteries. We aim to get "most" libraries 
 - Only specialized arrays can be passed by reference. Other values will be passed by value.
 - The goal is getting the functional aspects of python - those python functions that do not modify their inputs should "work". Non-functional python functions can only work with arrays. Other functions that modify their inputs will not work.
 
+Tested only on Ubuntu 20.04 (CI) and Ubuntu 18.04 (personal machine). Porting to Windows does not look trivial, but someone could prove me wrong (at least provide some pointers!).
+
 ### Why
 
-py4cl2 has gotten the work done for the past few years. But it has the overhead of (i) stream-based inter-process-communication (ii) eval. That's as worse as one could get.
+[py4cl2](https://github.com/digikar99/py4cl2) has gotten the work done for the past few years. But it has the overhead of (i) stream-based inter-process-communication (ii) eval. That's as worse as one could get.
 
 However, when capable, the CFFI approach can be a 50 times faster than py4cl2.
 
 ```lisp
-CL-USER> (py4cl2/cffi:raw-py "def foo(): return str(1)")
+CL-USER> (py4cl2-cffi:raw-py "def foo(): return str(1)")
 0
 CL-USER> (time (dotimes (i 10000)
-                 (py4cl2/cffi:pycall "foo")))
+                 (py4cl2-cffi:pycall "foo")))
 Evaluation took:
   0.024 seconds of real time
   0.023645 seconds of total run time (0.022448 user, 0.001197 system)
@@ -105,7 +107,7 @@ NIL
 #### Passing arrays by reference:
 
 ```lisp
-PY4CL2/CFFI> (let ((a (aops:rand* 'single-float 10))
+PY4CL2-CFFI> (let ((a (aops:rand* 'single-float 10))
                    (b (aops:rand* 'single-float 10)))
                (print a)
                (print b)
@@ -120,7 +122,7 @@ PY4CL2/CFFI> (let ((a (aops:rand* 'single-float 10))
 #(0.7473686 1.5271276 1.5487782 0.95938265 1.2788931 0.15314603 0.9909673
 1.1749225 0.4957589 0.9042728)
 
-PY4CL2/CFFI> (let ((a (aops:rand* 'double-float '(3 3))))
+PY4CL2-CFFI> (let ((a (aops:rand* 'double-float '(3 3))))
                (print a)
                (sb-sys:with-pinned-objects (a)
                  (pycall "numpy.linalg.svd" a)))
@@ -139,10 +141,10 @@ PY4CL2/CFFI> (let ((a (aops:rand* 'double-float '(3 3))))
 #### Callbacks
 
 ```lisp
-PY4CL2/CFFI> (raw-pyexec "def foo(fn, *args, **kwargs): return fn(*args, **kwargs)")
+PY4CL2-CFFI> (raw-pyexec "def foo(fn, *args, **kwargs): return fn(*args, **kwargs)")
 
 ; No value
-PY4CL2/CFFI> (pycall "foo" (lambda (d e &rest args &key a b &allow-other-keys)
+PY4CL2-CFFI> (pycall "foo" (lambda (d e &rest args &key a b &allow-other-keys)
                              (declare (ignore a b))
                              (list* d e args))
                      8 9 :a 2 :b 3 :d 5)
@@ -152,16 +154,16 @@ PY4CL2/CFFI> (pycall "foo" (lambda (d e &rest args &key a b &allow-other-keys)
 #### A quick and dirty import-module as a function
 
 ```lisp
-PY4CL2/CFFI> (import-module "matplotlib.pyplot" :as "plt")
+PY4CL2-CFFI> (import-module "matplotlib.pyplot" :as "plt")
 T
-PY4CL2/CFFI> (pycall "plt.plot"
+PY4CL2-CFFI> (pycall "plt.plot"
                      (iota 10)
                      (mapcar (lambda (x) (* x x))
                              (iota 10)))
 #(#<PYTHON-OBJECT :type <class 'matplotlib.lines.Line2D'>
   Line2D(_line0)
  {1006670F83}>)
-PY4CL2/CFFI> (pycall "plt.show")
+PY4CL2-CFFI> (pycall "plt.show")
 #<PYTHON-OBJECT :type <class 'NoneType'>
   None
  {1006672273}>
@@ -172,9 +174,9 @@ PY4CL2/CFFI> (pycall "plt.show")
 #### numpy
 
 ```lisp
-PY4CL2/CFFI> (defpymodule "numpy" t :silent t)
+PY4CL2-CFFI> (defpymodule "numpy" t :silent t)
 T
-PY4CL2/CFFI> (numpy.random:random '(2 3 4))
+PY4CL2-CFFI> (numpy.random:random '(2 3 4))
 #3A(((0.9556724994386294d0 0.9207667929741092d0 0.38080996781642207d0
       0.36058417847643864d0)
      (0.1939761803809288d0 0.052707969761970785d0 0.5641774015926598d0
@@ -187,6 +189,6 @@ PY4CL2/CFFI> (numpy.random:random '(2 3 4))
       0.34081255137211874d0)
      (0.3041085477740366d0 0.4351811902627044d0 0.031589664841209175d0
       0.6375274178283377d0)))
-PY4CL2/CFFI> (numpy:sum * :axis '(0 2))
+PY4CL2-CFFI> (numpy:sum * :axis '(0 2))
 #(5.622032172332849d0 2.8405971707274817d0 4.483681664998286d0)
 ```
