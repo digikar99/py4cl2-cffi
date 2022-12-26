@@ -252,16 +252,29 @@ POINTER slot points to the object"
 
 (defmethod pythonize ((o symbol))
   (if (null o)
-      (pythonize-list ())
-      (let* ((name (symbol-name o))
-             (len  (length name)))
-        (pythonize (cond ((and (eq #\* (char name 0))
-                               (eq #\* (char name (1- len))))
-                          (nstring-upcase (subseq name 1 (- len 2))))
-                         ((every #'upper-case-p name)
-                          (string-downcase name))
+      (pyvalue* "None")
+      (let* ((symbol-name (symbol-name o))
+             (name (cond ((and (char= (char symbol-name 0) #\*)
+                               ;; *global-variable* == PYTHON_CONSTANT
+                               (char= (char symbol-name (1- (length symbol-name)))))
+                          (subseq symbol-name 1 (1- (length symbol-name))))
+                         ((string= "T" symbol-name)
+                          "True")
+                         ((every #'(lambda (char) ; = every character is either upper-case
+                                     (not (lower-case-p char))) ; or is not an alphabet
+                                 symbol-name)
+                          (format nil "~(~a~)" symbol-name))
                          (t
-                          name))))))
+                          symbol-name))))
+        ;; Replace - by _
+        (iter (for char in-string name)
+          (collect (if (char= char #\-)
+                       #\_
+                       char)
+            into python-name
+            result-type string)
+          ;; Use keywords as if to indicate keyword python argument name
+          (finally (return (pythonize python-name)))))))
 
 (defun pythonize-plist (plist)
   (pytrack
