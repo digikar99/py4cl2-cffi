@@ -111,7 +111,8 @@ POINTER slot points to the object"
     `(signed-byte ,num-bits)))
 
 (defmethod pythonize ((o #+sbcl sb-sys:system-area-pointer
-                         #-sbcl foreign-pointer))
+                         #+ccl  ccl:macptr
+                         #-(or sbcl ccl) foreign-pointer))
   o)
 (defmethod pythonize ((o python-object)) (python-object-pointer o))
 
@@ -207,7 +208,9 @@ POINTER slot points to the object"
      (with-foreign-objects ((dims    :long ndims))
        (dotimes (i ndims)
          (setf (mem-aref dims :long i) (array-dimension array i)))
-       (with-pointer-to-vector-data (array-data (sb-ext:array-storage-vector array))
+       (with-pointer-to-vector-data (array-data (array-storage array))
+         (incf-pointer array-data (* (cl-array-offset array)
+                                     (array-element-type-num-bytes array)))
          (numpy-funcall "PyArray_NewFromDescr"
                         :pointer ndarray-type
                         :pointer descr

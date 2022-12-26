@@ -14,8 +14,8 @@ To load "py4cl2-cffi/config":
   Load 1 ASDF system:
     py4cl2-cffi/config
 ; Loading "py4cl2-cffi/config"
-[package py4cl2/cffi-config]
-("py4cl2/cffi-config")
+[package py4cl2-cffi/config]
+("py4cl2-cffi/config")
 ```
 
 Set the various configuration parameters in the package `py4cl2/cffi-config` (optionally, first start the lisp process in the virtual environment and then set the configuration parameters):

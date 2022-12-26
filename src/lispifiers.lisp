@@ -72,7 +72,7 @@
          (array     (make-array dims :element-type element-type))
          (num-bytes (* (array-element-type-num-bytes array)
                        (reduce #'* dims :initial-value 1))))
-    (with-pointer-to-vector-data (to-vec (sb-ext:array-storage-vector array))
+    (with-pointer-to-vector-data (to-vec (array-storage array))
       (foreign-funcall "memcpy" :pointer to-vec :pointer from-vec :int num-bytes))
     array))
 

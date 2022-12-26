@@ -22,3 +22,30 @@
                      :pointer)
                             (:convention :cdecl)
                             ,@args))
+
+(defun cl-array-offset (array)
+  (declare (optimize speed)
+           (type cl:array array))
+  (loop :with total-offset :of-type (signed-byte 61) := 0
+        :if (typep array 'cl:simple-array)
+          :do (return total-offset)
+        :else
+          :do (multiple-value-bind (displaced-to offset)
+                  (cl:array-displacement array)
+                (declare (type (signed-byte 61) offset))
+                (incf total-offset offset)
+                (setq array displaced-to))))
+
+(defun array-storage (array)
+  (declare (ignorable array)
+           (optimize speed))
+  (loop :with array := array
+        :do (locally (declare #+sbcl (sb-ext:muffle-conditions sb-ext:compiler-note))
+              (typecase array
+                ((cl:simple-array * (*)) (return array))
+                (cl:simple-array (return #+sbcl (sb-ext:array-storage-vector array)
+                                         #+ccl (ccl::%array-header-data-and-offset array)
+                                         #-(or sbcl ccl)
+                                         (error "Don't know how to obtain ARRAY-STORAGE on ~S"
+                                                (lisp-implementation-type))))
+                (t (setq array (cl:array-displacement array)))))))
