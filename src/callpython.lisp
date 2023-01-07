@@ -64,7 +64,7 @@
   ;; FIXME: This isn't how it should be? We need strings
   (apply #'raw-pyeval (mapcar #'pythonize args)))
 (defun pycall* (python-callable &rest args)
-  "If PYTHON-CALLABLE is a string, it is treated as the name of a
+  "If PYTHON-CALLABLE is a string or symbol, it is treated as the name of a
 python callable, which is then retrieved using PYVALUE*"
   (declare (optimize debug))
   (python-start-if-not-alive)
@@ -101,7 +101,6 @@ python callable, which is then retrieved using PYVALUE*"
           (error "Python function ~A is not defined" python-callable)
           (apply #'%pycall pyfun args)))))
 
-;;; TODO: Define (SETF PYSLOT-VALUE)
 (defun pyslot-value (object slot-name)
   (declare (type string slot-name)
            (optimize debug))
@@ -110,6 +109,14 @@ python callable, which is then retrieved using PYVALUE*"
     (let* ((object-pointer (%pythonize object))
            (return-value   (%pyslot-value object-pointer slot-name)))
       (%pycall-return-value return-value))))
+
+(defun (setf pyslot-value) (new-value object slot-name)
+  (python-start-if-not-alive)
+  (with-pygc
+    (let* ((object-pointer (%pythonize object))
+           (new-value      (%pythonize new-value)))
+      (setf (%pyslot-value object-pointer slot-name) new-value))
+    new-value))
 
 (defun pymethod (object method-name &rest args)
   (declare (type string method-name)

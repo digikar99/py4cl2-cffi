@@ -187,9 +187,7 @@ class _py4cl_LispCallbackObject (object):
                                                              :pointer)
                                    :pointer)))
                (traceback-str
-                 (if (null-pointer-p traceback)
-                     (pycall "traceback.format_exception" value)
-                     (pycall "traceback.format_exception" type value traceback))))
+                 (pycall "traceback.format_exception" type value traceback)))
           (if traceback-str
               (error 'pyerror
                      :format-control "A python error occurred:~%  ~A~%~%Traceback:~%~%~A"
@@ -282,7 +280,9 @@ RAW-PY, RAW-PYEVAL, RAW-PYEXEC are only provided for backward compatibility."
                      :pointer)))
 
 (defun %pyvalue (python-value-or-variable)
-  "Get the foreign pointer associated with PYTHON-VALUE-OR-VARIABLE"
+  "Get the foreign pointer associated with PYTHON-VALUE-OR-VARIABLE.
+The PYTHON-VALUE-OR-VARIABLE may not contain '.' (full-stops)
+Use PYVALUE* if you want to refer to names containing full-stops."
   (declare (type (or foreign-pointer string) python-value-or-variable))
   (python-start-if-not-alive)
   (if (typep python-value-or-variable 'foreign-pointer)
@@ -306,6 +306,19 @@ RAW-PY, RAW-PYEVAL, RAW-PYEXEC are only provided for backward compatibility."
         (foreign-funcall "Py_IncRef" :pointer value)
         (pytrack value))))
 
+(defun (setf %pyvalue) (new-value python-variable)
+  "Sets the value of PYTHON-VARIABLE in the global namespace to NEW-VALUE"
+  (declare (type string python-variable)
+           (type foreign-pointer new-value))
+  (python-start-if-not-alive)
+  (foreign-funcall "PyDict_SetItemString"
+                   :pointer (py-module-dict "__main__")
+                   :string python-variable
+                   :pointer new-value
+                   :int)
+  (python-may-be-error)
+  new-value)
+
 (defun %pyslot-value (object-pointer slot-name)
   (declare (type string slot-name)
            (type foreign-pointer object-pointer)
@@ -322,6 +335,21 @@ RAW-PY, RAW-PYEVAL, RAW-PYEXEC are only provided for backward compatibility."
                                :format-arguments (list (pycall "str" object-pointer)
                                                        slot-name)))))
 
+(defun (setf %pyslot-value) (new-value object-pointer slot-name)
+  (declare (type string slot-name)
+           (type foreign-pointer object-pointer new-value)
+           (optimize debug))
+  (python-start-if-not-alive)
+  (with-pygc
+    (let* ((return-value (foreign-funcall "PyObject_SetAttrString"
+                                          :pointer object-pointer
+                                          :string slot-name
+                                          :pointer new-value
+                                          :int)))
+      (if (zerop return-value)
+          nil
+          (python-may-be-error)))))
+
 (defun pyvalue* (python-value-or-variable)
   "Get the non-lispified value associated with PYTHON-VALUE-OR-VARIABLE"
   (declare (type (or python-object string) python-value-or-variable))
@@ -334,8 +362,29 @@ RAW-PY, RAW-PYEVAL, RAW-PYEXEC are only provided for backward compatibility."
               :do (setq value (%pyslot-value value name))
               :finally (return value)))))
 
+(defun (setf pyvalue*) (new-value python-value-or-variable)
+  (declare (type (or python-object string) python-value-or-variable)
+           (type foreign-pointer new-value))
+  (python-start-if-not-alive)
+  (if (python-object-p python-value-or-variable)
+      python-value-or-variable
+      (let* ((names (split-sequence:split-sequence #\.
+                                                   python-value-or-variable)))
+        (if (endp (rest names))
+            (setf (%pyvalue (first names)) new-value)
+            (loop :for (name . rest) :on (rest names)
+                  :with value := (%pyvalue (first names))
+                  :if (endp rest)
+                    :do (setf (%pyslot-value value name) new-value)
+                  :else
+                    :do (setq value (%pyslot-value value name)))))))
+
 (defun pyvalue (python-value-or-variable)
   (declare (type (or python-object string) python-value-or-variable))
   (lispify (pyvalue* python-value-or-variable)))
 
-;; TODO: SETF versions
+(defun (setf pyvalue) (new-value python-value-or-variable)
+  (declare (type string python-value-or-variable))
+  (with-pygc
+    (setf (pyvalue* python-value-or-variable) (%pythonize new-value))
+    new-value))
