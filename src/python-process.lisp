@@ -161,6 +161,7 @@ class _py4cl_LispCallbackObject (object):
   "Set to non-NIL inside PYTHON-MAY-BE-ERROR to avoid infinite recursion.")
 
 (defun python-may-be-error ()
+  (declare (optimize debug))
   (python-start-if-not-alive)
   (let ((may-be-error-type (foreign-funcall "PyErr_Occurred" :pointer))
         (*retrieving-exceptions-p* t))
@@ -186,9 +187,13 @@ class _py4cl_LispCallbackObject (object):
                  (if (null-pointer-p traceback)
                      (pycall "traceback.format_exception" value)
                      (pycall "traceback.format_exception" type value traceback))))
-          (error 'pyerror
-                 :format-control "A python error occurred:~%  ~A~%~%Traceback:~%~%~A"
-                 :format-arguments (list value-str traceback-str)))))))
+          (if traceback-str
+              (error 'pyerror
+                     :format-control "A python error occurred:~%  ~A~%~%Traceback:~%~%~A"
+                     :format-arguments (list value-str traceback-str))
+              (error 'pyerror
+                     :format-control "A python error occurred:~%  ~A"
+                     :format-arguments (list value-str))))))))
 
 (defmacro with-python-exceptions (&body body)
   (with-gensyms (may-be-exception-type)
