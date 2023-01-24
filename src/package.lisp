@@ -1,11 +1,15 @@
 (defpackage :py4cl2-cffi
   (:use :cl :cffi :alexandria :py4cl2-cffi/config :iterate)
-  (:export #:pystart
+  (:export #:*internal-features*
+
+           #:pystart
            #:python-alive-p
            #:python-start-if-not-alive
            #:pystop
            #:raw-pyeval
+           #:pyeval
            #:raw-pyexec
+           #:pyexec
            #:pyerror
            #:pyvalue
 
@@ -18,9 +22,12 @@
            #:with-lispifiers
 
            #:pycall
+           #:pymethod
+           #:pygenerator
            #:pyslot-value
            #:pyhelp
            #:chain*
+           #:chain
            #:pyversion-info
            #:import-module
            #:import-function

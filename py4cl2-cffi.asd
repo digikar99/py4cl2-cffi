@@ -25,6 +25,7 @@
                (:file "shared-objects")
                (:static-file "libpychecks.so")
                (:file "numpy")
+               (:file "features")
                (:file "pythonizers")
                (:file "python-process")
                (:file "lispifiers")

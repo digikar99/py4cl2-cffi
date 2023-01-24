@@ -87,9 +87,12 @@ Value: The pointer to the module in embedded python")
 
   (load-python-and-libraries)
   (foreign-funcall "Py_Initialize")
-  (setq *numpy-c-api-pointer*
-        (float-features:with-float-traps-masked (:overflow)
-          (foreign-funcall "import_numpy" :pointer)))
+  (float-features:with-float-traps-masked (:overflow)
+    (when (numpy-installed-p)
+      (pushnew :typed-arrays *internal-features*))
+    (when (member :typed-arrays *internal-features*)
+      (setq *numpy-c-api-pointer*
+            (foreign-funcall "import_numpy" :pointer))))
   (import-module "sys")
   (import-module "traceback")
   (let ((python-output-reader-open-thread
