@@ -128,6 +128,8 @@ POINTER slot points to the object"
                             :double (coerce o 'double-float)
                             :pointer)))
 
+;; We are NOT using any *LISP-TO-PYTHON-ALIST* here.
+;; Use PYVALUE and friends instead of using PYTHONIZE for these.
 (defvar *lisp-to-python-alist*
   '((t . "True")
     (nil . "False")
@@ -143,9 +145,7 @@ POINTER slot points to the object"
     ("()" . "()")))
 
 (defmethod pythonize ((o string))
-  (if (member o *lisp-to-python-alist* :key #'cdr :test #'string=)
-      (pyvalue* o)
-      (pytrack (foreign-funcall "PyUnicode_FromString" :string o :pointer))))
+  (pytrack (foreign-funcall "PyUnicode_FromString" :string o :pointer)))
 
 (defmethod pythonize ((o list))
   (pythonize-list o))
@@ -296,7 +296,9 @@ POINTER slot points to the object"
           (finally (return python-name))))))
 
 (defmethod pythonize ((o symbol))
-  (pythonize (pythonize-symbol o)))
+  (if (null o)
+      (pyvalue* "None")
+      (pythonize (pythonize-symbol o))))
 
 (defun pythonize-plist (plist)
   (pytrack
