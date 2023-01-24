@@ -74,6 +74,8 @@ python callable, which is then retrieved using PYVALUE*"
                     (python-object-pointer python-callable))
                    (string
                     (pyvalue* python-callable))
+                   (symbol
+                    (pyvalue* (pythonize-symbol python-callable)))
                    (t
                     (pythonize python-callable)))))
       (if (null-pointer-p pyfun)
@@ -81,7 +83,7 @@ python callable, which is then retrieved using PYVALUE*"
           (apply #'%pycall* pyfun args)))))
 
 (defun pycall (python-callable &rest args)
-  "If PYTHON-CALLABLE is a string, it is treated as the name of a
+  "If PYTHON-CALLABLE is a string or symbol, it is treated as the name of a
 python callable, which is then retrieved using PYVALUE*"
   (declare (optimize debug))
   (python-start-if-not-alive)
@@ -91,6 +93,8 @@ python callable, which is then retrieved using PYVALUE*"
                     (python-object-pointer python-callable))
                    (string
                     (pyvalue* python-callable))
+                   (symbol
+                    (pyvalue* (pythonize-symbol python-callable)))
                    (t
                     (pythonize python-callable)))))
       (if (null-pointer-p pyfun)

@@ -128,8 +128,24 @@ POINTER slot points to the object"
                             :double (coerce o 'double-float)
                             :pointer)))
 
+(defvar *lisp-to-python-alist*
+  '((t . "True")
+    (nil . "False")
+    (float . "float")
+    (boolean . "bool")
+    (null . "type(None)")
+    (integer . "int")
+    (complex . "complex")
+    (vector . "list")
+    (hash-table . "dict")
+    (string . "str")
+    ("None" . "None")
+    ("()" . "()")))
+
 (defmethod pythonize ((o string))
-  (pytrack (foreign-funcall "PyUnicode_FromString" :string o :pointer)))
+  (if (member o *lisp-to-python-alist* :key #'cdr :test #'string=)
+      (pyvalue* o)
+      (pytrack (foreign-funcall "PyUnicode_FromString" :string o :pointer))))
 
 (defmethod pythonize ((o list))
   (pythonize-list o))
@@ -253,10 +269,10 @@ POINTER slot points to the object"
                (pyuntrack pyelt))
      tuple)))
 
-(defmethod pythonize ((o symbol))
-  (if (null o)
-      (pyvalue* "None")
-      (let* ((symbol-name (symbol-name o))
+(defun pythonize-symbol (symbol)
+  (if (null symbol)
+      "None"
+      (let* ((symbol-name (symbol-name symbol))
              (name (cond ((and (char= (char symbol-name 0) #\*)
                                ;; *global-variable* == PYTHON_CONSTANT
                                (char= (char symbol-name (1- (length symbol-name)))))
@@ -277,7 +293,10 @@ POINTER slot points to the object"
             into python-name
             result-type string)
           ;; Use keywords as if to indicate keyword python argument name
-          (finally (return (pythonize python-name)))))))
+          (finally (return python-name))))))
+
+(defmethod pythonize ((o symbol))
+  (pythonize (pythonize-symbol o)))
 
 (defun pythonize-plist (plist)
   (pytrack
