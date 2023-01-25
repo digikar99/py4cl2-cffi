@@ -41,20 +41,23 @@ POINTER slot points to the object"
 
 (defun finalization-lambda (address)
   (lambda ()
-    (handler-case
-        (pyforeign-funcall "Py_DecRef" :pointer (make-pointer address))
-      (sb-sys:memory-fault-error ()
-        (format t "Memory fault error while DecRef-ing python object at ~A~%"
-                address)
-        ;; (format t "Memory fault error while DecRef-ing python object~%  ~A~%  ~A"
-        ;;         (foreign-string-to-lisp
-        ;;          (pyforeign-funcall
-        ;;           "PyUnicode_AsUTF8"
-        ;;           :pointer (pyforeign-funcall "PyObject_Str"
-        ;;                                       :pointer (make-pointer address) :pointer)
-        ;;           :pointer))
-        ;;         address)
-        ))))
+    (pyforeign-funcall "Py_DecRef" :pointer (make-pointer address))
+
+    ;; (handler-case
+
+    ;;     (sb-sys:memory-fault-error
+    ;;      ()
+    ;;      (format t "Memory fault error while DecRef-ing python object at ~A~%"
+    ;;              address)
+    ;;      (format t "Memory fault error while DecRef-ing python object~%  ~A~%  ~A"
+    ;;              (foreign-string-to-lisp
+    ;;               (pyforeign-funcall
+    ;;                "PyUnicode_AsUTF8"
+    ;;                :pointer (pyforeign-funcall "PyObject_Str"
+    ;;                                            :pointer (make-pointer address) :pointer)
+    ;;                :pointer))
+    ;;              address)))
+    ))
 
 (defun pytrack* (python-object)
   "Call this function when the foreign function of the Python C-API returns
