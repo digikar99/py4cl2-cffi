@@ -77,6 +77,20 @@
       (pyforeign-funcall "memcpy" :pointer to-vec :pointer from-vec :int num-bytes))
     array))
 
+  ;; TODO: Test these aka find reference in documentation for why this works
+(macrolet ((def (numpy-type ctype)
+             `(define-lispifier ,numpy-type (o) (mem-ref o ,ctype 16))))
+  (def "numpy.float64" :double)
+  (def "numpy.float32" :float)
+  (def "numpy.uint64" :uint64)
+  (def "numpy.uint32" :uint32)
+  (def "numpy.uint16" :uint16)
+  (def "numpy.uint8"  :uint8)
+  (def "numpy.int64"  :int64)
+  (def "numpy.int32"  :int32)
+  (def "numpy.int16"  :int16)
+  (def "numpy.int8"   :int8))
+
 (defun array-element-type-num-bytes (array)
   (eswitch ((array-element-type array) :test #'type=)
     ('single-float 4)

@@ -58,7 +58,7 @@ PY4CL2/CFFI-CONFIG> (setq *python-shared-object-path* #P"/home/user/miniconda3/l
 - [x] lisp callbacks
 - [x] numpy arrays to non-CL arrays
 - [x] arbitrary module import
-- [ ] numpy floats
+- [x] numpy floats
 - [ ] optimizing pythonizers and lispifiers using static-dispatch
 
 ... and much more ...
