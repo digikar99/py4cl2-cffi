@@ -25,52 +25,6 @@
     (setf (gethash handle *lisp-objects*) object)
     handle))
 
-;;; Reference counting utilities
-
-(defvar *python-new-references* (make-hash-table)
-  "A foreign object returned as a result of python C API function that
-returns a new reference should call PYTRACK.
-
-PYGC will then decrement the references when called.")
-
-(defvar *top-level-p* t
-  "Used inside PYGC and WITH-PYGC to avoid calling PYGC at non-top levels.
-This avoids inadvertent calls to DecRef during recursions.")
-
-(defun pygc ()
-  (when *top-level-p*
-    (maphash-keys (lambda (key)
-                    (cffi:foreign-funcall "Py_DecRef" :pointer (make-pointer key))
-                    (remhash key *python-new-references*))
-                  *python-new-references*))
-  nil)
-
-(defmacro with-pygc (&body body)
-  `(unwind-protect
-     (let ((*top-level-p* nil))
-       ,@body)
-     ;; FIXME: When to call CLEAR-LISP-OBJECTS
-     (pygc)))
-
-(defun pytrack (python-object-pointer)
-  "Call this function when the foreign function of the Python C-API returns
-a New Reference"
-  (declare (type foreign-pointer python-object-pointer)
-           (optimize speed))
-  (unless (null-pointer-p python-object-pointer)
-    (setf (gethash (pointer-address python-object-pointer) *python-new-references*) t))
-  python-object-pointer)
-
-(defun pyuntrack (python-object-pointer)
-  "Call this function when the foreign function of the Python C-API steals
-a New Reference"
-  (declare (type foreign-pointer python-object-pointer)
-           (optimize speed))
-  (let ((ht   *python-new-references*)
-        (addr (pointer-address python-object-pointer)))
-    (remhash addr ht))
-  nil)
-
 ;;; Unknown python objects
 (defstruct python-object
   "A pointer to a python object which couldn't be translated into a Lisp value.
@@ -78,6 +32,47 @@ TYPE slot is the python type string
 POINTER slot points to the object"
   type
   pointer)
+
+(defun make-tracked-python-object (&key type pointer)
+  (let* ((python-object (make-python-object :type type :pointer pointer)))
+    (unless (null-pointer-p pointer)
+      (tg:finalize python-object (finalization-lambda (pointer-address pointer))))
+    python-object))
+
+(defun finalization-lambda (address)
+  (lambda ()
+    (handler-case
+        (pyforeign-funcall "Py_DecRef" :pointer (make-pointer address))
+      (sb-sys:memory-fault-error ()
+        (format t "Memory fault error while DecRef-ing python object at ~A~%"
+                address)
+        ;; (format t "Memory fault error while DecRef-ing python object~%  ~A~%  ~A"
+        ;;         (foreign-string-to-lisp
+        ;;          (pyforeign-funcall
+        ;;           "PyUnicode_AsUTF8"
+        ;;           :pointer (pyforeign-funcall "PyObject_Str"
+        ;;                                       :pointer (make-pointer address) :pointer)
+        ;;           :pointer))
+        ;;         address)
+        ))))
+
+(defun pytrack* (python-object)
+  "Call this function when the foreign function of the Python C-API returns
+a New Reference"
+  (declare (type python-object python-object)
+           (optimize speed))
+  (let ((ptr (python-object-pointer python-object)))
+    (unless (null-pointer-p ptr)
+      (tg:finalize python-object (finalization-lambda (pointer-address ptr)))))
+  python-object)
+
+(defun pyuntrack* (python-object)
+  "Call this function when the foreign function of the Python C-API steals
+a New Reference"
+  (declare (type python-object python-object)
+           (optimize speed))
+  (tg:cancel-finalization python-object)
+  nil)
 
 (defvar *print-python-object* t
   "If non-NIL, python's 'str' is called on the python-object before printing.")
@@ -89,19 +84,21 @@ POINTER slot points to the object"
 
 (defmethod print-object ((o python-object) s)
   (print-unreadable-object (o s :type t :identity t)
-    (with-slots (type pointer) o
-      (if *print-python-object*
-          (progn
-            (format s ":type ~A~%"
-                    (lispify (foreign-funcall "PyObject_Str" :pointer type :pointer)))
-            (pprint-logical-block (s nil :per-line-prefix "  ")
-              ()
-              (write-string (lispify (foreign-funcall "PyObject_Str"
-                                                      :pointer pointer :pointer))
-                            s))
-            (terpri s))
-          (format s ":POINTER ~A :TYPE ~A" pointer
-                  (lispify (foreign-funcall "PyObject_Str" :pointer type :pointer)))))))
+    (with-pygc
+      (with-slots (type pointer) o
+        (if *print-python-object*
+            (progn
+              (format s ":type ~A~%"
+                      (lispify (pyforeign-funcall "PyObject_Str" :pointer type :pointer)))
+              (pprint-logical-block (s nil :per-line-prefix "  ")
+                ()
+                (write-string (lispify (pyforeign-funcall "PyObject_Str"
+                                                          :pointer pointer :pointer))
+                              s))
+              (terpri s))
+            (format s ":POINTER ~A :TYPE ~A" pointer
+                    (lispify (pyforeign-funcall "PyObject_Str"
+                                                :pointer type :pointer))))))))
 
 (declaim (type (function (t) foreign-pointer) pythonize))
 (defgeneric pythonize (lisp-value-or-object))
@@ -120,13 +117,13 @@ POINTER slot points to the object"
   (unless (typep o 'c-long)
     ;; TODO: Proper warning class
     (warn "Given integer ~S is too bit to be interpreted as a C long" o))
-  (pytrack (foreign-funcall "PyLong_FromLong" :long o :pointer)))
+  (pyforeign-funcall "PyLong_FromLong" :long o :pointer))
 
 (defmethod pythonize ((o float))
   ;; TODO: Different numpy float types: float32 and float64
-  (pytrack (foreign-funcall "PyFloat_FromDouble"
-                            :double (coerce o 'double-float)
-                            :pointer)))
+  (pyforeign-funcall "PyFloat_FromDouble"
+                     :double (coerce o 'double-float)
+                     :pointer))
 
 ;; We are NOT using any *LISP-TO-PYTHON-ALIST* here.
 ;; Use PYVALUE and friends instead of using PYTHONIZE for these.
@@ -145,43 +142,41 @@ POINTER slot points to the object"
     ("()" . "()")))
 
 (defmethod pythonize ((o string))
-  (pytrack (foreign-funcall "PyUnicode_FromString" :string o :pointer)))
+  (pyforeign-funcall "PyUnicode_FromString" :string o :pointer))
 
 (defmethod pythonize ((o list))
   (pythonize-list o))
 
 (defmethod pythonize ((o vector))
   (if (typep o '(vector t))
-      (pytrack
-       (let ((list (foreign-funcall "PyList_New" :int (length o) :pointer)))
-         (loop :for elt :across o
-               :for pyelt := (pythonize elt)
-               :for pos :from 0
-               :do (if (zerop (foreign-funcall "PyList_SetItem"
-                                               :pointer list
-                                               :int pos
-                                               :pointer pyelt
-                                               :int))
-                       (pyuntrack pyelt)
-                       (python-may-be-error)))
-         list))
+      (let ((list (pyforeign-funcall "PyList_New" :int (length o) :pointer)))
+        (loop :for elt :across o
+              :for pyelt := (pythonize elt)
+              :for pos :from 0
+              :do (if (zerop (pyforeign-funcall "PyList_SetItem"
+                                                :pointer list
+                                                :int pos
+                                                :pointer pyelt
+                                                :int))
+                      (pyuntrack pyelt)
+                      (python-may-be-error)))
+        list)
       (pythonize-array o)))
 
 (defmethod pythonize ((o hash-table))
-  (pytrack
-   (let ((dict (foreign-funcall "PyDict_New" :pointer)))
-     (maphash (lambda (key value)
-                (let ((key   (pythonize key))
-                      (value (pythonize value)))
-                  (if (zerop (foreign-funcall "PyDict_SetItem"
-                                              :pointer dict
-                                              :pointer key
-                                              :pointer value
-                                              :int))
-                      nil ;; No reference stealing
-                      (python-may-be-error))))
-              o)
-     dict)))
+  (let ((dict (pyforeign-funcall "PyDict_New" :pointer)))
+    (maphash (lambda (key value)
+               (let ((key   (pythonize key))
+                     (value (pythonize value)))
+                 (if (zerop (pyforeign-funcall "PyDict_SetItem"
+                                               :pointer dict
+                                               :pointer key
+                                               :pointer value
+                                               :int))
+                     nil ;; No reference stealing
+                     (python-may-be-error))))
+             o)
+    dict))
 
 (defmethod pythonize ((o array))
   (pythonize-array o))
@@ -201,25 +196,26 @@ POINTER slot points to the object"
                                                       (intern (lispify-name elt) :keyword)
                                                       elt)))))))
     (error (c)
-      (foreign-funcall "PyErr_SetString"
-                       :pointer (pytype "Exception")
-                       :string (format nil "~A" c))
+      (pyforeign-funcall "PyErr_SetString"
+                         :pointer (pytype "Exception")
+                         :string (format nil "~A" c))
       (pythonize 0))))
 
 (defmethod pythonize ((o function))
   (let ((lisp-callback-object
           (pycall "_py4cl_LispCallbackObject" (object-handle o))))
+    ;; FIXME: Should PyTrack be here?
     (pytrack (python-object-pointer lisp-callback-object))))
 
 (defun pythonize-array (array)
   (pytrack
-   (let* ((descr        (foreign-funcall "PyArray_Descr_from_element_type_code"
-                                         :string (array-element-typecode array)
-                                         :pointer))
-          (ndarray-type (foreign-funcall "PyDict_GetItemString"
-                                         :pointer (py-module-dict "numpy")
-                                         :string "ndarray"
-                                         :pointer))
+   (let* ((descr        (pyforeign-funcall "PyArray_Descr_from_element_type_code"
+                                           :string (array-element-typecode array)
+                                           :pointer))
+          (ndarray-type (pyforeign-funcall "PyDict_GetItemString"
+                                           :pointer (py-module-dict "numpy")
+                                           :string "ndarray"
+                                           :pointer))
           (ndims        (array-rank array)))
      (with-foreign-objects ((dims    :long ndims))
        (dotimes (i ndims)
@@ -255,19 +251,24 @@ POINTER slot points to the object"
     ('(unsigned-byte 16) "ub16")
     ('(unsigned-byte 08) "ub8")))
 
+(defun integer->py-size (int)
+  (let ((len (pyforeign-funcall "PyLong_FromLong" :long int :pointer)))
+    (pyforeign-funcall "PyLong_AsSsize_t" :pointer len :pointer)))
+
 (defun pythonize-list (list)
-  (pytrack
-   (let ((tuple (foreign-funcall "PyTuple_New" :int (length list) :pointer)))
-     (loop :for elt :in list
-           :for pyelt := (pythonize elt)
-           :for pos :from 0
-           :do (assert (zerop (foreign-funcall "PyTuple_SetItem"
-                                               :pointer tuple
-                                               :int pos
-                                               :pointer pyelt
-                                               :int)))
-               (pyuntrack pyelt))
-     tuple)))
+  (let* ((len   (length list))
+         (tuple (pyforeign-funcall "PyTuple_New" :int len :pointer)))
+    (assert (not (null-pointer-p tuple)))
+    (loop :for elt :in list
+          :for pyelt := (pythonize elt)
+          :for pos :from 0
+          :do (assert (zerop (pyforeign-funcall "PyTuple_SetItem"
+                                                :pointer tuple
+                                                :int pos
+                                                :pointer pyelt
+                                                :int)))
+              (pyuntrack pyelt))
+    tuple))
 
 (defun pythonize-symbol (symbol)
   (if (null symbol)
@@ -301,17 +302,16 @@ POINTER slot points to the object"
       (pythonize (pythonize-symbol o))))
 
 (defun pythonize-plist (plist)
-  (pytrack
-   (if (null plist)
-       (null-pointer)
-       (let ((dict (foreign-funcall "PyDict_New" :pointer)))
-         (doplist (key val plist)
-                  (assert (zerop (foreign-funcall "PyDict_SetItem"
-                                                  :pointer dict
-                                                  :pointer (pythonize key)
-                                                  :pointer (pythonize val)
-                                                  :int))))
-         dict))))
+  (if (null plist)
+      (null-pointer)
+      (let ((dict (pyforeign-funcall "PyDict_New" :pointer)))
+        (doplist (key val plist)
+                 (assert (zerop (pyforeign-funcall "PyDict_SetItem"
+                                                   :pointer dict
+                                                   :pointer (pythonize key)
+                                                   :pointer (pythonize val)
+                                                   :int))))
+        dict)))
 
 (defvar *pythonizers*
   ()

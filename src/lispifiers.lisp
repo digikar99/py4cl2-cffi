@@ -8,14 +8,15 @@
          (lambda (,pyobject-var) ,@body)))
 
 (define-lispifier "int" (o)
-  (foreign-funcall "PyLong_AsLong" :pointer o :long))
+  (pyforeign-funcall "PyLong_AsLong" :pointer o :long))
 
 (define-lispifier "float" (o)
-  (foreign-funcall "PyFloat_AsDouble" :pointer o :double))
+  (pyforeign-funcall "PyFloat_AsDouble" :pointer o :double))
 
 (define-lispifier "str" (o)
   (nth-value 0
-             (foreign-string-to-lisp (foreign-funcall "PyUnicode_AsUTF8" :pointer o :pointer))))
+             (foreign-string-to-lisp
+              (pyforeign-funcall "PyUnicode_AsUTF8" :pointer o :pointer))))
 
 (define-lispifier "bool" (o)
   (cond ((pointer-eq o (pyvalue* "True"))
@@ -26,36 +27,36 @@
          (error "Object at ~S is a bool but is neither 'True' or 'False'" o))))
 
 (define-lispifier "tuple" (o)
-  (let ((py-size (foreign-funcall "PyTuple_Size" :pointer o :int)))
+  (let ((py-size (pyforeign-funcall "PyTuple_Size" :pointer o :int)))
     (loop :for i :below py-size
-          :collect (lispify (foreign-funcall "PyTuple_GetItem" :pointer o
-                                                               :int i
-                                                               :pointer)))))
+          :collect (lispify (pyforeign-funcall "PyTuple_GetItem" :pointer o
+                                                                 :int i
+                                                                 :pointer)))))
 
 (define-lispifier "list" (o)
-  (let* ((py-size (foreign-funcall "PyList_Size" :pointer o :int))
+  (let* ((py-size (pyforeign-funcall "PyList_Size" :pointer o :int))
          (vec     (make-array py-size :element-type t)))
     (loop :for i :below py-size
           :do (setf (svref vec i)
-                    (lispify (foreign-funcall "PyList_GetItem" :pointer o
-                                                               :int i
-                                                               :pointer))))
+                    (lispify (pyforeign-funcall "PyList_GetItem" :pointer o
+                                                                 :int i
+                                                                 :pointer))))
     vec))
 
 (define-lispifier "dict" (o)
-  (let ((py-size (foreign-funcall "PyDict_Size" :pointer o :long))
+  (let ((py-size (pyforeign-funcall "PyDict_Size" :pointer o :long))
         (hash-table (make-hash-table :test #'equalp))
-        (py-keys (foreign-funcall "PyDict_Keys" :pointer o :pointer)))
+        (py-keys (pyforeign-funcall "PyDict_Keys" :pointer o :pointer)))
     (loop :for i :below py-size
-          :for py-key := (foreign-funcall "PyList_GetItem"
-                                          :pointer py-keys
-                                          :int i
-                                          :pointer)
+          :for py-key := (pyforeign-funcall "PyList_GetItem"
+                                            :pointer py-keys
+                                            :int i
+                                            :pointer)
           :for key := (lispify py-key)
-          :for value := (lispify (foreign-funcall "PyDict_GetItem"
-                                                  :pointer o
-                                                  :pointer py-key
-                                                  :pointer))
+          :for value := (lispify (pyforeign-funcall "PyDict_GetItem"
+                                                    :pointer o
+                                                    :pointer py-key
+                                                    :pointer))
           :do (setf (gethash key hash-table) value))
     hash-table))
 
@@ -65,15 +66,15 @@
                               (*package* (find-package :cl)))
                          (read-from-string
                           (foreign-string-to-lisp
-                           (foreign-funcall "PyArray_element_type_from_array"
-                                            :pointer o :pointer)))))
-         (from-vec  (foreign-funcall "PyArray_Data" :pointer o :pointer))
+                           (pyforeign-funcall "PyArray_element_type_from_array"
+                                              :pointer o :pointer)))))
+         (from-vec  (pyforeign-funcall "PyArray_Data" :pointer o :pointer))
          ;; FIXME: Strides
          (array     (make-array dims :element-type element-type))
          (num-bytes (* (array-element-type-num-bytes array)
                        (reduce #'* dims :initial-value 1))))
     (with-pointer-to-vector-data (to-vec (array-storage array))
-      (foreign-funcall "memcpy" :pointer to-vec :pointer from-vec :int num-bytes))
+      (pyforeign-funcall "memcpy" :pointer to-vec :pointer from-vec :int num-bytes))
     array))
 
 (defun array-element-type-num-bytes (array)
@@ -91,24 +92,32 @@
 
 (defun lispify (pyobject)
   (declare (type foreign-pointer pyobject))
-  (let* ((pyobject-type (foreign-funcall "PyObject_Type"
-                                         :pointer pyobject
-                                         :pointer))
+  (let* ((pyobject-type (pyforeign-funcall "PyObject_Type"
+                                           :pointer pyobject
+                                           :pointer))
          (pytype-name (if (null-pointer-p pyobject-type)
                           nil
                           (foreign-string-to-lisp
-                           (foreign-funcall "PyTypeObject_Name"
-                                            :pointer (pytrack pyobject-type)
-                                            :pointer))))
+                           (pyforeign-funcall "PyTypeObject_Name"
+                                              :pointer pyobject-type
+                                              :pointer))))
          ;; FIXME: What about names in modules?
          (lispifier (assoc-value *py-type-lispifier-table* pytype-name :test #'string=)))
+    (pyobject-tracked-p pyobject)
     (customize
      (cond ((null-pointer-p pyobject-type)
             nil)
            ((string= pytype-name "NoneType")
             nil)
            ((null lispifier)
-            (make-python-object :pointer pyobject :type pyobject-type))
+            (pyuntrack pyobject)
+            (pyuntrack pyobject-type)
+            ;; (if (pyobject-tracked-p pyobject)
+            ;;     (progn
+            ;;       (make-tracked-python-object :pointer pyobject :type pyobject-type))
+            ;;     (make-python-object :pointer pyobject :type pyobject-type))
+            (make-tracked-python-object :pointer pyobject :type pyobject-type)
+            )
            (t
             (funcall lispifier pyobject))))))
 

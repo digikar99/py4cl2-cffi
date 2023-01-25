@@ -38,6 +38,7 @@ PY4CL2/CFFI-CONFIG> (setq *python-shared-object-path* #P"/home/user/miniconda3/l
 
 - [x] garbage collection touches
   - An effort has been made to keep a track of reference counts; but if something is missed, and users notice a memory leak, feel free to [raise an issue](https://github.com/digikar99/py4cl2/issues/new)!
+  - trivial-garbage:finalize is used to establish the decref process for the pointer corresponding to the pyobject. However, this requires holding the GIL, and so, the user might need to evaluate `(foreign-funcall "PyGILState_Release" :long 0)` at the top level.
 - [x] function return-values
 - [x] function arguments
 - [x] integers
@@ -55,7 +56,7 @@ PY4CL2/CFFI-CONFIG> (setq *python-shared-object-path* #P"/home/user/miniconda3/l
 - [x] python stdout to lisp stdout (asynchronous, make sure to `sys.stdout.flush()`)
 - [ ] `with-python-output`
 - [x] lisp callbacks
-- [ ] numpy arrays to non-CL arrays
+- [x] numpy arrays to non-CL arrays
 - [x] arbitrary module import
 - [ ] numpy floats
 - [ ] optimizing pythonizers and lispifiers using static-dispatch
@@ -77,16 +78,16 @@ Tested only on Ubuntu 20.04 (CI) and Ubuntu 18.04 (personal machine). Porting to
 However, when capable, the CFFI approach can be a 50 times faster than py4cl2.
 
 ```lisp
-CL-USER> (py4cl2-cffi:raw-py "def foo(): return str(1)")
+CL-USER> (py4cl2-cffi:raw-pyexec "def foo(): return str(1)")
 0
 CL-USER> (time (dotimes (i 10000)
                  (py4cl2-cffi:pycall "foo")))
 Evaluation took:
-  0.024 seconds of real time
-  0.023645 seconds of total run time (0.022448 user, 0.001197 system)
+  0.080 seconds of real time
+  0.079740 seconds of total run time (0.079740 user, 0.000000 system)
   100.00% CPU
-  52,197,588 processor cycles
-  983,040 bytes consed
+  174,443,654 processor cycles
+  3,045,440 bytes consed
 
 NIL
 CL-USER> (py4cl2:raw-pyexec "def foo(): return str(1)")
@@ -107,6 +108,13 @@ NIL
 #### Passing arrays by reference:
 
 ```lisp
+PY4CL2-CFFI> (ql:quickload "array-operations")
+To load "array-operations":
+  Load 1 ASDF system:
+    array-operations
+; Loading "array-operations"
+
+("array-operations")
 PY4CL2-CFFI> (let ((a (aops:rand* 'single-float 10))
                    (b (aops:rand* 'single-float 10)))
                (print a)
@@ -191,4 +199,33 @@ PY4CL2-CFFI> (numpy.random:random '(2 3 4))
       0.6375274178283377d0)))
 PY4CL2-CFFI> (numpy:sum * :axis '(0 2))
 #(5.622032172332849d0 2.8405971707274817d0 4.483681664998286d0)
+PY4CL2-CFFI> (with-lispifiers ((array (lambda (o)
+                                        (magicl:from-array o (array-dimensions o)))))
+               (numpy.random:random '(3 4)))
+#<MAGICL:MATRIX/DOUBLE-FLOAT (3x4):
+   0.814     0.278     0.330     0.782
+   0.858     0.342     0.282     0.225
+   0.806     0.144     0.543     0.215>
 ```
+
+### Developer Thoughts on Garbage Collection
+
+If you are working with raw pointers, then all bets are off about handling garbage collection.
+
+Thus, the only time garbage collection should "work correctly" aka - without (i) segmentation faults (ii) memory leaks - is when you are *not* working with raw pointers. In other words, functions that return lisp values *must* perform garbage collection.
+
+An exhaustive list of functions that return lisp values include:
+
+- pyvalue
+- pyslot-value
+- pymethod
+- pycall
+- pyhelp
+- pyslot-list
+- pymethod-list
+
+Even amongst these, GC should not take place until the top level call has done its processing. To be more intrincate seems to require a merge of the python interpreter with the lisp interpreter.
+
+The single place which decides what to *not* collect is the function "lispify" when it returns a python-object struct-wrapper around the pyobject. In these cases, we PYUNTRACK the pointers.
+
+During DecRef-ing through an object finalizer, one needs to hold the GIL, because at least on SBCL, the finalizer may be called through any thread. DecRef-ing without holding the GIL results in segmentation faults.

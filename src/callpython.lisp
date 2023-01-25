@@ -21,44 +21,42 @@
     (let ((lispified-return-value (if (typep return-value 'foreign-pointer)
                                       (lispify return-value)
                                       return-value)))
-      (when (typep lispified-return-value 'foreign-pointer)
-        (pytrack return-value))
       lispified-return-value)))
 
 (defun %pycall* (python-callable-pointer &rest args)
   (declare (type foreign-pointer python-callable-pointer)
            (optimize debug))
-  (with-pygc
-    (let ((pythonized-args (pythonize-args args)))
-      (multiple-value-bind (pos-args kwargs)
-          (args-and-kwargs pythonized-args)
-        (let* ((return-value (foreign-funcall "PyObject_Call"
+  (let ((pythonized-args (pythonize-args args)))
+    (multiple-value-bind (pos-args kwargs)
+        (args-and-kwargs pythonized-args)
+      ;; PyObject_Call returns a new reference
+      (let* ((return-value (pyforeign-funcall "PyObject_Call"
                                               :pointer python-callable-pointer
                                               :pointer pos-args
                                               :pointer kwargs
                                               :pointer)))
-          return-value)))))
+        return-value))))
 
 (defun %pycall (python-callable-pointer &rest args)
   (declare (type foreign-pointer python-callable-pointer)
            (optimize debug))
-  (with-pygc
-    (let ((pythonized-args (pythonize-args args)))
-      (multiple-value-bind (pos-args kwargs)
-          (args-and-kwargs pythonized-args)
-        (let* ((return-value (foreign-funcall "PyObject_Call"
+  (let ((pythonized-args (pythonize-args args)))
+    (multiple-value-bind (pos-args kwargs)
+        (args-and-kwargs pythonized-args)
+      ;; PyObject_Call returns a new reference
+      (let* ((return-value (pyforeign-funcall "PyObject_Call"
                                               :pointer python-callable-pointer
                                               :pointer pos-args
                                               :pointer kwargs
                                               :pointer)))
-          ;; If the RETURN-VALUE is an array amongst the inputs,
-          ;; then avoid lispifying the return-value
-          (mapc (lambda (pyarg arg)
-                  (when (and (arrayp arg)
-                             (pointer-eq pyarg return-value))
-                    (setq return-value arg)))
-                pythonized-args args)
-          (%pycall-return-value return-value))))))
+        ;; If the RETURN-VALUE is an array amongst the inputs,
+        ;; then avoid lispifying the return-value
+        (mapc (lambda (pyarg arg)
+                (when (and (arrayp arg)
+                           (pointer-eq pyarg return-value))
+                  (setq return-value arg)))
+              pythonized-args args)
+        (%pycall-return-value return-value)))))
 
 (defun pyeval (&rest args)
   ;; FIXME: This isn't how it should be? We need strings
@@ -68,19 +66,18 @@
 python callable, which is then retrieved using PYVALUE*"
   (declare (optimize debug))
   (python-start-if-not-alive)
-  (with-pygc
-    (let ((pyfun (typecase python-callable
-                   (python-object
-                    (python-object-pointer python-callable))
-                   (string
-                    (pyvalue* python-callable))
-                   (symbol
-                    (pyvalue* (pythonize-symbol python-callable)))
-                   (t
-                    (pythonize python-callable)))))
-      (if (null-pointer-p pyfun)
-          (error "Python function ~A is not defined" python-callable)
-          (apply #'%pycall* pyfun args)))))
+  (let ((pyfun (typecase python-callable
+                 (python-object
+                  (python-object-pointer python-callable))
+                 (string
+                  (pyvalue* python-callable))
+                 (symbol
+                  (pyvalue* (pythonize-symbol python-callable)))
+                 (t
+                  (pythonize python-callable)))))
+    (if (null-pointer-p pyfun)
+        (error "Python function ~A is not defined" python-callable)
+        (apply #'%pycall* pyfun args))))
 
 (defun pycall (python-callable &rest args)
   "If PYTHON-CALLABLE is a string or symbol, it is treated as the name of a
@@ -122,10 +119,11 @@ python callable, which is then retrieved using PYVALUE*"
   (declare (type string method-name)
            (optimize debug))
   (python-start-if-not-alive)
-  (let* ((object-pointer (%pythonize object))
-         (method         (%pyslot-value object-pointer method-name)))
-    (or (apply #'%pycall method args)
-        (lispify object-pointer))))
+  (with-pygc
+    (let* ((object-pointer (%pythonize object))
+           (method         (%pyslot-value object-pointer method-name)))
+      (or (apply #'%pycall method args)
+          (lispify object-pointer)))))
 
 (defun pyhelp (string-or-python-callable)
   (pycall "help" string-or-python-callable)
@@ -147,7 +145,7 @@ python callable, which is then retrieved using PYVALUE*"
         :finally (return value)))
 
 (defun @ (&rest chain)
-  (apply #'chain chain))
+    (apply #'chain chain))
 
 (defun pyversion-info ()
   "Return a list, using the result of python's sys.version_info."

@@ -19,7 +19,7 @@
 (defun python-alive-p ()
   (unless *python-libraries-loaded-p*
     (load-python-and-libraries))
-  (/= 0 (foreign-funcall "Py_IsInitialized" :int)))
+  (/= 0 (pyforeign-funcall "Py_IsInitialized" :int)))
 
 (defun python-start-if-not-alive ()
   (unless (python-alive-p) (pystart)))
@@ -35,7 +35,7 @@ Value: The pointer to the module in embedded python")
       (progn
         (python-start-if-not-alive)
         (setf (py-module-pointer name)
-              (foreign-funcall "PyImport_AddModule" :string name :pointer)))))
+              (pyforeign-funcall "PyImport_AddModule" :string name :pointer)))))
 
 (defun (setf py-module-pointer) (module-pointer name)
   (declare (type string name))
@@ -43,9 +43,9 @@ Value: The pointer to the module in embedded python")
 
 (defun py-module-dict (name)
   (declare (type string name))
-  (foreign-funcall "PyModule_GetDict"
-                   :pointer (py-module-pointer name)
-                   :pointer))
+  (pyforeign-funcall "PyModule_GetDict"
+                     :pointer (py-module-pointer name)
+                     :pointer))
 
 (defvar *py-global-dict* nil
   "Pointer to the dictionary mapping names to PyObjects in the global namespace of embedded python.")
@@ -114,11 +114,11 @@ Value: The pointer to the module in embedded python")
 
   (dolist (mod '("__main__" "builtins" "sys"))
     (setf (py-module-pointer mod)
-          (foreign-funcall "PyImport_AddModule" :string mod :pointer)))
+          (pyforeign-funcall "PyImport_AddModule" :string mod :pointer)))
   (setq *py-global-dict*
-        (foreign-funcall "PyModule_GetDict" :pointer (py-module-pointer "__main__") :pointer))
+        (pyforeign-funcall "PyModule_GetDict" :pointer (py-module-pointer "__main__") :pointer))
   (setq *py-builtins-dict*
-        (foreign-funcall "PyModule_GetDict" :pointer (py-module-pointer "builtins") :pointer))
+        (pyforeign-funcall "PyModule_GetDict" :pointer (py-module-pointer "builtins") :pointer))
 
   (foreign-funcall "set_lisp_callback_fn_ptr" :pointer (callback lisp-callback-fn))
   (raw-pyexec #.(format nil "
@@ -166,35 +166,36 @@ class _py4cl_LispCallbackObject (object):
 (defun python-may-be-error ()
   (declare (optimize debug))
   (python-start-if-not-alive)
-  (let ((may-be-error-type (foreign-funcall "PyErr_Occurred" :pointer))
+  (let ((may-be-error-type (pyforeign-funcall "PyErr_Occurred" :pointer))
         (*retrieving-exceptions-p* t))
     (unless (null-pointer-p may-be-error-type)
-      (with-foreign-objects ((ptype  :pointer)
-                             (pvalue :pointer)
-                             (ptraceback :pointer))
-        (foreign-funcall "PyErr_Fetch"
-                         :pointer ptype
-                         :pointer pvalue
-                         :pointer ptraceback)
-        (let* ((type      (mem-aref ptype :pointer))
-               (value     (mem-aref pvalue :pointer))
-               (traceback (mem-aref ptraceback :pointer))
-               (value-str
-                 (foreign-string-to-lisp
-                  (foreign-funcall "PyUnicode_AsUTF8"
-                                   :pointer (foreign-funcall "PyObject_Str"
-                                                             :pointer value
-                                                             :pointer)
-                                   :pointer)))
-               (traceback-str
-                 (pycall "traceback.format_exception" type value traceback)))
-          (if traceback-str
-              (error 'pyerror
-                     :format-control "A python error occurred:~%  ~A~%~%Traceback:~%~%~A"
-                     :format-arguments (list value-str traceback-str))
-              (error 'pyerror
-                     :format-control "A python error occurred:~%  ~A"
-                     :format-arguments (list value-str))))))))
+      (with-pygc
+        (with-foreign-objects ((ptype  :pointer)
+                               (pvalue :pointer)
+                               (ptraceback :pointer))
+          (pyforeign-funcall "PyErr_Fetch"
+                             :pointer ptype
+                             :pointer pvalue
+                             :pointer ptraceback)
+          (let* ((type      (mem-aref ptype :pointer))
+                 (value     (mem-aref pvalue :pointer))
+                 (traceback (mem-aref ptraceback :pointer))
+                 (value-str
+                   (foreign-string-to-lisp
+                    (pyforeign-funcall "PyUnicode_AsUTF8"
+                                       :pointer (pyforeign-funcall "PyObject_Str"
+                                                                   :pointer value
+                                                                   :pointer)
+                                       :pointer)))
+                 (traceback-str
+                   (pycall "traceback.format_exception" type value traceback)))
+            (if traceback-str
+                (error 'pyerror
+                       :format-control "A python error occurred:~%  ~A~%~%Traceback:~%~%~A"
+                       :format-arguments (list value-str traceback-str))
+                (error 'pyerror
+                       :format-control "A python error occurred:~%  ~A"
+                       :format-arguments (list value-str)))))))))
 
 (defmacro with-python-exceptions (&body body)
   (with-gensyms (may-be-exception-type)
@@ -223,14 +224,14 @@ Instead, use PYCALL, PYVALUE, (SETF PYVALUE), PYSLOT-VALUE, (SETF PYSLOT-VALUE),
 
 RAW-PY, RAW-PYEVAL, RAW-PYEXEC are only provided for backward compatibility."
   (python-start-if-not-alive)
-  (unless (zerop (foreign-funcall "PyRun_SimpleString"
-                                  :string (apply #'concatenate
-                                                 'string
-                                                 (ecase cmd-char
-                                                   (#\e "_ = ")
-                                                   (#\x ""))
-                                                 code-strings)
-                                  :int))
+  (unless (zerop (pyforeign-funcall "PyRun_SimpleString"
+                                    :string (apply #'concatenate
+                                                   'string
+                                                   (ecase cmd-char
+                                                     (#\e "_ = ")
+                                                     (#\x ""))
+                                                   code-strings)
+                                    :int))
     (python-may-be-error))
   (ecase cmd-char
     (#\e (pyvalue "_"))
@@ -243,7 +244,7 @@ PYEVAL, PYEXEC should be avoided unless necessary.
 Instead, use PYCALL, PYVALUE, (SETF PYVALUE), PYSLOT-VALUE, (SETF PYSLOT-VALUE), and PYMETHOD.
 
 RAW-PY, RAW-PYEVAL, RAW-PYEXEC are only provided for backward compatibility."
-  (apply #'raw-py #\e code-strings))
+  (with-pygc (apply #'raw-py #\e code-strings)))
 
 (defun raw-pyexec (&rest code-strings)
   "
@@ -262,7 +263,7 @@ RAW-PY, RAW-PYEVAL, RAW-PYEXEC are only provided for backward compatibility."
     (raw-py #\e "sys.stdout.close()")
     (raw-py #\e "sys.stderr.close()")
     ;; It is okay to call Py_FinalizeEx even when python is not initialized
-    (let ((value (foreign-funcall "Py_FinalizeEx" :int)))
+    (let ((value (pyforeign-funcall "Py_FinalizeEx" :int)))
       (cond ((zerop value)
              t)
             ((= -1 value)
@@ -274,10 +275,10 @@ RAW-PY, RAW-PYEVAL, RAW-PYEXEC are only provided for backward compatibility."
 (defun pytype (name)
   (python-start-if-not-alive)
   (with-foreign-string (name name)
-    (foreign-funcall "PyDict_GetItemString"
-                     :pointer *py-builtins-dict*
-                     :pointer name
-                     :pointer)))
+    (pyforeign-funcall "PyDict_GetItemString"
+                       :pointer *py-builtins-dict*
+                       :pointer name
+                       :pointer)))
 
 (defun %pyvalue (python-value-or-variable)
   "Get the foreign pointer associated with PYTHON-VALUE-OR-VARIABLE.
@@ -288,34 +289,32 @@ Use PYVALUE* if you want to refer to names containing full-stops."
   (if (typep python-value-or-variable 'foreign-pointer)
       python-value-or-variable
       (let* ((name python-value-or-variable)
-             (value (foreign-funcall "PyDict_GetItemString"
-                                     :pointer (py-module-dict "__main__")
-                                     :string name
-                                     :pointer))
+             ;; GetItemString returns a borrowed reference - neither stolen nor new
+             (value (pyforeign-funcall "PyDict_GetItemString"
+                                       :pointer (py-module-dict "__main__")
+                                       :string name
+                                       :pointer))
              (value (if (null-pointer-p value)
-                        (foreign-funcall "PyDict_GetItemString"
-                                     :pointer (py-module-dict "builtins")
-                                     :string name
-                                     :pointer)
+                        (pyforeign-funcall "PyDict_GetItemString"
+                                           :pointer (py-module-dict "builtins")
+                                           :string name
+                                           :pointer)
                         value)))
         (ensure-non-null-pointer value
                                  :format-control "~A is undefined in python"
                                  :format-arguments (list name))
-        ;; lisp references don't just vanish after being passed to a tuple/dict!
-        ;; GetItemString returns a borrowed reference, which we increment
-        (foreign-funcall "Py_IncRef" :pointer value)
-        (pytrack value))))
+        value)))
 
 (defun (setf %pyvalue) (new-value python-variable)
   "Sets the value of PYTHON-VARIABLE in the global namespace to NEW-VALUE"
   (declare (type string python-variable)
            (type foreign-pointer new-value))
   (python-start-if-not-alive)
-  (foreign-funcall "PyDict_SetItemString"
-                   :pointer (py-module-dict "__main__")
-                   :string python-variable
-                   :pointer new-value
-                   :int)
+  (pyforeign-funcall "PyDict_SetItemString"
+                     :pointer (py-module-dict "__main__")
+                     :string python-variable
+                     :pointer new-value
+                     :int)
   (python-may-be-error)
   new-value)
 
@@ -324,31 +323,29 @@ Use PYVALUE* if you want to refer to names containing full-stops."
            (type foreign-pointer object-pointer)
            (optimize debug))
   (python-start-if-not-alive)
-  (with-pygc
-    (let* ((return-value (foreign-funcall "PyObject_GetAttrString"
+  (let* ((return-value (pyforeign-funcall "PyObject_GetAttrString"
                                           :pointer object-pointer
                                           :string slot-name
                                           :pointer)))
-      (ensure-non-null-pointer return-value
-                               :format-control
-                               "~A~%in python does not have the attribute ~A"
-                               :format-arguments (list (pycall "str" object-pointer)
-                                                       slot-name)))))
+    (ensure-non-null-pointer return-value
+                             :format-control
+                             "~A~%in python does not have the attribute ~A"
+                             :format-arguments (list (pycall "str" object-pointer)
+                                                     slot-name))))
 
 (defun (setf %pyslot-value) (new-value object-pointer slot-name)
   (declare (type string slot-name)
            (type foreign-pointer object-pointer new-value)
            (optimize debug))
   (python-start-if-not-alive)
-  (with-pygc
-    (let* ((return-value (foreign-funcall "PyObject_SetAttrString"
+  (let* ((return-value (pyforeign-funcall "PyObject_SetAttrString"
                                           :pointer object-pointer
                                           :string slot-name
                                           :pointer new-value
                                           :int)))
-      (if (zerop return-value)
-          nil
-          (python-may-be-error)))))
+    (if (zerop return-value)
+        nil
+        (python-may-be-error))))
 
 (defun pyvalue* (python-value-or-variable)
   "Get the non-lispified value associated with PYTHON-VALUE-OR-VARIABLE"
@@ -381,7 +378,8 @@ Use PYVALUE* if you want to refer to names containing full-stops."
 
 (defun pyvalue (python-value-or-variable)
   (declare (type (or python-object string) python-value-or-variable))
-  (lispify (pyvalue* python-value-or-variable)))
+  (with-pygc
+    (lispify (pyvalue* python-value-or-variable))))
 
 (defun (setf pyvalue) (new-value python-value-or-variable)
   (declare (type string python-value-or-variable))
