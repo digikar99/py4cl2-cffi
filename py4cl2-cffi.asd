@@ -26,6 +26,7 @@
                (:static-file "libpychecks.so")
                (:file "numpy")
                (:file "features")
+               (:file "gil")
                (:file "pythonizers")
                (:file "python-process")
                (:file "lispifiers")
