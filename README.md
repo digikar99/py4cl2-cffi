@@ -54,7 +54,7 @@ PY4CL2/CFFI-CONFIG> (setq *python-shared-object-path* #P"/home/user/miniconda3/l
 - [x] object slots
 - [x] methods
 - [x] python stdout to lisp stdout (asynchronous, make sure to `sys.stdout.flush()`)
-- [ ] `with-python-output`
+- [x] `with-python-output`
 - [x] lisp callbacks
 - [x] numpy arrays to non-CL arrays
 - [x] arbitrary module import

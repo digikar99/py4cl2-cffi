@@ -52,8 +52,12 @@ Value: The pointer to the module in embedded python")
 (defvar *py-builtins-dict* nil
   "Pointer to the dictionary mapping names to PyObjects in the builtins namespace of embedded python.")
 
+;;; This is more of a global variable than a dynamic variable.
+(defvar *in-with-python-output* nil)
+
 (defvar *py-output-stream* nil)
 (defvar *py-output-reader-thread* nil)
+(defvar *python-output-semaphore* (bt:make-semaphore))
 (defvar *py-error-output-stream* nil)
 (defvar *py-error-output-reader-thread* nil)
 
@@ -64,10 +68,18 @@ Value: The pointer to the module in embedded python")
     (bt:destroy-thread *py-output-reader-thread*))
   (setq *py-output-reader-thread*
         (bt:make-thread (lambda ()
-                          ;; PEEK-CHAR waits for input
-                          (loop :do (peek-char nil *py-output-stream* nil)
-                                    (write-char (read-char *py-output-stream* nil)
-                                                *standard-output*)))))
+                          (let ((py-out *py-output-stream*))
+                            (iter outer
+                              (for char =
+                                   (progn
+                                     ;; PEEK-CHAR waits for input
+                                     (peek-char nil py-out nil)
+                                     (when *in-with-python-output*
+                                       (iter (while *in-with-python-output*)
+                                         (bt:wait-on-semaphore *python-output-semaphore*))
+                                       (in outer (next-iteration)))
+                                     (read-char py-out nil)))
+                              (when char (write-char char) *standard-output*))))))
   (when (and *py-error-output-reader-thread*
              (bt:thread-alive-p *py-error-output-reader-thread*))
     (bt:destroy-thread *py-error-output-reader-thread*))
@@ -77,6 +89,23 @@ Value: The pointer to the module in embedded python")
                           (loop :do (peek-char nil *py-error-output-stream* nil)
                                     (write-char (read-char *py-error-output-stream* nil)
                                                 *error-output*))))))
+
+(defmacro with-python-output (&body forms-decl)
+  "Gets the output of the python program executed in FORMS-DECL in the form a string."
+  `(with-output-to-string (output-stream)
+     (when (and *warn-on-unavailable-feature-usage*
+                (not (member :with-python-output *internal-features*)))
+       (warn "WITH-PYTHON-OUTPUT may not work on your system."))
+     (unwind-protect (progn
+                       (setq *in-with-python-output* t)
+                       ,@forms-decl
+                       (let ((py-out *py-output-stream*))
+                         (pycall "sys.stdout.flush")
+                         (iter (while (listen py-out))
+                           (for char = (read-char py-out nil))
+                           (when char (write-char char output-stream)))))
+       (setq *in-with-python-output* nil)
+       (bt:signal-semaphore *python-output-semaphore*))))
 
 (defun pystart ()
 

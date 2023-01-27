@@ -5,6 +5,7 @@
            #:pystart
            #:python-alive-p
            #:python-start-if-not-alive
+           #:with-python-output
            #:pystop
            #:raw-pyeval
            #:pyeval
