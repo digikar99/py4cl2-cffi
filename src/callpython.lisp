@@ -130,6 +130,12 @@ python callable, which is then retrieved using PYVALUE*"
   (pymethod (pyvalue "sys.stdout") "flush")
   nil)
 
+(defun pyref (object &rest indices)
+  (apply #'pymethod object "__getitem__" indices))
+
+(defun (setf pyref) (new-value object &rest indices)
+  (apply #'pymethod object "__setitem__" (nconc indices (list new-value))))
+
 (defun %chain* (link)
   (etypecase link
     (list (apply #'pycall (first link) (rest link)))

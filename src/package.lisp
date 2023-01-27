@@ -27,6 +27,7 @@
            #:pygenerator
            #:pyslot-value
            #:pyhelp
+           #:pyref
            #:chain*
            #:chain
            #:pyversion-info
