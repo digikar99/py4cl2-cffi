@@ -177,6 +177,12 @@ class _py4cl_LispCallbackObject (object):
           ctypes.py_object(kwargs)
         )
 " (namestring *utils-shared-object-path*)))
+  (cond ((and (numpy-installed-p)
+              (not (member :arrays *internal-features*)))
+         (push :arrays *internal-features*))
+        ((and (not (numpy-installed-p))
+              (member :arrays *internal-features*))
+         (removef *internal-features* :arrays)))
   t)
 
 (define-condition pyerror (error)
