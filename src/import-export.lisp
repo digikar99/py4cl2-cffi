@@ -161,9 +161,9 @@ Arguments:
   ;;         fun-name)
   (unless (or *called-from-defpymodule*
               (builtin-p pymodule-name))
-    (function-reload-string :pymodule-name pymodule-name
-                            :fun-name fun-name
-                            :as as))
+    (eval (function-reload-string :pymodule-name pymodule-name
+                                  :fun-name fun-name
+                                  :as as)))
   (let* ((fullname (if *called-from-defpymodule*
                        (concatenate 'string pymodule-name "." fun-name)
                        (or as fun-name)))

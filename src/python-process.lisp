@@ -20,7 +20,7 @@
 (defun python-alive-p ()
   (unless *python-libraries-loaded-p*
     (load-python-and-libraries))
-  (/= 0 (pyforeign-funcall "Py_IsInitialized" :int)))
+  (/= 0 (foreign-funcall "Py_IsInitialized" :int)))
 
 (defun python-start-if-not-alive ()
   (unless (python-alive-p) (pystart)))
@@ -62,7 +62,6 @@ Value: The pointer to the module in embedded python")
 (defvar *py-error-output-stream* nil)
 (defvar *py-error-output-reader-thread* nil)
 
-;; TODO: Implement the with-python-output equivalent
 (defun python-output-thread ()
   (when (and *py-output-reader-thread*
              (bt:thread-alive-p *py-output-reader-thread*))
@@ -88,8 +87,9 @@ Value: The pointer to the module in embedded python")
         (bt:make-thread (lambda ()
                           ;; PEEK-CHAR waits for input
                           (loop :do (peek-char nil *py-error-output-stream* nil)
-                                    (write-char (read-char *py-error-output-stream* nil)
-                                                *error-output*))))))
+                                :do (let ((char (read-char *py-error-output-stream* nil)))
+                                      (when char
+                                        (write-char char *error-output*))))))))
 
 (defmacro with-python-output (&body forms-decl)
   "Gets the output of the python program executed in FORMS-DECL in the form a string."

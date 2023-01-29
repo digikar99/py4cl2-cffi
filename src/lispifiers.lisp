@@ -121,7 +121,6 @@
                                               :pointer))))
          ;; FIXME: What about names in modules?
          (lispifier (assoc-value *py-type-lispifier-table* pytype-name :test #'string=)))
-    (pyobject-tracked-p pyobject)
     (customize
      (cond ((null-pointer-p pyobject-type)
             nil)
