@@ -122,7 +122,7 @@ Value: The pointer to the module in embedded python")
       (pushnew :typed-arrays *internal-features*))
     (when (member :typed-arrays *internal-features*)
       (setq *numpy-c-api-pointer*
-            (foreign-funcall "import_numpy" :pointer))))
+            (with-python-gil (foreign-funcall "import_numpy" :pointer)))))
   (import-module "sys")
   (import-module "traceback")
   (import-module "fractions")
@@ -186,6 +186,7 @@ class _py4cl_LispCallbackObject (object):
         ((and (not (numpy-installed-p))
               (member :arrays *internal-features*))
          (removef *internal-features* :arrays)))
+  (when (pygil-held-p) (pygil-release))
   t)
 
 (define-condition pyerror (error)
@@ -294,21 +295,13 @@ RAW-PY, RAW-PYEVAL, RAW-PYEXEC are only provided for backward compatibility."
   (apply #'raw-py #\x code-strings))
 
 (defun pystop ()
-  (setq *py-module-pointer-table* (make-hash-table :test #'equal))
-  (setq *py-global-dict* nil)
-  (setq *py-builtins-dict* nil)
   (when (python-alive-p)
-    (raw-py #\e "sys.stdout.close()")
-    (raw-py #\e "sys.stderr.close()")
-    ;; It is okay to call Py_FinalizeEx even when python is not initialized
-    (let ((value (pyforeign-funcall "Py_FinalizeEx" :int)))
-      (cond ((zerop value)
-             t)
-            ((= -1 value)
-             (error "-1 return value from Py_FinalizeEx indicating an error"))
-            (t
-             (error "Unexpected ~D return value from Py_FinalizeEx (expected 0 or -1)"
-                    value))))))
+    (pycall (pyvalue* "sys.stdout.close"))
+    (pycall (pyvalue* "sys.stderr.close"))
+    (pymethod *py-global-dict* "clear")
+    (setq *py-module-pointer-table* (make-hash-table :test #'equal))
+    (setq *py-global-dict* nil)
+    (setq *py-builtins-dict* nil)))
 
 (defun pytype (name)
   (python-start-if-not-alive)
