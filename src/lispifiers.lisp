@@ -106,6 +106,7 @@
 
 (defun lispify (pyobject)
   (declare (type foreign-pointer pyobject))
+  (assert (null *in-with-remote-objects-p*))
   (let* ((pyobject-type (pyforeign-funcall "PyObject_Type"
                                            :pointer pyobject
                                            :pointer))

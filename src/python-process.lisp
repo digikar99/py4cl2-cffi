@@ -4,6 +4,7 @@
 ;; Multithreading reference: https://www.linuxjournal.com/article/3641
 
 (defvar *python-libraries-loaded-p* nil)
+(defvar *in-with-remote-objects-p* nil)
 
 (defun load-python-and-libraries ()
   (load-foreign-library *python-shared-object-path*)
@@ -413,8 +414,9 @@ Use PYVALUE* if you want to refer to names containing full-stops."
 
 (defun pyvalue (python-value-or-variable)
   (declare (type (or python-object string) python-value-or-variable))
-  (with-pygc
-    (lispify (pyvalue* python-value-or-variable))))
+  (if *in-with-remote-objects-p*
+      (pyvalue* python-value-or-variable)
+      (with-pygc (lispify (pyvalue* python-value-or-variable)))))
 
 (defun (setf pyvalue) (new-value python-value-or-variable)
   (declare (type string python-value-or-variable))

@@ -31,6 +31,9 @@
            #:chain*
            #:chain
            #:pyversion-info
+           #:with-remote-objects
+           #:with-remote-objects*
+
            #:import-module
            #:import-function
            #:pymethod-list
