@@ -17,8 +17,9 @@
                "trivial-garbage"
                "iterate"
                "float-features"
-               "split-sequence"
-               "py4cl2-cffi/config")
+               "parse-number"
+               "py4cl2-cffi/config"
+               "split-sequence")
   :serial t
   :components ((:file "package")
                (:static-file "py4cl-utils.c")
