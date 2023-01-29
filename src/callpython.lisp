@@ -66,9 +66,18 @@
                     pythonized-args args)
               (%pycall-return-value return-value)))))))
 
-(defun pyeval (&rest args)
-  ;; FIXME: This isn't how it should be? We need strings
-  (apply #'raw-pyeval (mapcar #'pythonize args)))
+(labels ((pythonizep (value)
+           "Determines if VALUE should be pythonized."
+           (or (not (stringp value)) ; do not pythonize if
+               (realp (ignore-errors (parse-number:parse-number value)))))
+         (pythonize-if-needed (value)
+           (if (pythonizep value)
+               (pycall "repr" value)
+               value)))
+  (defun pyeval (&rest args)
+    (apply #'raw-pyeval (mapcar #'pythonize-if-needed args)))
+  (defun pyexec (&rest args)
+    (apply #'raw-pyexec (mapcar #'pythonize-if-needed args))))
 
 (defun pycall* (python-callable &rest args)
   "If PYTHON-CALLABLE is a string or symbol, it is treated as the name of a
