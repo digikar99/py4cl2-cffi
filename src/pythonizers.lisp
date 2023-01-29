@@ -316,6 +316,9 @@ a New Reference"
                                                    :int))))
         dict)))
 
+(defmethod pythonize ((o rational))
+  (pycall* "fractions.Fraction" (numerator o) (denominator o)))
+
 (defvar *pythonizers*
   ()
   "Each entry in the alist *PYTHONIZERS* maps from a lisp-type to

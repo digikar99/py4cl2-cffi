@@ -125,6 +125,8 @@ Value: The pointer to the module in embedded python")
             (foreign-funcall "import_numpy" :pointer))))
   (import-module "sys")
   (import-module "traceback")
+  (import-module "fractions")
+  (raw-pyexec "from fractions import Fraction")
   (let ((python-output-reader-open-thread
           ;; Need to do this in a separate initialization thread to deal with
           ;; blocking 'open' for named pipes
