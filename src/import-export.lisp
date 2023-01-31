@@ -451,9 +451,6 @@ a list of python function names. "
 
 (defun export-function (function python-name)
   "Makes a lisp FUNCTION available in python process as PYTHON-NAME"
-  (raw-pyexec (concatenate 'string
-                           python-name
-                           "=_py4cl_LispCallbackObject("
-                           (write-to-string
-                            (object-handle function))
-                           ")")))
+  (setf (pyvalue python-name)
+        (pycall* "_py4cl_LispCallbackObject" (object-handle function)))
+  nil)

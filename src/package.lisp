@@ -41,6 +41,7 @@
            #:defpyfun
            #:defpymodule
            #:*defpymodule-silent-p*
-           #:*print-python-object*))
+           #:*print-python-object*
+           #:export-function))
 
 (in-package :py4cl2-cffi)
