@@ -354,6 +354,10 @@ Use PYVALUE* if you want to refer to names containing full-stops."
            (type foreign-pointer object-pointer)
            (optimize debug))
   (python-start-if-not-alive)
+  (ensure-non-null-pointer object-pointer
+                           :format-control
+                           "Trying to access ~A slot of object with null pointer"
+                           :format-arguments (list slot-name))
   (let* ((return-value (pyforeign-funcall "PyObject_GetAttrString"
                                           :pointer object-pointer
                                           :string slot-name

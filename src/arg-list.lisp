@@ -116,16 +116,17 @@
                  ;;                 "parameters"
                  ;;                 '("values")))
                  ;; math.hypot does not have a signature; math.acos does
-                 (handler-case (pycall "tuple"
-                                       (chain* `("inspect.signature" ,(pyvalue fullname))
-                                               "parameters"
-                                               '("values")))
+                 (handler-case (with-remote-objects*
+                                 (pycall "tuple"
+                                         (chain* `("inspect.signature" ,(pyvalue fullname))
+                                                 "parameters"
+                                                 '("values"))))
                    ;; math.hypot does not have a signature; math.acos does
-                   (pyerror (e)
+                   (pyerror ()
                      ;; (when (search "no signature found"
-                     ;;               (slot-value e 'text))
+                     ;;               (format nil "~A" e))
                      ;;   (signal 'default-arg-list-necessary))
-                     )
+                     (signal 'default-arg-list-necessary))
                    (t (e)
                      (print e)
                      nil)))
