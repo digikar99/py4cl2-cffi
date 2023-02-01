@@ -16,14 +16,16 @@
   (load-foreign-library *utils-shared-object-path*)
   (setq *python-libraries-loaded-p* t))
 
+(defvar *python-state* :uninitialized)
+(declaim (type (member :uninitialized :initialized :initializing) *python-state*))
+
 (declaim (inline python-alive-p python-start-if-not-alive))
-(defun python-alive-p ()
-  (unless *python-libraries-loaded-p*
-    (load-python-and-libraries))
-  (/= 0 (foreign-funcall "Py_IsInitialized" :int)))
+(defun python-alive-p () (eq :initialized *python-state*))
 
 (defun python-start-if-not-alive ()
-  (unless (python-alive-p) (pystart)))
+  (case *python-state*
+    (:uninitialized (pystart))
+    (t nil)))
 
 (defvar *py-module-pointer-table* (make-hash-table :test #'equal)
   "Key: A string indicating module name
@@ -110,50 +112,53 @@ Value: The pointer to the module in embedded python")
 
 (defun pystart ()
 
-  (uiop:delete-file-if-exists #P"/tmp/py4cl2-cffi-output")
-  (uiop:run-program "mkfifo /tmp/py4cl2-cffi-output" :output t :error-output *error-output*)
-  (uiop:delete-file-if-exists #P"/tmp/py4cl2-cffi-error-output")
-  (uiop:run-program "mkfifo /tmp/py4cl2-cffi-error-output" :output t :error-output *error-output*)
+  (let ((*python-state* :initializing))
 
-  (load-python-and-libraries)
-  (foreign-funcall "Py_Initialize")
-  (float-features:with-float-traps-masked (:overflow)
-    (when (numpy-installed-p)
-      (pushnew :typed-arrays *internal-features*))
-    (when (member :typed-arrays *internal-features*)
-      (setq *numpy-c-api-pointer*
-            (with-python-gil (foreign-funcall "import_numpy" :pointer)))))
-  (import-module "sys")
-  (import-module "traceback")
-  (import-module "fractions")
-  (raw-pyexec "from fractions import Fraction")
-  (let ((python-output-reader-open-thread
-          ;; Need to do this in a separate initialization thread to deal with
-          ;; blocking 'open' for named pipes
-          (bt:make-thread
-           (lambda ()
-             (setq *py-output-stream* (open "/tmp/py4cl2-cffi-output" :direction :input))))))
-    (raw-pyexec "sys.stdout = open('/tmp/py4cl2-cffi-output', 'w')")
-    (bt:join-thread python-output-reader-open-thread))
-  (let ((python-error-output-reader-open-thread
-          (bt:make-thread
-           (lambda ()
-             (setq *py-error-output-stream*
-                   (open #P"/tmp/py4cl2-cffi-error-output" :direction :input))))))
-    (raw-pyexec "sys.stderr = open('/tmp/py4cl2-cffi-error-output', 'w')")
-    (bt:join-thread python-error-output-reader-open-thread))
-  (python-output-thread)
+    (uiop:delete-file-if-exists #P"/tmp/py4cl2-cffi-output")
+    (uiop:run-program "mkfifo /tmp/py4cl2-cffi-output" :output t :error-output *error-output*)
+    (uiop:delete-file-if-exists #P"/tmp/py4cl2-cffi-error-output")
+    (uiop:run-program "mkfifo /tmp/py4cl2-cffi-error-output" :output t :error-output *error-output*)
 
-  (dolist (mod '("__main__" "builtins" "sys"))
-    (setf (py-module-pointer mod)
-          (pyforeign-funcall "PyImport_AddModule" :string mod :pointer)))
-  (setq *py-global-dict*
-        (pyforeign-funcall "PyModule_GetDict" :pointer (py-module-pointer "__main__") :pointer))
-  (setq *py-builtins-dict*
-        (pyforeign-funcall "PyModule_GetDict" :pointer (py-module-pointer "builtins") :pointer))
+    (load-python-and-libraries)
+    (foreign-funcall "Py_Initialize")
+    (when (pygil-held-p) (pygil-release))
+    (float-features:with-float-traps-masked (:overflow)
+      (when (numpy-installed-p)
+        (pushnew :typed-arrays *internal-features*))
+      (when (member :typed-arrays *internal-features*)
+        (setq *numpy-c-api-pointer*
+              (with-python-gil (foreign-funcall "import_numpy" :pointer)))))
+    (import-module "sys")
+    (import-module "traceback")
+    (import-module "fractions")
+    (raw-pyexec "from fractions import Fraction")
+    (let ((python-output-reader-open-thread
+            ;; Need to do this in a separate initialization thread to deal with
+            ;; blocking 'open' for named pipes
+            (bt:make-thread
+             (lambda ()
+               (setq *py-output-stream* (open "/tmp/py4cl2-cffi-output" :direction :input))))))
+      (raw-pyexec "sys.stdout = open('/tmp/py4cl2-cffi-output', 'w')")
+      (bt:join-thread python-output-reader-open-thread))
+    (let ((python-error-output-reader-open-thread
+            (bt:make-thread
+             (lambda ()
+               (setq *py-error-output-stream*
+                     (open #P"/tmp/py4cl2-cffi-error-output" :direction :input))))))
+      (raw-pyexec "sys.stderr = open('/tmp/py4cl2-cffi-error-output', 'w')")
+      (bt:join-thread python-error-output-reader-open-thread))
+    (python-output-thread)
 
-  (foreign-funcall "set_lisp_callback_fn_ptr" :pointer (callback lisp-callback-fn))
-  (raw-pyexec #.(format nil "
+    (dolist (mod '("__main__" "builtins" "sys"))
+      (setf (py-module-pointer mod)
+            (pyforeign-funcall "PyImport_AddModule" :string mod :pointer)))
+    (setq *py-global-dict*
+          (pyforeign-funcall "PyModule_GetDict" :pointer (py-module-pointer "__main__") :pointer))
+    (setq *py-builtins-dict*
+          (pyforeign-funcall "PyModule_GetDict" :pointer (py-module-pointer "builtins") :pointer))
+
+    (foreign-funcall "set_lisp_callback_fn_ptr" :pointer (callback lisp-callback-fn))
+    (raw-pyexec #.(format nil "
 import ctypes
 py4cl_utils = ctypes.cdll.LoadLibrary(\"~A\")
 
@@ -180,13 +185,13 @@ class _py4cl_LispCallbackObject (object):
           ctypes.py_object(kwargs)
         )
 " (namestring *utils-shared-object-path*)))
-  (cond ((and (numpy-installed-p)
-              (not (member :arrays *internal-features*)))
-         (push :arrays *internal-features*))
-        ((and (not (numpy-installed-p))
-              (member :arrays *internal-features*))
-         (removef *internal-features* :arrays)))
-  (when (pygil-held-p) (pygil-release))
+    (cond ((and (numpy-installed-p)
+                (not (member :arrays *internal-features*)))
+           (push :arrays *internal-features*))
+          ((and (not (numpy-installed-p))
+                (member :arrays *internal-features*))
+           (removef *internal-features* :arrays))))
+  (setq *python-state* :initialized)
   t)
 
 (define-condition pyerror (error)
@@ -303,7 +308,9 @@ RAW-PY, RAW-PYEVAL, RAW-PYEXEC are only provided for backward compatibility."
     (pymethod *py-global-dict* "clear")
     (setq *py-module-pointer-table* (make-hash-table :test #'equal))
     (setq *py-global-dict* nil)
-    (setq *py-builtins-dict* nil)))
+    (setq *py-builtins-dict* nil)
+    (setq *python-state* :uninitialized)
+    nil))
 
 (defun pytype (name)
   (python-start-if-not-alive)
