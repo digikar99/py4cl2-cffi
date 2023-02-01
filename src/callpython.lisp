@@ -2,13 +2,13 @@
 
 (defun pythonize-args (lisp-args)
   (loop :for arg :in lisp-args
-        :collect (if (keywordp arg)
+        :collect (if (python-keyword-p arg)
                      arg
                      (%pythonize arg))))
 
 (defun args-and-kwargs (lisp-args)
   (let ((first-keyword-position
-          (or (position-if #'keywordp lisp-args)
+          (or (position-if #'python-keyword-p lisp-args)
               (length lisp-args))))
     ;; The only translation of lisp keywords to python
     ;; is that of treating them like python keyword args
@@ -29,7 +29,7 @@
 (defun %pycall* (python-callable-pointer &rest args)
   (declare (type foreign-pointer python-callable-pointer)
            (optimize debug))
-  (let ((pythonized-args (mapcar #'%pythonize args)))
+  (let ((pythonized-args (pythonize-args args)))
     (multiple-value-bind (pos-args kwargs)
         (args-and-kwargs pythonized-args)
       ;; PyObject_Call returns a new reference
@@ -48,7 +48,7 @@
       (with-pygc
         ;; We can't just rely on %PYCALL* because we also need to deal with
         ;; PYTHONIZED-ARGS while lispifying the values
-        (let ((pythonized-args (mapcar #'%pythonize args)))
+        (let ((pythonized-args (pythonize-args args)))
           (multiple-value-bind (pos-args kwargs)
               (args-and-kwargs pythonized-args)
             ;; PyObject_Call returns a new reference

@@ -208,6 +208,14 @@ a New Reference"
 (defmethod pythonize ((o function))
   (pycall* "_py4cl_LispCallbackObject" (object-handle o)))
 
+(defstruct (%python-keyword (:conc-name nil)
+                            (:constructor make-python-keyword (py-name)))
+  (py-name nil :type string  :read-only t))
+(declaim (inline make-python-keyword))
+(deftype python-keyword () '(or %python-keyword keyword))
+(defun python-keyword-p (object) (typep object 'python-keyword))
+
+(defmethod pythonize ((o %python-keyword)) (pythonize (py-name o)))
 
 (defun pythonize-array (array)
   (pytrack

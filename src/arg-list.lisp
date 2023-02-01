@@ -202,13 +202,9 @@
                (appending `(,arg-symbol)
                  into positional-pass))
               ("KEYWORD_ONLY"
-               (appending `(,(intern (symbol-name arg-symbol) :keyword)
-                            ,arg-symbol)
-                 into keyword-pass))
+               (appending `((make-python-keyword ,name) ,arg-symbol) into keyword-pass))
               ("POSITIONAL_OR_KEYWORD"
-               (appending `(,(intern (symbol-name arg-symbol) :keyword)
-                            ,arg-symbol)
-                 into keyword-pass)))
+               (appending `((make-python-keyword ,name) ,arg-symbol) into keyword-pass)))
 
             (finally
              (return-from %get-arg-list
