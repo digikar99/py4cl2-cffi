@@ -154,12 +154,13 @@ python callable, which is then retrieved using PYVALUE*"
 
 ;; FIXME: How exactly do we want to handle strings
 (defun chain* (&rest chain)
-  (loop :for link :in (rest chain)
-        :with value := (%chain* (first chain))
-        :do (setq value (etypecase link
-                          (list (apply #'pymethod value link))
-                          (atom (pyslot-value value link))))
-        :finally (return value)))
+  (with-pygc
+    (loop :for link :in (rest chain)
+          :with value := (%chain* (first chain))
+          :do (setq value (etypecase link
+                            (list (apply #'pymethod value link))
+                            (atom (pyslot-value value link))))
+          :finally (return value))))
 
 (defun @ (&rest chain)
     (apply #'chain chain))

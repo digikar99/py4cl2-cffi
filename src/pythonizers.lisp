@@ -185,30 +185,29 @@ a New Reference"
   (pythonize-array o))
 
 (defcallback lisp-callback-fn :pointer ((handle :int) (args :pointer) (kwargs :pointer))
-  (handler-case
-      (let ((lisp-callback (lisp-object handle)))
-        (pythonize (apply lisp-callback
-                          (nconc (unless (null-pointer-p args)
-                                   (lispify args))
-                                 (unless (null-pointer-p kwargs)
-                                   (loop :for i :from 0
-                                         :for elt
-                                           :in (hash-table-plist
-                                                (lispify kwargs))
-                                         :collect (if (evenp i)
-                                                      (intern (lispify-name elt) :keyword)
-                                                      elt)))))))
-    (error (c)
-      (pyforeign-funcall "PyErr_SetString"
-                         :pointer (pytype "Exception")
-                         :string (format nil "~A" c))
-      (pythonize 0))))
+  (with-pygc
+    (handler-case
+        (let ((lisp-callback (lisp-object handle)))
+          (pythonize (apply lisp-callback
+                            (nconc (unless (null-pointer-p args)
+                                     (lispify args))
+                                   (unless (null-pointer-p kwargs)
+                                     (loop :for i :from 0
+                                           :for elt
+                                             :in (hash-table-plist
+                                                  (print (lispify kwargs)))
+                                           :collect (if (evenp i)
+                                                        (intern (lispify-name elt) :keyword)
+                                                        elt)))))))
+      (error (c)
+        (pyforeign-funcall "PyErr_SetString"
+                           :pointer (pytype "Exception")
+                           :string (format nil "~A" c))
+        (pythonize 0)))))
 
 (defmethod pythonize ((o function))
-  (let ((lisp-callback-object
-          (pycall "_py4cl_LispCallbackObject" (object-handle o))))
-    ;; FIXME: Should PyTrack be here?
-    (pytrack (python-object-pointer lisp-callback-object))))
+  (pycall* "_py4cl_LispCallbackObject" (object-handle o)))
+
 
 (defun pythonize-array (array)
   (pytrack

@@ -273,7 +273,7 @@ RAW-PY, RAW-PYEVAL, RAW-PYEXEC are only provided for backward compatibility."
                                     :int))
     (python-may-be-error))
   (ecase cmd-char
-    (#\e (pyvalue "_"))
+    (#\e (pyvalue* "_"))
     (#\x (values))))
 
 (defun raw-pyeval (&rest code-strings)
@@ -283,7 +283,9 @@ PYEVAL, PYEXEC should be avoided unless necessary.
 Instead, use PYCALL, PYVALUE, (SETF PYVALUE), PYSLOT-VALUE, (SETF PYSLOT-VALUE), and PYMETHOD.
 
 RAW-PY, RAW-PYEVAL, RAW-PYEXEC are only provided for backward compatibility."
-  (with-pygc (apply #'raw-py #\e code-strings)))
+  (if *in-with-remote-objects-p*
+      (apply #'raw-py #\e code-strings)
+      (with-pygc (lispify (apply #'raw-py #\e code-strings)))))
 
 (defun raw-pyexec (&rest code-strings)
   "
@@ -420,5 +422,7 @@ Use PYVALUE* if you want to refer to names containing full-stops."
 (defun (setf pyvalue) (new-value python-value-or-variable)
   (declare (type string python-value-or-variable))
   (with-pygc
-    (setf (pyvalue* python-value-or-variable) (%pythonize new-value))
+    (setf (pyvalue* python-value-or-variable)
+          ;; UNTRACK because we do not want to lose reference to this object!
+          (pyuntrack (%pythonize new-value)))
     new-value))
