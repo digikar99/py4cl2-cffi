@@ -59,56 +59,61 @@ Value: The pointer to the module in embedded python")
 (defvar *in-with-python-output* nil)
 
 (defvar *py-output-stream* nil)
+(defvar *py-output-stream-string* nil)
 (defvar *py-output-reader-thread* nil)
-(defvar *python-output-semaphore* (bt:make-semaphore))
 (defvar *py-error-output-stream* nil)
 (defvar *py-error-output-reader-thread* nil)
 
-(defun python-output-thread ()
-  (when (and *py-output-reader-thread*
-             (bt:thread-alive-p *py-output-reader-thread*))
-    (bt:destroy-thread *py-output-reader-thread*))
-  (setq *py-output-reader-thread*
-        (bt:make-thread (lambda ()
-                          (let ((py-out *py-output-stream*))
-                            (iter outer
-                              (for char =
-                                   (progn
-                                     ;; PEEK-CHAR waits for input
-                                     (peek-char nil py-out nil)
-                                     (when *in-with-python-output*
-                                       (iter (while *in-with-python-output*)
-                                         (bt:wait-on-semaphore *python-output-semaphore*))
-                                       (in outer (next-iteration)))
-                                     (read-char py-out nil)))
-                              (when char (write-char char) *standard-output*))))))
-  (when (and *py-error-output-reader-thread*
-             (bt:thread-alive-p *py-error-output-reader-thread*))
-    (bt:destroy-thread *py-error-output-reader-thread*))
-  (setq *py-error-output-reader-thread*
-        (bt:make-thread (lambda ()
-                          ;; PEEK-CHAR waits for input
-                          (loop :do (peek-char nil *py-error-output-stream* nil)
-                                :do (let ((char (read-char *py-error-output-stream* nil)))
-                                      (when char
-                                        (write-char char *error-output*))))))))
+(defvar *py-output-lock* (bt:make-lock "python-output-lock"))
+(defvar *py-output-condition*
+  (bt:make-condition-variable :name "python-output-condition"))
+
+(let ((string-output-stream  nil))
+
+  (defun python-output-thread ()
+    (when (and *py-output-reader-thread*
+               (bt:thread-alive-p *py-output-reader-thread*))
+      (bt:destroy-thread *py-output-reader-thread*))
+    (setq *py-output-reader-thread*
+          (bt:make-thread
+           (lambda ()
+             (loop :do (when (and *in-with-python-output*
+                                  (not (listen *py-output-stream*)))
+                         (bt:with-lock-held (*py-output-lock*)
+                           (bt:condition-notify *py-output-condition*)))
+                       ;; PEEK-CHAR waits for input
+                       (peek-char nil *py-output-stream* nil)
+                       (let ((char (read-char-no-hang *py-output-stream* nil)))
+                         (when char
+                           (write-char char
+                                       (if *in-with-python-output*
+                                           string-output-stream
+                                           *standard-output*))))))))
+    (when (and *py-error-output-reader-thread*
+               (bt:thread-alive-p *py-error-output-reader-thread*))
+      (bt:destroy-thread *py-error-output-reader-thread*))
+    (setq *py-error-output-reader-thread*
+          (bt:make-thread (lambda ()
+                            ;; PEEK-CHAR waits for input
+                            (loop :do (peek-char nil *py-error-output-stream* nil)
+                                  :do (let ((char (read-char *py-error-output-stream* nil)))
+                                        (when char
+                                          (write-char char *error-output*))))))))
+
+  (defun call-thunk-python-output (thunk)
+    "Capture and return the output produced by python during the
+execution of THUNK as a string."
+    (bt:with-lock-held (*py-output-lock*)
+      (thread-global-let ((string-output-stream    (make-string-output-stream))
+                          (*in-with-python-output* t))
+        (funcall thunk)
+        (pycall "sys.stdout.flush")
+        (bt:condition-wait *py-output-condition* *py-output-lock*)
+        (get-output-stream-string string-output-stream)))))
 
 (defmacro with-python-output (&body forms-decl)
   "Gets the output of the python program executed in FORMS-DECL in the form a string."
-  `(with-output-to-string (output-stream)
-     (when (and *warn-on-unavailable-feature-usage*
-                (not (member :with-python-output *internal-features*)))
-       (warn "WITH-PYTHON-OUTPUT may not work on your system."))
-     (unwind-protect (progn
-                       (setq *in-with-python-output* t)
-                       ,@forms-decl
-                       (let ((py-out *py-output-stream*))
-                         (pycall "sys.stdout.flush")
-                         (iter (while (listen py-out))
-                           (for char = (read-char py-out nil))
-                           (when char (write-char char output-stream)))))
-       (setq *in-with-python-output* nil)
-       (bt:signal-semaphore *python-output-semaphore*))))
+  `(call-thunk-python-output (lambda () ,@forms-decl)))
 
 (defun pystart ()
 

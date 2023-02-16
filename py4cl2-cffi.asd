@@ -22,6 +22,7 @@
                "split-sequence")
   :serial t
   :components ((:file "package")
+               (:file "lisp-utils")
                (:static-file "py4cl-utils.c")
                (:file "shared-objects")
                (:static-file "libpychecks.so")
