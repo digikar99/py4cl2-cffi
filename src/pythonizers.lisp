@@ -140,21 +140,7 @@ a New Reference"
                      :double (coerce o 'double-float)
                      :pointer))
 
-;; We are NOT using any *LISP-TO-PYTHON-ALIST* here.
 ;; Use PYVALUE and friends instead of using PYTHONIZE for these.
-(defvar *lisp-to-python-alist*
-  '((t . "True")
-    (nil . "False")
-    (float . "float")
-    (boolean . "bool")
-    (null . "type(None)")
-    (integer . "int")
-    (complex . "complex")
-    (vector . "list")
-    (hash-table . "dict")
-    (string . "str")
-    ("None" . "None")
-    ("()" . "()")))
 
 (defmethod pythonize ((o string))
   (pyforeign-funcall "PyUnicode_FromString" :string o :pointer))
@@ -201,13 +187,17 @@ a New Reference"
     (handler-case
         (let ((lisp-callback (lisp-object handle)))
           (pythonize (apply lisp-callback
-                            (nconc (unless (null-pointer-p args)
-                                     (lispify args))
+                            (nconc (let ((lispified-args
+                                           (unless (null-pointer-p args)
+                                             (lispify args))))
+                                     (if (listp lispified-args)
+                                         lispified-args
+                                         nil))
                                    (unless (null-pointer-p kwargs)
                                      (loop :for i :from 0
                                            :for elt
                                              :in (hash-table-plist
-                                                  (print (lispify kwargs)))
+                                                  (lispify kwargs))
                                            :collect (if (evenp i)
                                                         (intern (lispify-name elt) :keyword)
                                                         elt)))))))
