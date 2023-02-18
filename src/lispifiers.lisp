@@ -70,6 +70,10 @@
 (define-lispifier "Fraction" (o)
   (cl:/ (pyslot-value o "numerator") (pyslot-value o "denominator")))
 
+(define-lispifier "complex" (o)
+  (complex (foreign-funcall "PyComplex_RealAsDouble" :pointer o :double)
+           (foreign-funcall "PyComplex_ImagAsDouble" :pointer o :double)))
+
 (define-lispifier "numpy.ndarray" (o)
   (let* ((dims     (pyslot-value o "shape"))
          (element-type (let* ((*read-eval* nil)

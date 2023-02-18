@@ -140,6 +140,13 @@ a New Reference"
                      :double (coerce o 'double-float)
                      :pointer))
 
+(defmethod pythonize ((o complex))
+  ;; TODO: Different numpy float types: float32 and float64
+  (pyforeign-funcall "PyComplex_FromDoubles"
+                     :double (coerce (realpart o) 'double-float)
+                     :double (coerce (imagpart o) 'double-float)
+                     :pointer))
+
 ;; Use PYVALUE and friends instead of using PYTHONIZE for these.
 
 (defmethod pythonize ((o string))

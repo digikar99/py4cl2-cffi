@@ -64,6 +64,7 @@
       ("PyImport_AddModule" :borrowed)
       ("PyImport_ImportModule" :new)
       ("PyModule_GetDict"   :borrowed)
+      ("PyComplex_FromDoubles" :new)
       ("PyErr_Occurred"     :borrowed)
       ("PyLong_AsSsize_t"   nil)
       ("PyTypeObject_Name"  nil)
