@@ -72,7 +72,7 @@
                (realp (ignore-errors (parse-number:parse-number value)))))
          (pythonize-if-needed (value)
            (if (pythonizep value)
-               (pycall "repr" value)
+               (py-repr value)
                value)))
   (defun pyeval (&rest args)
     (apply #'raw-pyeval (mapcar #'pythonize-if-needed args)))

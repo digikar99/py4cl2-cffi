@@ -32,6 +32,7 @@
                (:file "pythonizers")
                (:file "python-process")
                (:file "lispifiers")
+               (:file "py-repr")
                (:file "callpython")
                (:file "arg-list")
                (:file "import-export")
