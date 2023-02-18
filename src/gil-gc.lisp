@@ -21,6 +21,9 @@
   (with-gensyms (gil)
     `(let ((,gil (foreign-funcall "PyGILState_Ensure" :pointer)))
        (unwind-protect (locally ,@body)
+         (unless *retrieving-exceptions-p*
+           (let ((*retrieving-exceptions-p* t))
+             (python-may-be-error)))
          (foreign-funcall "PyGILState_Release" :pointer ,gil)))))
 
 (define-constant +python-function-reference-type-alist+
@@ -161,7 +164,7 @@ of new references owned by lisp."
           ;; wants to UNTRACK the object, that means perhaps they
           ;; are stealing the reference, and we better increment the reference.
           (pyforeign-funcall "Py_IncRef" :pointer python-object-pointer))))
-  nil)
+  python-object-pointer)
 
 (defun pyobject-tracked-p (python-object-pointer)
   "Call this function when the foreign function of the Python C-API steals

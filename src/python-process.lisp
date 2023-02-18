@@ -214,36 +214,40 @@ class _py4cl_LispCallbackObject (object):
 (defun python-may-be-error ()
   (declare (optimize debug))
   (python-start-if-not-alive)
-  (let ((may-be-error-type (pyforeign-funcall "PyErr_Occurred" :pointer))
-        (*retrieving-exceptions-p* t))
-    (unless (null-pointer-p may-be-error-type)
-      (with-pygc
-        (with-foreign-objects ((ptype  :pointer)
-                               (pvalue :pointer)
-                               (ptraceback :pointer))
-          (pyforeign-funcall "PyErr_Fetch"
-                             :pointer ptype
-                             :pointer pvalue
-                             :pointer ptraceback)
-          (let* ((type      (mem-aref ptype :pointer))
-                 (value     (mem-aref pvalue :pointer))
-                 (traceback (mem-aref ptraceback :pointer))
-                 (value-str
-                   (foreign-string-to-lisp
-                    (pyforeign-funcall "PyUnicode_AsUTF8"
-                                       :pointer (pyforeign-funcall "PyObject_Str"
-                                                                   :pointer value
-                                                                   :pointer)
-                                       :pointer)))
-                 (traceback-str
-                   (pycall "traceback.format_exception" type value traceback)))
-            (if traceback-str
-                (error 'pyerror
-                       :format-control "A python error occurred:~%  ~A~%~%Traceback:~%~%~A"
-                       :format-arguments (list value-str traceback-str))
-                (error 'pyerror
-                       :format-control "A python error occurred:~%  ~A"
-                       :format-arguments (list value-str)))))))))
+  (with-python-gil
+    (let ((may-be-error-type (pyforeign-funcall "PyErr_Occurred" :pointer))
+          (*retrieving-exceptions-p* t))
+      (unless (null-pointer-p may-be-error-type)
+        (with-pygc
+          (with-foreign-objects ((ptype  :pointer)
+                                 (pvalue :pointer)
+                                 (ptraceback :pointer))
+            (pyforeign-funcall "PyErr_Fetch"
+                               :pointer ptype
+                               :pointer pvalue
+                               :pointer ptraceback)
+            (let* ((type      (mem-aref ptype :pointer))
+                   (value     (mem-aref pvalue :pointer))
+                   (traceback (mem-aref ptraceback :pointer))
+                   (value-str
+                     (foreign-string-to-lisp
+                      (pyforeign-funcall "PyUnicode_AsUTF8"
+                                         :pointer (pyforeign-funcall "PyObject_Str"
+                                                                     :pointer value
+                                                                     :pointer)
+                                         :pointer)))
+                   (traceback-str
+                     (if (null-pointer-p traceback)
+                         (pycall "traceback.format_exception_only" type value)
+                         (pycall "traceback.format_exception" type value traceback))))
+              (with-simple-restart (continue-ignoring-errors "")
+                (if traceback-str
+                    (error 'pyerror
+                           :format-control "A python error occurred:~%  ~A~%~%Traceback:~%~%~A"
+                           :format-arguments (list value-str traceback-str))
+                    (error 'pyerror
+                           :format-control "A python error occurred:~%  ~A"
+                           :format-arguments (list value-str)))))))))))
 
 (defmacro with-python-exceptions (&body body)
   (with-gensyms (may-be-exception-type)
@@ -280,7 +284,11 @@ RAW-PY, RAW-PYEVAL, RAW-PYEXEC are only provided for backward compatibility."
                                                      (#\x ""))
                                                    code-strings)
                                     :int))
-    (python-may-be-error))
+    (error 'pyerror
+           :format-control "An unknown python error occurred.
+
+Unfortunately, no more information about the error can be provided
+while using RAW-PYEVAL or RAW-PYEXEC."))
   (ecase cmd-char
     (#\e (pyvalue* "_"))
     (#\x (values))))
