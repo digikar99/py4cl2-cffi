@@ -282,7 +282,7 @@ a New Reference"
 
 (defun pythonize-symbol (symbol)
   (if (null symbol)
-      "None"
+      (pyvalue* "False")
       (let* ((symbol-name (symbol-name symbol))
              (name (cond ((and (char= (char symbol-name 0) #\*)
                                ;; *global-variable* == PYTHON_CONSTANT
@@ -308,7 +308,7 @@ a New Reference"
 
 (defmethod pythonize ((o symbol))
   (if (null o)
-      (pyvalue* "None")
+      (pyvalue* "False")
       (pythonize (pythonize-symbol o))))
 
 (defun pythonize-plist (plist)

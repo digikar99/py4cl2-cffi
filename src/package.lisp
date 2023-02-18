@@ -42,6 +42,11 @@
            #:defpymodule
            #:*defpymodule-silent-p*
            #:*print-python-object*
-           #:export-function))
+           #:export-function
+
+           #:+py-empty-tuple+
+           #:+py-empty-tuple-pointer+
+           #:+py-none+
+           #:+py-none-pointer+))
 
 (in-package :py4cl2-cffi)

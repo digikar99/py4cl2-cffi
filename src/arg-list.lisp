@@ -130,6 +130,9 @@
                    (t (e)
                      (print e)
                      nil)))
+               (parameters (if (listp parameters)
+                               parameters
+                               ()))
                (parameter-kinds    (mapcar (lambda (p)
                                              (chain* p "kind" "name"))
                                            parameters))

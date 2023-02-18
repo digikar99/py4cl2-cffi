@@ -372,10 +372,14 @@ Returns multiple values:
                 lisp-package
                 package-in-python))
       (let* ((fun-names (loop :for (name fn)
-                                :in (pycall "tuple"
-                                            (pycall "inspect.getmembers"
-                                                    (pyvalue package-in-python)
-                                                    (pyvalue "callable")))
+                                :in (let* ((name-fns
+                                             (pycall "tuple"
+                                                     (pycall "inspect.getmembers"
+                                                             (pyvalue package-in-python)
+                                                             (pyvalue "callable")))))
+                                      (unless (listp name-fns)
+                                        (setq name-fns ()))
+                                      name-fns)
                               :if (not (starts-with #\_ name))
                                 :collect name))
              ;; Get the package name by passing through reader,
@@ -390,11 +394,7 @@ Returns multiple values:
                                                              "."
                                                              pyfun-name)
                                                 lisp-package))
-                                  (if (and (stringp fun-names)
-                                           (or (string= "()" fun-names)
-                                               (string= "None" fun-names)))
-                                      (setq fun-names ())
-                                      fun-names)))
+                                  fun-names))
              (package-exists-p (gensym "PACKAGE-EXISTS-P"))
              (fun-symbol-names (mapcar #'symbol-name fun-symbols)))
         (values `(defvar ,package-exists-p (find-package ,lisp-package))

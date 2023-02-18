@@ -2,6 +2,11 @@
 
 (defvar *py-type-lispifier-table* ())
 
+(defvar +py-empty-tuple+)
+(defvar +py-empty-tuple-pointer+)
+(defvar +py-none+)
+(defvar +py-none-pointer+)
+
 (defmacro define-lispifier (name (pyobject-var) &body body)
   (declare (type string name))
   `(setf (assoc-value *py-type-lispifier-table* ,name :test #'string=)
@@ -28,10 +33,12 @@
 
 (define-lispifier "tuple" (o)
   (let ((py-size (pyforeign-funcall "PyTuple_Size" :pointer o :int)))
-    (loop :for i :below py-size
-          :collect (lispify (pyforeign-funcall "PyTuple_GetItem" :pointer o
-                                                                 :int i
-                                                                 :pointer)))))
+    (if (zerop py-size)
+        +py-empty-tuple+
+        (loop :for i :below py-size
+              :collect (lispify (pyforeign-funcall "PyTuple_GetItem" :pointer o
+                                                                     :int i
+                                                                     :pointer))))))
 
 (define-lispifier "list" (o)
   (let* ((py-size (pyforeign-funcall "PyList_Size" :pointer o :int))
@@ -121,12 +128,15 @@
                                               :pointer))))
          ;; FIXME: What about names in modules?
          (lispifier (assoc-value *py-type-lispifier-table* pytype-name :test #'string=)))
+    ;; (print (list pyobject pyobject-type pytype-name))
     (customize
      (cond ((null-pointer-p pyobject-type)
             nil)
-           ((string= pytype-name "NoneType")
-            nil)
-           ((null lispifier)
+           ((or (string= pytype-name "NoneType")
+                (null lispifier)
+                (and (string= pytype-name "tuple")
+                     (not (boundp '+py-empty-tuple+))
+                     (zerop (pyforeign-funcall "PyTuple_Size" :pointer pyobject :int))))
             (pyuntrack pyobject)
             (pyuntrack pyobject-type)
             ;; (if (pyobject-tracked-p pyobject)
