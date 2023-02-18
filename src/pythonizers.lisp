@@ -31,7 +31,8 @@
 TYPE slot is the python type string
 POINTER slot points to the object"
   type
-  pointer)
+  pointer
+  load-form)
 
 (defun make-tracked-python-object (&key type pointer)
   (let* ((python-object (make-python-object :type type :pointer pointer)))
@@ -102,6 +103,17 @@ a New Reference"
             (format s ":POINTER ~A :TYPE ~A" pointer
                     (lispify (pyforeign-funcall "PyObject_Str"
                                                 :pointer type :pointer))))))))
+
+(defmethod make-load-form ((o python-object) &optional env)
+  (with-slots (pointer load-form) o
+    (cond ((eq pointer +py-empty-tuple-pointer+)
+           `(pycall "tuple"))
+          ((eq pointer +py-none-pointer+)
+           `(pyvalue "None"))
+          (load-form
+           load-form)
+          (t
+           `(pyeval ,(pycall "repr" pointer))))))
 
 (declaim (type (function (t) foreign-pointer) pythonize))
 (defgeneric pythonize (lisp-value-or-object))
