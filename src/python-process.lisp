@@ -77,6 +77,7 @@ Value: The pointer to the module in embedded python")
     (setq *py-output-reader-thread*
           (bt:make-thread
            (lambda ()
+             (setq *py-output-stream* (open "/tmp/py4cl2-cffi-output" :direction :input))
              (loop :do (when (and *in-with-python-output*
                                   (not (listen *py-output-stream*)))
                          (bt:with-lock-held (*py-output-lock*)
@@ -93,12 +94,15 @@ Value: The pointer to the module in embedded python")
                (bt:thread-alive-p *py-error-output-reader-thread*))
       (bt:destroy-thread *py-error-output-reader-thread*))
     (setq *py-error-output-reader-thread*
-          (bt:make-thread (lambda ()
-                            ;; PEEK-CHAR waits for input
-                            (loop :do (peek-char nil *py-error-output-stream* nil)
-                                  :do (let ((char (read-char *py-error-output-stream* nil)))
-                                        (when char
-                                          (write-char char *error-output*))))))))
+          (bt:make-thread
+           (lambda ()
+             (setq *py-error-output-stream*
+                   (open #P"/tmp/py4cl2-cffi-error-output" :direction :input))
+             ;; PEEK-CHAR waits for input
+             (loop :do (peek-char nil *py-error-output-stream* nil)
+                   :do (let ((char (read-char *py-error-output-stream* nil)))
+                         (when char
+                           (write-char char *error-output*))))))))
 
   (defun call-thunk-python-output (thunk)
     "Capture and return the output produced by python during the
@@ -119,6 +123,9 @@ execution of THUNK as a string."
 
   (let ((*python-state* :initializing))
 
+    ;; We are using a let, because if something fails, we want
+    ;; *PYTHON-STATE* to be whatever it was before.
+
     (uiop:delete-file-if-exists #P"/tmp/py4cl2-cffi-output")
     (uiop:run-program "mkfifo /tmp/py4cl2-cffi-output" :output t :error-output *error-output*)
     (uiop:delete-file-if-exists #P"/tmp/py4cl2-cffi-error-output")
@@ -137,22 +144,10 @@ execution of THUNK as a string."
     (import-module "traceback")
     (import-module "fractions")
     (raw-pyexec "from fractions import Fraction")
-    (let ((python-output-reader-open-thread
-            ;; Need to do this in a separate initialization thread to deal with
-            ;; blocking 'open' for named pipes
-            (bt:make-thread
-             (lambda ()
-               (setq *py-output-stream* (open "/tmp/py4cl2-cffi-output" :direction :input))))))
-      (raw-pyexec "sys.stdout = open('/tmp/py4cl2-cffi-output', 'w')")
-      (bt:join-thread python-output-reader-open-thread))
-    (let ((python-error-output-reader-open-thread
-            (bt:make-thread
-             (lambda ()
-               (setq *py-error-output-stream*
-                     (open #P"/tmp/py4cl2-cffi-error-output" :direction :input))))))
-      (raw-pyexec "sys.stderr = open('/tmp/py4cl2-cffi-error-output', 'w')")
-      (bt:join-thread python-error-output-reader-open-thread))
+
     (python-output-thread)
+    (raw-pyexec "sys.stdout = open('/tmp/py4cl2-cffi-output', 'w')")
+    (raw-pyexec "sys.stderr = open('/tmp/py4cl2-cffi-error-output', 'w')")
 
     (dolist (mod '("__main__" "builtins" "sys"))
       (setf (py-module-pointer mod)
