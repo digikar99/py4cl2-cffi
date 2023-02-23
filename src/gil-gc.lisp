@@ -72,6 +72,8 @@
       ("PyArray_NewFromDescr"  :new) ; arguments - steals a reference
       ("PyArray_DescrFromType" :new)
       ("PyArray_Data"       nil)
+      ("PyArray_GetItem"    nil)
+      ("PyArray_SetItem"    nil)
       ("memcpy"             nil)
       ("PyArray_element_type_from_array" nil))
   :test #'equal)

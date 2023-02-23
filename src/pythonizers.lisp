@@ -239,19 +239,40 @@ a New Reference"
      (with-foreign-objects ((dims    :long ndims))
        (dotimes (i ndims)
          (setf (mem-aref dims :long i) (array-dimension array i)))
-       (with-pointer-to-vector-data (array-data (array-storage array))
-         (incf-pointer array-data (* (cl-array-offset array)
-                                     (array-element-type-num-bytes array)))
-         (numpy-funcall "PyArray_NewFromDescr"
-                        :pointer ndarray-type
-                        :pointer descr
-                        :int ndims
-                        :pointer dims
-                        :pointer (null-pointer)
-                        :pointer array-data
-                        :int (logior +npy-array-c-contiguous+ +npy-array-writeable+) ; flags
-                        :pointer (null-pointer)
-                        :pointer))))))
+       (if (type= t (array-element-type array))
+           (let* ((numpy-array
+                    (numpy-funcall "PyArray_NewFromDescr"
+                                   :pointer ndarray-type
+                                   :pointer descr
+                                   :int ndims
+                                   :pointer dims
+                                   :pointer (null-pointer)
+                                   :pointer (null-pointer)
+                                   :int 0 ; non-zero flag indicates a fortran-style array
+                                   :pointer (null-pointer)
+                                   :pointer))
+                  (array-data (pyforeign-funcall "PyArray_Data"
+                                                 :pointer numpy-array :pointer)))
+             (loop :for idx :below (array-total-size array)
+                   :do (pyforeign-funcall "PyArray_SetItem"
+                                          :pointer numpy-array
+                                          :pointer (inc-pointer array-data (cl:* idx 8))
+                                          :pointer (pythonize (row-major-aref array idx))
+                                          :int))
+             numpy-array)
+           (with-pointer-to-vector-data (array-data (array-storage array))
+             (incf-pointer array-data (* (cl-array-offset array)
+                                         (array-element-type-num-bytes array)))
+             (numpy-funcall "PyArray_NewFromDescr"
+                            :pointer ndarray-type
+                            :pointer descr
+                            :int ndims
+                            :pointer dims
+                            :pointer (null-pointer)
+                            :pointer array-data
+                            :int (logior +npy-array-c-contiguous+ +npy-array-writeable+) ; flags
+                            :pointer (null-pointer)
+                            :pointer)))))))
 
 (defun array-element-typecode (array)
   ;; This is necessary, because not all lisps using these specific names as the
@@ -268,7 +289,8 @@ a New Reference"
     ('(unsigned-byte 64) "ub64")
     ('(unsigned-byte 32) "ub32")
     ('(unsigned-byte 16) "ub16")
-    ('(unsigned-byte 08) "ub8")))
+    ('(unsigned-byte 08) "ub8")
+    ('t "t")))
 
 (defun integer->py-size (int)
   (let ((len (pyforeign-funcall "PyLong_FromLong" :long int :pointer)))

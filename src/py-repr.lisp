@@ -24,3 +24,9 @@
   (if (find #\newline object)
       (concatenate 'string "\"\"\"" object "\"\"\"")
       object))
+
+(defmethod py-repr ((object array))
+  (let ((repr (pycall "repr" object)))
+    (if (= 1 (array-rank object))
+        repr
+        (concatenate 'string "numpy.array" (subseq repr 5)))))

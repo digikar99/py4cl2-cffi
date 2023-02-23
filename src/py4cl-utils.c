@@ -50,6 +50,8 @@ PyArray_Descr* PyArray_Descr_from_element_type_code(const char *code){
     typenum = NPY_INT8;
   else if (strcmp(code, "ub8") == 0)
     typenum = NPY_UINT8;
+  else if (strcmp(code, "t") == 0)
+    typenum = NPY_OBJECT;
   return PyArray_DescrFromType(typenum);
 };
 
@@ -70,8 +72,15 @@ const char* PyArray_element_type_from_array(PyArrayObject* arr){
   case NPY_UINT32: return "(CL:UNSIGNED-BYTE 32)";
   case NPY_UINT16: return "(CL:UNSIGNED-BYTE 16)";
   case NPY_UINT8:  return "(CL:UNSIGNED-BYTE 08)";
+  case NPY_OBJECT: return "CL:T";
   default: return "";
   }
 };
 
 void* PyArray_Data(PyArrayObject* arr){return PyArray_DATA(arr);}
+void* PyArray_GetItem(PyArrayObject* arr, void* itemptr){
+  return PyArray_GETITEM(arr, itemptr);
+}
+int PyArray_SetItem(PyArrayObject* arr, void* itemptr, PyObject* obj){
+  return PyArray_SETITEM(arr, itemptr, obj);
+}

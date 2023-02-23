@@ -87,8 +87,19 @@
          (array     (make-array dims :element-type element-type))
          (num-bytes (* (array-element-type-num-bytes array)
                        (reduce #'* dims :initial-value 1))))
-    (with-pointer-to-vector-data (to-vec (array-storage array))
-      (pyforeign-funcall "memcpy" :pointer to-vec :pointer from-vec :int num-bytes))
+    (if (type= t element-type)
+        (let* ((numpy-array-data (pyforeign-funcall "PyArray_Data"
+                                                    :pointer o :pointer)))
+          (loop :for idx :below (array-total-size array)
+                :do (setf (row-major-aref array idx)
+                          (lispify
+                           (pyforeign-funcall "PyArray_GetItem"
+                                              :pointer o
+                                              :pointer (inc-pointer numpy-array-data
+                                                                    (cl:* idx 8))
+                                              :pointer)))))
+        (with-pointer-to-vector-data (to-vec (array-storage array))
+          (pyforeign-funcall "memcpy" :pointer to-vec :pointer from-vec :int num-bytes)))
     array))
 
   ;; TODO: Test these aka find reference in documentation for why this works
@@ -116,7 +127,8 @@
     ('(unsigned-byte 64) 8)
     ('(unsigned-byte 32) 4)
     ('(unsigned-byte 16) 2)
-    ('(unsigned-byte 08) 1)))
+    ('(unsigned-byte 08) 1)
+    ('t 8)))
 
 (defun lispify (pyobject)
   (declare (type foreign-pointer pyobject))
