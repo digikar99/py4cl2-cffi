@@ -1,5 +1,8 @@
 (in-package :py4cl2-cffi)
 
+(declaim (inline pygil-held-p pygil-release pygil-ensure
+                 pyeval-save-thread pyeval-restore-thread))
+
 (defun pygil-held-p ()
   ;; Python's CAPI documentation lists this as mainly a helper/diagnostic function.
   ;; We haven't used this anywhere.
@@ -17,14 +20,20 @@
 (defun pygil-ensure ()
   (foreign-funcall "PyGILState_Ensure" :pointer))
 
+(defvar *py-thread-state*)
+(defun pyeval-save-thread ()
+  (foreign-funcall "PyEval_SaveThread" :pointer))
+(defun pyeval-restore-thread (thread-state)
+  (foreign-funcall "PyEval_RestoreThread" :pointer thread-state))
+
 (defmacro with-python-gil (&body body)
   (with-gensyms (gil)
-    `(let ((,gil (foreign-funcall "PyGILState_Ensure" :pointer)))
+    `(let* ((,gil (pygil-ensure)))
        (unwind-protect (locally ,@body)
          (unless *retrieving-exceptions-p*
            (let ((*retrieving-exceptions-p* t))
              (python-may-be-error)))
-         (foreign-funcall "PyGILState_Release" :pointer ,gil)))))
+         (pygil-release ,gil)))))
 
 (define-constant +python-function-reference-type-alist+
     '(("Py_Initialize"      nil)

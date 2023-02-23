@@ -133,7 +133,11 @@ execution of THUNK as a string."
 
     (load-python-and-libraries)
     (foreign-funcall "Py_Initialize")
-    (when (pygil-held-p) (pygil-release))
+    (when (pygil-held-p)
+      (setq *py-thread-state* (pyeval-save-thread))
+      (when (pygil-held-p)
+        (warn "Python GIL was not released from the main thread. This means on implementations (like SBCL) that call lisp object finalizers from a separate thread may never get a chance to run, and thus python foreign objects associated with PYTHON-OBJECT
+can lead to memory leak.")))
     (float-features:with-float-traps-masked (:overflow)
       (when (numpy-installed-p)
         (pushnew :typed-arrays *internal-features*))
