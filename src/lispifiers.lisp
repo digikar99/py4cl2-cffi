@@ -158,12 +158,11 @@
                      (zerop (pyforeign-funcall "PyTuple_Size" :pointer pyobject :int))))
             (pyuntrack pyobject)
             (pyuntrack pyobject-type)
-            ;; (if (pyobject-tracked-p pyobject)
-            ;;     (progn
-            ;;       (make-tracked-python-object :pointer pyobject :type pyobject-type))
-            ;;     (make-python-object :pointer pyobject :type pyobject-type))
-            (make-tracked-python-object :pointer pyobject :type pyobject-type)
-            )
+            (make-tracked-python-object
+             :pointer pyobject
+             :type (lispify (pyforeign-funcall "PyObject_Str"
+                                               :pointer pyobject-type
+                                               :pointer))))
            (t
             (funcall lispifier pyobject))))))
 

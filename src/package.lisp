@@ -16,6 +16,7 @@
 
            #:pythonize
            #:python-object
+           #:python-object-type
            #:define-lispifier
 
            #:*pythonizers*

@@ -92,8 +92,7 @@ a New Reference"
       (with-slots (type pointer) o
         (if *print-python-object*
             (progn
-              (format s ":type ~A~%"
-                      (lispify (pyforeign-funcall "PyObject_Str" :pointer type :pointer)))
+              (format s ":type ~A~%" type)
               (pprint-logical-block (s nil :per-line-prefix "  ")
                 ()
                 (write-string (lispify (pyforeign-funcall "PyObject_Str"
