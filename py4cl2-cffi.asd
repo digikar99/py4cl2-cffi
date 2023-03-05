@@ -21,7 +21,8 @@
                "py4cl2-cffi/config"
                "split-sequence")
   :serial t
-  :components ((:file "package")
+  :components ((:static-file "py4cl.py")
+               (:file "package")
                (:file "lisp-utils")
                (:static-file "py4cl-utils.c")
                (:file "shared-objects")
