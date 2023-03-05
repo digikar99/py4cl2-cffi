@@ -27,6 +27,6 @@
 
 (defmethod py-repr ((object array))
   (let ((repr (pycall "repr" object)))
-    (if (= 1 (array-rank object))
+    (if (typep object 'simple-vector)
         repr
         (concatenate 'string "numpy.array" (subseq repr 5)))))
