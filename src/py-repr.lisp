@@ -21,9 +21,15 @@
                                repr)))))))
 
 (defmethod py-repr ((object string))
-  (if (find #\newline object)
-      (concatenate 'string "\"\"\"" object "\"\"\"")
-      object))
+  (cond ((find #\newline object)
+         (concatenate 'string "\"\"\"" object "\"\"\""))
+        ((ignore-errors (parse-number:parse-number object))
+         (concatenate 'string "\"" object "\""))
+        (t
+         object)))
+
+(defmethod py-repr ((object symbol))
+  (pythonize-symbol object))
 
 (defmethod py-repr ((object array))
   (let ((repr (pycall "repr" object)))
