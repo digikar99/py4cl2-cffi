@@ -4,7 +4,7 @@
   "Ensures that all values returned by python functions
 and methods are kept in python, and only handles returned to lisp.
 This is useful if performing operations on large datasets."
-  `(let ((*in-with-remote-objects-p* t))
+  `(thread-global-let ((*in-with-remote-objects-p* t))
      ,@body))
 
 (defmacro with-remote-objects* (&body body)
@@ -13,7 +13,8 @@ and methods are kept in python, and only handles returned to lisp.
 This is useful if performing operations on large datasets. Unlike
 with-remote-objects, evaluates the last result and returns not just a handle."
   `(with-pygc
-     (lispify (with-remote-objects ,@body))))
+     (thread-global-let ((*in-with-remote-objects-p* nil))
+       (lispify (with-remote-objects ,@body)))))
 
 (defun pythonize-args (lisp-args)
   (loop :for arg :in lisp-args

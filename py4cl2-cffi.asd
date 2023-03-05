@@ -19,7 +19,8 @@
                "float-features"
                "parse-number"
                "py4cl2-cffi/config"
-               "split-sequence")
+               "split-sequence"
+               "trivial-backtrace")
   :serial t
   :components ((:static-file "py4cl.py")
                (:file "package")
