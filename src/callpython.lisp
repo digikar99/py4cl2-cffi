@@ -92,7 +92,10 @@ with-remote-objects, evaluates the last result and returns not just a handle."
   (defun pyeval (&rest args)
     (apply #'raw-pyeval (mapcar #'pythonize-if-needed args)))
   (defun pyexec (&rest args)
-    (apply #'raw-pyexec (mapcar #'pythonize-if-needed args))))
+    (apply #'raw-pyexec (mapcar #'pythonize-if-needed args)))
+  (defun (setf pyeval) (value &rest args)
+    (apply #'pyexec (nconc args (list "=" value)))
+    value))
 
 (defun pycall* (python-callable &rest args)
   "If PYTHON-CALLABLE is a string or symbol, it is treated as the name of a
@@ -183,3 +186,5 @@ python callable, which is then retrieved using PYVALUE*"
   "Return a list, using the result of python's sys.version_info."
   (pycall "tuple" (pyvalue "sys.version_info")))
 
+(defun pygenerator (function stop-value)
+  (pycall "_py4cl_generator" function stop-value))
