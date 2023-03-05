@@ -12,6 +12,9 @@
   `(setf (assoc-value *py-type-lispifier-table* ,name :test #'string=)
          (lambda (,pyobject-var) ,@body)))
 
+(define-lispifier "UnknownLispObject" (o)
+  (lisp-object (pyslot-value o "handle")))
+
 (define-lispifier "int" (o)
   (pyforeign-funcall "PyLong_AsLong" :pointer o :long))
 

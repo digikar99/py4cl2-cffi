@@ -162,33 +162,12 @@ can lead to memory leak.")))
           (pyforeign-funcall "PyModule_GetDict" :pointer (py-module-pointer "builtins") :pointer))
 
     (foreign-funcall "set_lisp_callback_fn_ptr" :pointer (callback lisp-callback-fn))
-    (raw-pyexec #.(format nil "
-import ctypes
+    (raw-pyexec #.(format nil "import ctypes
 py4cl_utils = ctypes.cdll.LoadLibrary(\"~A\")
-
-class _py4cl_LispCallbackObject (object):
-    \"\"\"
-    Represents a lisp function which can be called.
-
-    An object is used rather than a lambda, so that the lifetime
-    can be monitoried, and the function removed from a hash map
-    \"\"\"
-    lisp_callback_fn = getattr(py4cl_utils, \"LispCallback_helper\")
-    lisp_callback_fn.restype = ctypes.py_object
-    def __init__(self, handle):
-        \"\"\"
-        handle    A number, used to refer to the object in Lisp
-        \"\"\"
-        self.handle = handle
-    def __call__(self, *args, **kwargs):
-        if args is None: args = tuple()
-        if kwargs is None: kwargs = dict()
-        return _py4cl_LispCallbackObject.lisp_callback_fn(
-          ctypes.c_int(self.handle),
-          ctypes.py_object(args),
-          ctypes.py_object(kwargs)
-        )
 " (namestring *utils-shared-object-path*)))
+    (raw-pyexec (read-file-into-string
+                 (asdf:component-pathname
+                  (asdf:find-component (asdf:find-system "py4cl2-cffi") "py4cl.py"))))
     (setq +py-empty-tuple-pointer+ (pycall* "tuple"))
     (setq +py-empty-tuple+ (pycall "tuple"))
     (setq +py-none-pointer+ (pyvalue* "None"))
