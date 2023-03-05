@@ -97,6 +97,16 @@ with-remote-objects, evaluates the last result and returns not just a handle."
     (apply #'pyexec (nconc args (list "=" value)))
     value))
 
+(defun python-name-p (name)
+  (declare (optimize speed))
+  (and (stringp name)
+       (every (lambda (char)
+                (or (alphanumericp char)
+                    (char= char #\.)))
+              name)))
+(deftype python-name ()
+  `(and string (satisfies python-name-p)))
+
 (defun pycall* (python-callable &rest args)
   "If PYTHON-CALLABLE is a string or symbol, it is treated as the name of a
 python callable, which is then retrieved using PYVALUE*"
@@ -105,8 +115,10 @@ python callable, which is then retrieved using PYVALUE*"
   (let ((pyfun (typecase python-callable
                  (python-object
                   (python-object-pointer python-callable))
-                 (string
+                 (python-name
                   (pyvalue* python-callable))
+                 (string
+                  (with-remote-objects (raw-pyeval python-callable)))
                  (symbol
                   (pyvalue* (pythonize-symbol python-callable)))
                  (t
