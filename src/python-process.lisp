@@ -358,7 +358,7 @@ Use PYVALUE* if you want to refer to names containing full-stops."
   new-value)
 
 (defun %pyslot-value (object-pointer slot-name)
-  (declare (type string slot-name)
+  (declare (type (or symbol string) slot-name)
            (type foreign-pointer object-pointer)
            (optimize debug))
   (python-start-if-not-alive)
@@ -366,10 +366,13 @@ Use PYVALUE* if you want to refer to names containing full-stops."
                            :format-control
                            "Trying to access ~A slot of object with null pointer"
                            :format-arguments (list slot-name))
-  (let* ((return-value (pyforeign-funcall "PyObject_GetAttrString"
-                                          :pointer object-pointer
-                                          :string slot-name
-                                          :pointer)))
+  (let* ((slot-name (etypecase slot-name
+                      (string slot-name)
+                      (symbol (pythonize-symbol slot-name))))
+         (return-value (pyforeign-funcall "PyObject_GetAttrString"
+                                            :pointer object-pointer
+                                            :string slot-name
+                                            :pointer)))
     (ensure-non-null-pointer return-value
                              :format-control
                              "~A~%in python does not have the attribute ~A"
@@ -377,11 +380,14 @@ Use PYVALUE* if you want to refer to names containing full-stops."
                                                      slot-name))))
 
 (defun (setf %pyslot-value) (new-value object-pointer slot-name)
-  (declare (type string slot-name)
+  (declare (type (or string symbol) slot-name)
            (type foreign-pointer object-pointer new-value)
            (optimize debug))
   (python-start-if-not-alive)
-  (let* ((return-value (pyforeign-funcall "PyObject_SetAttrString"
+  (let* ((slot-name (etypecase slot-name
+                      (string slot-name)
+                      (symbol (pythonize-symbol slot-name))))
+         (return-value (pyforeign-funcall "PyObject_SetAttrString"
                                           :pointer object-pointer
                                           :string slot-name
                                           :pointer new-value

@@ -112,7 +112,7 @@ python callable, which is then retrieved using PYVALUE*"
     return-value))
 
 (defun pyslot-value (object slot-name)
-  (declare (type string slot-name)
+  (declare (type (or symbol string) slot-name)
            (optimize debug))
   (python-start-if-not-alive)
   (if *in-with-remote-objects-p*
@@ -128,8 +128,7 @@ python callable, which is then retrieved using PYVALUE*"
     new-value))
 
 (defun pymethod (object method-name &rest args)
-  (declare (type string method-name)
-           (optimize debug))
+  (declare (optimize debug))
   (python-start-if-not-alive)
   (with-pygc
     (let* ((object-pointer (%pythonize object))
