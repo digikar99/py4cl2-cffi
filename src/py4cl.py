@@ -1,6 +1,5 @@
 # This file is expected to be executed by RAW-PYEXEC after
 # its contents are read into a string.
-
 class LispCallbackObject (object):
 	"""
 	Represents a lisp function which can be called.
@@ -44,8 +43,8 @@ class UnknownLispObject (object):
 		"""
 		Delete this object, sending a message to Lisp
 		"""
-		# _py4cl_lisp_free_handle is an LispCallbackObject set in PYSTART
-		_py4cl_lisp_free_handle(self.handle)
+		free_handle = getattr(py4cl_utils, "free_handle")
+		free_handle(ctypes.c_int(self.handle))
 
 	def __str__(self):
 		return "UnknownLispObject(\"{0}\", {1})".format(self.lisptype, str(self.handle))

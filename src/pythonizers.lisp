@@ -194,6 +194,10 @@ a New Reference"
 (defmethod pythonize ((o array))
   (pythonize-array o))
 
+(defcallback free-handle-fn :pointer ((handle :int))
+  (free-handle handle)
+  (null-pointer))
+
 (defcallback lisp-callback-fn :pointer ((handle :int) (args :pointer) (kwargs :pointer))
   (with-pygc
     (handler-case

@@ -13,6 +13,14 @@ void set_lisp_callback_fn_ptr(void* ptr){
   lisp_callback_fn_ptr = ptr;
 }
 
+void (*free_handle_fn_ptr)(int) = NULL;
+void set_free_handle_fn_ptr(void* ptr){
+  free_handle_fn_ptr = ptr;
+}
+void free_handle(int handle){
+  (*free_handle_fn_ptr)(handle);
+}
+
 PyObject* LispCallback_helper(int handle, PyObject* args, PyObject* kwargs){
   PyObject* (*fn_ptr)(int, PyObject*, PyObject*);
   fn_ptr = lisp_callback_fn_ptr;

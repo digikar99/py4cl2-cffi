@@ -162,12 +162,14 @@ can lead to memory leak.")))
           (pyforeign-funcall "PyModule_GetDict" :pointer (py-module-pointer "builtins") :pointer))
 
     (foreign-funcall "set_lisp_callback_fn_ptr" :pointer (callback lisp-callback-fn))
+    (foreign-funcall "set_free_handle_fn_ptr" :pointer (callback free-handle-fn))
     (raw-pyexec #.(format nil "import ctypes
 py4cl_utils = ctypes.cdll.LoadLibrary(\"~A\")
 " (namestring *utils-shared-object-path*)))
     (raw-pyexec (read-file-into-string
                  (asdf:component-pathname
                   (asdf:find-component (asdf:find-system "py4cl2-cffi") "py4cl.py"))))
+    ;; TODO: Slot reading
     (setq +py-empty-tuple-pointer+ (pycall* "tuple"))
     (setq +py-empty-tuple+ (pycall "tuple"))
     (setq +py-none-pointer+ (pyvalue* "None"))
