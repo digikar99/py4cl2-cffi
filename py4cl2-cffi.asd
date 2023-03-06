@@ -15,6 +15,7 @@
                "uiop"
                "alexandria"
                "trivial-garbage"
+               "optima"
                "iterate"
                "float-features"
                "parse-number"

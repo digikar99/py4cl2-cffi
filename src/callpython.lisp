@@ -171,29 +171,81 @@ python callable, which is then retrieved using PYVALUE*"
   (pycall (pyvalue "sys.stdout.flush"))
   nil)
 
-(defun pyref (object &rest indices)
-  (apply #'pymethod object "__getitem__" indices))
+(flet ((may-be-slice (index)
+         (if (and (listp index)
+                  (typep (first index) 'string-designator)
+                  (string-equal "slice" (first index)))
+             (apply #'pycall* "slice" (rest index))
+             index)))
 
-(defun (setf pyref) (new-value object &rest indices)
-  (apply #'pymethod object "__setitem__" (nconc indices (list new-value))))
+  (defun pyref (object &rest indices)
+    (pymethod object "__getitem__"
+              (if (= 1 (length indices))
+                  (may-be-slice (first indices))
+                  (pycall* "tuple"
+                           (mapcar #'may-be-slice indices)))))
 
-(defun %chain* (link)
-  (etypecase link
-    (list (apply #'pycall (first link) (rest link)))
-    (atom (%pythonize link))))
+  (defun (setf pyref) (new-value object &rest indices)
+    (pymethod object "__setitem__"
+              (if (= 1 (length indices))
+                  (may-be-slice (first indices))
+                  (pycall* "tuple"
+                           (loop :for index :in indices
+                                 :collect (may-be-slice indices))))
+              new-value)))
 
-;; FIXME: How exactly do we want to handle strings
+(defun %chain* (link &optional initial-value)
+  (if initial-value
+      (optima:match link
+        ((list* 'aref args)
+         (apply #'pyref initial-value args))
+        ((optima:guard _ (and (consp link)
+                              (consp (first link))))
+         (apply #'pymethod initial-value
+                (mapcar #'chain* link)))
+        ((optima:guard (list* _ chain)
+                       (and (typep (first link) 'string-designator)
+                            (member (first link) '("@" "CHAIN") :test #'string=)))
+         (pyslot-value initial-value (apply #'chain* chain)))
+        ((list* name args)
+         (apply #'pymethod initial-value name args))
+        (_
+         (pyslot-value initial-value link)))
+      (optima:match link
+        ((list* 'aref object args)
+         (apply #'pyref object args))
+        ((optima:guard _ (and (consp link)
+                              (consp (first link))))
+         (apply #'pycall
+                (mapcar #'chain* link)))
+        ((optima:guard (list* _ chain)
+                       (and (typep (first link) 'string-designator)
+                            (member (first link) '("@" "CHAIN") :test #'string=)))
+         (apply #'chain* chain))
+        ((list* name args)
+         (apply #'pycall name args))
+        (_
+         (%pythonize link)))))
+
 (defun chain* (&rest chain)
   (with-pygc
-    (loop :for link :in (rest chain)
-          :with value := (%chain* (first chain))
-          :do (setq value (etypecase link
-                            (list (apply #'pymethod value link))
-                            (atom (pyslot-value value link))))
+    (loop :for link :in chain
+          :with value := nil
+          :do (setq value (%chain* link value))
           :finally (return value))))
 
-(defun @ (&rest chain)
-    (apply #'chain chain))
+(defun (setf chain*) (new-value &rest chain)
+  (let ((last  (lastcar chain))
+        (chain (butlast chain)))
+    (with-pygc
+      (loop :with value := nil
+            :for link :in chain
+            :do (setq value (%chain* link value))
+            :finally (return (setf (pyslot-value value last) new-value))))))
+
+(defmacro chain (&rest chain)
+  `(chain* ,@(loop :for link :in chain
+                   :collect `(quote ,link))))
 
 (defun pyversion-info ()
   "Return a list, using the result of python's sys.version_info."
