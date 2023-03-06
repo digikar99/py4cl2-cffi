@@ -162,7 +162,10 @@ can lead to memory leak.")))
           (pyforeign-funcall "PyModule_GetDict" :pointer (py-module-pointer "builtins") :pointer))
 
     (foreign-funcall "set_lisp_callback_fn_ptr" :pointer (callback lisp-callback-fn))
-    (foreign-funcall "set_free_handle_fn_ptr" :pointer (callback free-handle-fn))
+    (foreign-funcall "set_helper_fn_ptr"
+                     :pointer (callback free-handle-fn)
+                     :pointer (callback getattr-fn)
+                     :pointer (callback setattr-fn))
     (raw-pyexec #.(format nil "import ctypes
 py4cl_utils = ctypes.cdll.LoadLibrary(\"~A\")
 " (namestring *utils-shared-object-path*)))

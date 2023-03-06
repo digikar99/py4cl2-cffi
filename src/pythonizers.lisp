@@ -197,6 +197,13 @@ a New Reference"
   (free-handle handle)
   (null-pointer))
 
+(defcallback getattr-fn :pointer ((handle :int) (attr :pointer))
+  (pythonize (python-getattr (lisp-object handle) (lispify attr))))
+
+(defcallback setattr-fn :pointer ((handle :int) (attr :pointer) (new-value :pointer))
+  (python-setattr (lisp-object handle) (lispify attr) (lispify new-value))
+  (null-pointer))
+
 (defcallback lisp-callback-fn :pointer ((handle :int) (args :pointer) (kwargs :pointer))
   (declare (optimize debug))
   (with-pygc

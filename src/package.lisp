@@ -49,6 +49,9 @@
            #:+py-empty-tuple+
            #:+py-empty-tuple-pointer+
            #:+py-none+
-           #:+py-none-pointer+))
+           #:+py-none-pointer+
+
+           #:python-getattr
+           #:python-setattr))
 
 (in-package :py4cl2-cffi)

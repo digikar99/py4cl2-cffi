@@ -13,12 +13,23 @@ void set_lisp_callback_fn_ptr(void* ptr){
   lisp_callback_fn_ptr = ptr;
 }
 
-void (*free_handle_fn_ptr)(int) = NULL;
-void set_free_handle_fn_ptr(void* ptr){
-  free_handle_fn_ptr = ptr;
+void (*free_handle_ptr)(int) = NULL;
+PyObject* (*getattr_ptr)(int, PyObject*) = NULL;
+void (*setattr_ptr)(int, PyObject*, PyObject*) = NULL;
+void set_helper_fn_ptr(void* _free_handle_ptr, void* _getattr_ptr, void* _setattr_ptr){
+  free_handle_ptr = _free_handle_ptr;
+  getattr_ptr = _getattr_ptr;
+  setattr_ptr = _setattr_ptr;
 }
+
 void free_handle(int handle){
-  (*free_handle_fn_ptr)(handle);
+  free_handle_ptr(handle);
+}
+PyObject* getattr(int handle, PyObject* attr){
+  return getattr_ptr(handle, attr);
+}
+void setattr(int handle, PyObject* attr, PyObject* value){
+  setattr_ptr(handle, attr, value);
 }
 
 PyObject* LispCallback_helper(int handle, PyObject* args, PyObject* kwargs){

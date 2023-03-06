@@ -38,6 +38,7 @@
                (:file "callpython")
                (:file "arg-list")
                (:file "import-export")
+               (:file "lisp-classes")
                (:file "do-after-load"))
   :perform (test-op (o c)
              (declare (ignore o c))

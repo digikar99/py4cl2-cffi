@@ -50,26 +50,23 @@ class UnknownLispObject (object):
 		return "UnknownLispObject(\"{0}\", {1})".format(self.lisptype, str(self.handle))
 
 	def __getattr__(self, attr):
-		# Check if there is a slot with this name
-		try:
-			sys.stdout = return_stream
-			send_value("s", (self.handle, attr)) # Slot read
-		finally:
-			sys.stdout = output_stream
-
-		# Wait for the result
-		return message_dispatch_loop()
+		getattr_fn = getattr(py4cl_utils, "getattr")
+		getattr_fn.restype = ctypes.py_object
+		return getattr_fn(
+			ctypes.c_int(self.handle),
+			ctypes.py_object(attr)
+		)
 
 	def __setattr__(self, attr, value):
 		if self.__during_init:
 			return object.__setattr__(self, attr, value)
-		try:
-			sys.stdout = return_stream
-			send_value("S", (self.handle, attr, value)) # Slot write
-		finally:
-			sys.stdout = output_stream
-		# Wait until finished, to syncronise
-		return message_dispatch_loop()
+		else:
+			setattr_fn = getattr(py4cl_utils, "setattr")
+			setattr_fn(
+				ctypes.c_int(self.handle),
+				ctypes.py_object(attr),
+				ctypes.py_object(value)
+			)
 
 def generator(function, stop_value):
 	temp = None
