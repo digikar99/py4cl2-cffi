@@ -334,6 +334,7 @@ RAW-PY, RAW-PYEVAL, RAW-PYEXEC are only provided for backward compatibility."
     (makunbound '+empty-tuple-pointer+)
     (makunbound '+py-none+)
     (makunbound '+py-none-pointer+)
+    (makunbound '*numpy-installed-p*)
     (bt:destroy-thread *py-output-reader-thread*)
     (bt:destroy-thread *py-error-output-reader-thread*)
     (sleep 0.01)

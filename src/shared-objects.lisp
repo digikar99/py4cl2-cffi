@@ -15,7 +15,7 @@
     (let ((program-string
             (format nil
                     ;; /media/common-storage/miniconda3/include/python3.8
-                    "gcc -I'~A' -I'~Anumpy/' -c -Wall -Werror -fpic py4cl-utils.c && gcc -shared -o libpy4cl-utils.so py4cl-utils.o"
+                    "gcc -I'~A' -I'~A' -c -Wall -Werror -fpic py4cl-utils.c && gcc -shared -o libpy4cl-utils.so py4cl-utils.o"
                     (namestring *python-include-path*)
                     (string-trim (list #\newline)
                                  (namestring
