@@ -70,9 +70,9 @@ def _py4cl_non_callable(ele):
 
 (defun fun-symbol (pyfun-name pyfullname lisp-package &optional (ensure-unique t))
   (if ensure-unique
-      (let ((callable-type (cond ((pycall "inspect.isfunction" pyfullname)
+      (let ((callable-type (cond ((pycall "inspect.isfunction" (pyvalue* pyfullname))
                                   'function)
-                                 ((pycall "inspect.isclass" pyfullname)
+                                 ((pycall "inspect.isclass" (pyvalue* pyfullname))
                                   'class)
                                  (t t)))
             (lisp-fun-name (lispify-name pyfun-name)))
