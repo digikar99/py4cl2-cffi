@@ -3,7 +3,8 @@
   (:export #:*python-shared-object-path*
            #:*python-include-path*
            #:*python-additional-libraries*
-           #:*python-additional-libraries-search-path*))
+           #:*python-additional-libraries-search-path*
+           #:print-configuration))
 
 (in-package :py4cl2-cffi/config)
 
@@ -61,4 +62,8 @@
 (defvar *python-include-path*
   (pathname (strip-i-and-l (nth 0 (return-value-as-list "python3-config --includes")))))
 
-
+(defun print-configuration ()
+  (format t "Python Shared Object Path: ~A~%Python Include Path: ~A~%Python Ldflags Search Path: ~A~%"
+          *python-shared-object-path*
+          *python-include-path*
+          *python-additional-libraries-search-path*))
