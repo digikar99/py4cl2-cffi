@@ -44,11 +44,26 @@ Value: The pointer to the module in embedded python")
   (declare (type string name))
   (setf (gethash name *py-module-pointer-table*) module-pointer))
 
+(defvar *py-module-dict-pointer-table* (make-hash-table :test #'equal)
+  "Key: A string indicating module name
+Value: The pointer to the module dictionary in embedded python")
+(declaim (type hash-table *py-module-dict-pointer-table*))
 (defun py-module-dict (name)
-  (declare (type string name))
-  (pyforeign-funcall "PyModule_GetDict"
-                     :pointer (py-module-pointer name)
-                     :pointer))
+  (declare (type string name)
+           (optimize speed))
+  (or (nth-value 0 (gethash name *py-module-dict-pointer-table*))
+      (progn
+        (python-start-if-not-alive)
+        (setf (py-module-dict name)
+              (pyforeign-funcall "PyModule_GetDict"
+                                 :pointer (py-module-pointer name)
+                                 :pointer)))))
+
+(defun (setf py-module-dict) (module-dict-pointer name)
+  (declare (type string name)
+           (optimize speed))
+  (setf (gethash name *py-module-dict-pointer-table*)
+        module-dict-pointer))
 
 (defvar *py-global-dict* nil
   "Pointer to the dictionary mapping names to PyObjects in the global namespace of embedded python.")
@@ -104,6 +119,8 @@ Value: The pointer to the module in embedded python")
                          (when char
                            (write-char char *error-output*))))))))
 
+  ;; TODO: Instead of having the thread write to the string-output-stream
+  ;; open the named pipe and read from it directly.
   (defun call-thunk-python-output (thunk)
     "Capture and return the output produced by python during the
 execution of THUNK as a string."
@@ -197,51 +214,48 @@ py4cl_utils = ctypes.cdll.LoadLibrary(\"~A\")
                  condition
                (apply #'format stream format-control format-arguments)))))
 
-(defvar *retrieving-exceptions-p* nil
-  "Set to non-NIL inside PYTHON-MAY-BE-ERROR to avoid infinite recursion.")
-
-(defun python-may-be-error ()
+(defun python-may-be-error (&optional already-retrieving-exceptions)
   (declare (optimize debug))
   (python-start-if-not-alive)
-  (with-python-gil
-    (let ((may-be-error-type (pyforeign-funcall "PyErr_Occurred" :pointer))
-          (*retrieving-exceptions-p* t))
-      (unless (null-pointer-p may-be-error-type)
-        (with-pygc
-          (with-foreign-objects ((ptype  :pointer)
-                                 (pvalue :pointer)
-                                 (ptraceback :pointer))
-            (pyforeign-funcall "PyErr_Fetch"
-                               :pointer ptype
-                               :pointer pvalue
-                               :pointer ptraceback)
-            (let* ((type      (mem-aref ptype :pointer))
-                   (value     (mem-aref pvalue :pointer))
-                   (traceback (mem-aref ptraceback :pointer))
-                   (value-str
-                     (foreign-string-to-lisp
-                      (pyforeign-funcall "PyUnicode_AsUTF8"
-                                         :pointer (pyforeign-funcall "PyObject_Str"
-                                                                     :pointer value
-                                                                     :pointer)
-                                         :pointer)))
-                   (traceback-str
-                     (if (null-pointer-p traceback)
-                         (pycall "traceback.format_exception_only" type value)
-                         (pycall "traceback.format_exception" type value traceback))))
-              (with-simple-restart (continue-ignoring-errors "")
-                (if traceback-str
-                    (error 'pyerror
-                           :format-control "A python error occurred:~%  ~A~%~%Traceback:~%~%~A"
-                           :format-arguments (list value-str traceback-str))
-                    (error 'pyerror
-                           :format-control "A python error occurred:~%  ~A"
-                           :format-arguments (list value-str)))))))))))
+  (unless already-retrieving-exceptions
+    (with-python-gil
+      (let ((may-be-error-type (pyforeign-funcall "PyErr_Occurred" :pointer)))
+        (unless (null-pointer-p may-be-error-type)
+          (with-pygc
+            (with-foreign-objects ((ptype  :pointer)
+                                   (pvalue :pointer)
+                                   (ptraceback :pointer))
+              (pyforeign-funcall "PyErr_Fetch"
+                                 :pointer ptype
+                                 :pointer pvalue
+                                 :pointer ptraceback)
+              (let* ((type      (mem-aref ptype :pointer))
+                     (value     (mem-aref pvalue :pointer))
+                     (traceback (mem-aref ptraceback :pointer))
+                     (value-str
+                       (foreign-string-to-lisp
+                        (pyforeign-funcall "PyUnicode_AsUTF8"
+                                           :pointer (pyforeign-funcall "PyObject_Str"
+                                                                       :pointer value
+                                                                       :pointer)
+                                           :pointer)))
+                     (traceback-str
+                       (if (null-pointer-p traceback)
+                           (pycall "traceback.format_exception_only" type value)
+                           (pycall "traceback.format_exception" type value traceback))))
+                (with-simple-restart (continue-ignoring-errors "")
+                  (if traceback-str
+                      (error 'pyerror
+                             :format-control "A python error occurred:~%  ~A~%~%Traceback:~%~%~A"
+                             :format-arguments (list value-str traceback-str))
+                      (error 'pyerror
+                             :format-control "A python error occurred:~%  ~A"
+                             :format-arguments (list value-str))))))))))))
 
 (defmacro with-python-exceptions (&body body)
   (with-gensyms (may-be-exception-type)
     `(progn
-       (unless *retrieving-exceptions-p* (python-may-be-error))
+       (python-may-be-error t)
        (locally ,@body))))
 
 (defmacro ensure-non-null-pointer (pointer
@@ -312,6 +326,7 @@ RAW-PY, RAW-PYEVAL, RAW-PYEXEC are only provided for backward compatibility."
     (pycall (pyvalue* "sys.stderr.close"))
     (pymethod *py-global-dict* "clear")
     (setq *py-module-pointer-table* (make-hash-table :test #'equal))
+    (setq *py-module-dict-pointer-table* (make-hash-table :test #'equal))
     (setq *py-global-dict* nil)
     (setq *py-builtins-dict* nil)
     (setq *python-state* :uninitialized)
@@ -336,7 +351,8 @@ RAW-PY, RAW-PYEVAL, RAW-PYEXEC are only provided for backward compatibility."
   "Get the foreign pointer associated with PYTHON-VALUE-OR-VARIABLE.
 The PYTHON-VALUE-OR-VARIABLE may not contain '.' (full-stops)
 Use PYVALUE* if you want to refer to names containing full-stops."
-  (declare (type (or foreign-pointer string) python-value-or-variable))
+  (declare (type (or foreign-pointer string) python-value-or-variable)
+           (optimize speed))
   (python-start-if-not-alive)
   (if (typep python-value-or-variable 'foreign-pointer)
       python-value-or-variable
@@ -373,7 +389,7 @@ Use PYVALUE* if you want to refer to names containing full-stops."
 (defun %pyslot-value (object-pointer slot-name)
   (declare (type (or symbol string) slot-name)
            (type foreign-pointer object-pointer)
-           (optimize debug))
+           (optimize speed))
   (python-start-if-not-alive)
   (ensure-non-null-pointer object-pointer
                            :format-control
@@ -395,7 +411,7 @@ Use PYVALUE* if you want to refer to names containing full-stops."
 (defun (setf %pyslot-value) (new-value object-pointer slot-name)
   (declare (type (or string symbol) slot-name)
            (type foreign-pointer object-pointer new-value)
-           (optimize debug))
+           (optimize speed))
   (python-start-if-not-alive)
   (let* ((slot-name (etypecase slot-name
                       (string slot-name)
@@ -411,15 +427,16 @@ Use PYVALUE* if you want to refer to names containing full-stops."
 
 (defun pyvalue* (python-value-or-variable)
   "Get the non-lispified value associated with PYTHON-VALUE-OR-VARIABLE"
-  (declare (type (or python-object string) python-value-or-variable))
+  (declare (type (or python-object string) python-value-or-variable)
+           (optimize speed))
   (if (python-object-p python-value-or-variable)
       python-value-or-variable
-      (let* ((names (split-sequence:split-sequence #\.
-                                                   python-value-or-variable)))
-        (loop :for name :in (rest names)
-              :with value := (%pyvalue (first names))
-              :do (setq value (%pyslot-value value name))
-              :finally (return value)))))
+      (let (value)
+        (do-subseq-until (name python-value-or-variable #\. :test #'char=)
+          (setq value (if value
+                          (%pyslot-value value name)
+                          (%pyvalue name))))
+        value)))
 
 (defun (setf pyvalue*) (new-value python-value-or-variable)
   (declare (type (or python-object string) python-value-or-variable)
@@ -427,16 +444,18 @@ Use PYVALUE* if you want to refer to names containing full-stops."
   (python-start-if-not-alive)
   (if (python-object-p python-value-or-variable)
       python-value-or-variable
-      (let* ((names (split-sequence:split-sequence #\.
-                                                   python-value-or-variable)))
-        (if (endp (rest names))
-            (setf (%pyvalue (first names)) new-value)
-            (loop :for (name . rest) :on (rest names)
-                  :with value := (%pyvalue (first names))
-                  :if (endp rest)
-                    :do (setf (%pyslot-value value name) new-value)
-                  :else
-                    :do (setq value (%pyslot-value value name)))))))
+      (let (value previous-value previous-name)
+        (do-subseq-until (name python-value-or-variable #\. :test #'char=)
+          (setq previous-value value)
+          (cond ((string= name python-value-or-variable)
+                 (setf (%pyvalue name) new-value))
+                (value
+                 (%pyslot-value value name))
+                (t
+                 (%pyvalue name)))
+          (setq previous-name name))
+        (when previous-value
+          (setf (%pyslot-value previous-value previous-name) new-value)))))
 
 (defun pyvalue (python-value-or-variable)
   (declare (type (or python-object string) python-value-or-variable))

@@ -1,6 +1,6 @@
 (in-package :py4cl2-cffi)
 
-(defvar *py-type-lispifier-table* ())
+(defvar *py-type-lispifier-table* (make-hash-table :test #'equal))
 
 (defvar +py-empty-tuple+)
 (defvar +py-empty-tuple-pointer+)
@@ -9,7 +9,7 @@
 
 (defmacro define-lispifier (name (pyobject-var) &body body)
   (declare (type string name))
-  `(setf (assoc-value *py-type-lispifier-table* ,name :test #'string=)
+  `(setf (gethash ,name *py-type-lispifier-table*)
          (lambda (,pyobject-var) ,@body)))
 
 (define-lispifier "UnknownLispObject" (o)
@@ -134,7 +134,8 @@
     ('t 8)))
 
 (defun lispify (pyobject)
-  (declare (type foreign-pointer pyobject))
+  (declare (type foreign-pointer pyobject)
+           (optimize speed))
   (assert (null *in-with-remote-objects-p*))
   (let* ((pyobject-type (pyforeign-funcall "PyObject_Type"
                                            :pointer pyobject
@@ -146,16 +147,17 @@
                                               :pointer pyobject-type
                                               :pointer))))
          ;; FIXME: What about names in modules?
-         (lispifier (assoc-value *py-type-lispifier-table* pytype-name :test #'string=)))
+         (lispifier (gethash pytype-name *py-type-lispifier-table*)))
     ;; (print (list pyobject pyobject-type pytype-name))
     (customize
      (cond ((null-pointer-p pyobject-type)
             nil)
-           ((or (string= pytype-name "NoneType")
-                (null lispifier)
-                (and (string= pytype-name "tuple")
-                     (not (boundp '+py-empty-tuple+))
-                     (zerop (pyforeign-funcall "PyTuple_Size" :pointer pyobject :int))))
+           ((locally (declare (type string pytype-name))
+              (or (string= pytype-name "NoneType")
+                  (null lispifier)
+                  (and (string= pytype-name "tuple")
+                       (not (boundp '+py-empty-tuple+))
+                       (zerop (pyforeign-funcall "PyTuple_Size" :pointer pyobject :int)))))
             (pyuntrack pyobject)
             (pyuntrack pyobject-type)
             (make-tracked-python-object

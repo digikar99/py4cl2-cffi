@@ -32,6 +32,7 @@ with-remote-objects, evaluates the last result and returns not just a handle."
             (pythonize-plist (subseq lisp-args first-keyword-position)))))
 
 (defun %pycall-return-value (return-value)
+  (declare (optimize speed))
   (with-python-exceptions
     ;; FIXME: Why did we write it this way?
     (let ((lispified-return-value (if (typep return-value 'foreign-pointer)
@@ -44,7 +45,7 @@ with-remote-objects, evaluates the last result and returns not just a handle."
 
 (defun %pycall* (python-callable-pointer &rest args)
   (declare (type foreign-pointer python-callable-pointer)
-           (optimize debug))
+           (optimize speed))
   (labels ((pin-and-call (&rest rem-args)
              (cond ((null rem-args)
                     (let ((pythonized-args (pythonize-args args)))
@@ -112,6 +113,7 @@ with-remote-objects, evaluates the last result and returns not just a handle."
     (apply #'pyexec (nconc args (list "=" value)))
     value))
 
+(declaim (inline python-name-p))
 (defun python-name-p (name)
   (declare (optimize speed))
   (and (stringp name)
@@ -125,17 +127,17 @@ with-remote-objects, evaluates the last result and returns not just a handle."
 (defun pycall* (python-callable &rest args)
   "If PYTHON-CALLABLE is a string or symbol, it is treated as the name of a
 python callable, which is then retrieved using PYVALUE*"
-  (declare (optimize debug))
+  (declare (optimize speed))
   (python-start-if-not-alive)
   (let ((pyfun (typecase python-callable
-                 (python-object
-                  (python-object-pointer python-callable))
                  (python-name
                   (pyvalue* python-callable))
                  (string
                   (with-remote-objects (raw-pyeval python-callable)))
                  (symbol
                   (pyvalue* (pythonize-symbol python-callable)))
+                 (python-object
+                  (python-object-pointer python-callable))
                  (t
                   (pythonize python-callable)))))
     (if (null-pointer-p pyfun)
@@ -145,7 +147,7 @@ python callable, which is then retrieved using PYVALUE*"
 (defun pycall (python-callable &rest args)
   "If PYTHON-CALLABLE is a string or symbol, it is treated as the name of a
 python callable, which is then retrieved using PYVALUE*"
-  (declare (optimize debug))
+  (declare (optimize speed))
   (python-start-if-not-alive)
   (if *in-with-remote-objects-p*
       (apply #'pycall* python-callable args)

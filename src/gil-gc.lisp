@@ -30,9 +30,7 @@
   (with-gensyms (gil)
     `(let* ((,gil (pygil-ensure)))
        (unwind-protect (locally ,@body)
-         (unless *retrieving-exceptions-p*
-           (let ((*retrieving-exceptions-p* t))
-             (python-may-be-error)))
+         (python-may-be-error t)
          (pygil-release ,gil)))))
 
 (define-constant +python-function-reference-type-alist+

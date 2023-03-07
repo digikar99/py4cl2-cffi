@@ -30,3 +30,19 @@
          ,@(mapcar (lambda (var gensym)
                      `(setq ,var ,gensym))
                    variables gensyms)))))
+
+(defmacro do-subseq-until ((subseq-var sequence item &rest position-args
+                            &key &allow-other-keys)
+                           &body body)
+  (check-type subseq-var symbol)
+  (with-gensyms (old-item-pos new-item-pos)
+    (once-only (item sequence)
+      `(loop :with ,old-item-pos := 0
+             :while ,old-item-pos
+             :do (let* ((,new-item-pos (position ,item ,sequence
+                                                :start ,old-item-pos
+                                                ,@position-args))
+                        (,subseq-var   (subseq ,sequence ,old-item-pos ,new-item-pos)))
+                   ,@body
+                   (setq ,old-item-pos (when ,new-item-pos
+                                         (1+ ,new-item-pos))))))))
