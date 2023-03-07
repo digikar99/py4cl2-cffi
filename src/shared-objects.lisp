@@ -17,15 +17,17 @@
 
 (defun compile-utils-shared-object ()
   (uiop:with-current-directory ((asdf:component-pathname (asdf:find-system "py4cl2-cffi")))
-    (uiop:run-program
-     (format nil
-             ;; /media/common-storage/miniconda3/include/python3.8
-             "gcc -I'~A' -I'~A/core/include/numpy/' -c -Wall -Werror -fpic py4cl-utils.c && gcc -shared -o libpy4cl-utils.so py4cl-utils.o"
-             (namestring *python-include-path*)
-             (string-trim (list #\newline)
-                          (uiop:run-program "python3 -c 'import numpy; print(numpy.__path__[0])'"
-                                            :output :string :error-output *error-output*)))
-     :error-output *error-output*
-     :output *standard-output*)))
+    (let ((program-string
+            (format nil
+                    ;; /media/common-storage/miniconda3/include/python3.8
+                    "gcc -I'~A' -I'~A/core/include/numpy/' -c -Wall -Werror -fpic py4cl-utils.c && gcc -shared -o libpy4cl-utils.so py4cl-utils.o"
+                    (namestring *python-include-path*)
+                    (string-trim (list #\newline)
+                                 (uiop:run-program "python3 -c 'import numpy; print(numpy.__path__[0])'"
+                                                   :output :string :error-output *error-output*)))))
+      (write-line program-string)
+      (uiop:run-program program-string
+                        :error-output *error-output*
+                        :output *standard-output*))))
 
 (compile-utils-shared-object)
