@@ -62,7 +62,7 @@ with-remote-objects, evaluates the last result and returns not just a handle."
                          (not (eq t (array-element-type (car rem-args)))))
                     (cffi:with-pointer-to-vector-data
                         (ptr (array-storage (car rem-args)))
-                      (declare (ignore ptr))
+                      #-ccl (declare (ignore ptr))
                       (apply #'pin-and-call (rest rem-args))))
                    (t
                     (apply #'pin-and-call (rest rem-args))))))
