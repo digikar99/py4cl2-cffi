@@ -16,8 +16,6 @@
                *python-shared-object-path*
                *python-include-path*
                *python-additional-libraries-search-path*))
-(defvar *python-shared-object-path*
-  #P"/usr/lib/python3.8/config-3.8-x86_64-linux-gnu/libpython3.8.so")
 
 (defun return-value-as-list (cmd)
   (remove ""
