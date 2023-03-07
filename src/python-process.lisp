@@ -148,7 +148,7 @@ execution of THUNK as a string."
      :output t :error-output *error-output*)
     (uiop:run-program
      "rm /tmp/py4cl2-cffi-error-output ; mkfifo /tmp/py4cl2-cffi-error-output"
-                      :output t :error-output *error-output*)
+     :output t :error-output *error-output*)
 
     (load-python-and-libraries)
     (foreign-funcall "Py_Initialize")

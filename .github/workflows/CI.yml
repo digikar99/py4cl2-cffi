@@ -32,6 +32,13 @@ jobs:
         ls -l
         bash <(curl -s https://raw.githubusercontent.com/digikar99/lisp-travis-lite/master/run.sh)
 
+    - name: Test without numpy
+      run: |
+        ls
+        cl --eval '(push #P"./" ql:*local-project-directories*)' --eval '(ql:quickload "py4cl2-cffi")' --eval '(assert (= 5 (py4cl2-cffi:pyeval 5)))' --eval '(print py4cl2-cffi:*internal-features*)'
+
+    # We avoid caching the apt and python modules; need to deal with recursive dependencies
+
     - name: Install python modules
       run: | # need to use sudo
         sudo apt install python3-pip
