@@ -39,14 +39,10 @@ class UnknownLispObject (object):
 		self.handle = handle
 		self.__during_init = False  # Further changes are sent to Lisp
 
-	def __del__(self):
-		"""
-		Delete this object, sending a message to Lisp
-		"""
-		free_handle = getattr(py4cl_utils, "free_handle")
-		free_handle(ctypes.c_int(self.handle))
-
 	def __str__(self):
+		return "UnknownLispObject(\"{0}\", {1})".format(self.lisptype, str(self.handle))
+
+	def __repr__(self):
 		return "UnknownLispObject(\"{0}\", {1})".format(self.lisptype, str(self.handle))
 
 	def __getattr__(self, attr):

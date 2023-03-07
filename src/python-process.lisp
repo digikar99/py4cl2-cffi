@@ -77,7 +77,7 @@ Value: The pointer to the module in embedded python")
     (setq *py-output-reader-thread*
           (bt:make-thread
            (lambda ()
-             (setq *py-output-stream* (open "/tmp/py4cl2-cffi-output" :direction :input))
+             (setq *py-output-stream* (open #P"/tmp/py4cl2-cffi-output" :direction :input))
              (loop :do (when (and *in-with-python-output*
                                   (not (listen *py-output-stream*)))
                          (bt:with-lock-held (*py-output-lock*)
@@ -100,7 +100,7 @@ Value: The pointer to the module in embedded python")
                    (open #P"/tmp/py4cl2-cffi-error-output" :direction :input))
              ;; PEEK-CHAR waits for input
              (loop :do (peek-char nil *py-error-output-stream* nil)
-                   :do (let ((char (read-char *py-error-output-stream* nil)))
+                       (let ((char (read-char *py-error-output-stream* nil)))
                          (when char
                            (write-char char *error-output*))))))))
 
@@ -126,10 +126,12 @@ execution of THUNK as a string."
     ;; We are using a let, because if something fails, we want
     ;; *PYTHON-STATE* to be whatever it was before.
 
-    (uiop:delete-file-if-exists #P"/tmp/py4cl2-cffi-output")
-    (uiop:run-program "mkfifo /tmp/py4cl2-cffi-output" :output t :error-output *error-output*)
-    (uiop:delete-file-if-exists #P"/tmp/py4cl2-cffi-error-output")
-    (uiop:run-program "mkfifo /tmp/py4cl2-cffi-error-output" :output t :error-output *error-output*)
+    (uiop:run-program
+     "rm /tmp/py4cl2-cffi-output && mkfifo /tmp/py4cl2-cffi-output"
+     :output t :error-output *error-output*)
+    (uiop:run-program
+     "rm /tmp/py4cl2-cffi-error-output && mkfifo /tmp/py4cl2-cffi-error-output"
+                      :output t :error-output *error-output*)
 
     (load-python-and-libraries)
     (foreign-funcall "Py_Initialize")
@@ -138,7 +140,7 @@ execution of THUNK as a string."
       (when (pygil-held-p)
         (warn "Python GIL was not released from the main thread. This means on implementations (like SBCL) that call lisp object finalizers from a separate thread may never get a chance to run, and thus python foreign objects associated with PYTHON-OBJECT
 can lead to memory leak.")))
-    (float-features:with-float-traps-masked (:overflow)
+    (float-features:with-float-traps-masked (:overflow :invalid)
       (when (numpy-installed-p)
         (pushnew :typed-arrays *internal-features*))
       (when (member :typed-arrays *internal-features*)
@@ -172,7 +174,7 @@ py4cl_utils = ctypes.cdll.LoadLibrary(\"~A\")
     (raw-pyexec (read-file-into-string
                  (asdf:component-pathname
                   (asdf:find-component (asdf:find-system "py4cl2-cffi") "py4cl.py"))))
-    ;; TODO: Slot reading
+    (raw-pyexec "import decimal; Decimal = decimal.Decimal")
     (setq +py-empty-tuple-pointer+ (pycall* "tuple"))
     (setq +py-empty-tuple+ (pycall "tuple"))
     (setq +py-none-pointer+ (pyvalue* "None"))
@@ -278,7 +280,9 @@ RAW-PY, RAW-PYEVAL, RAW-PYEXEC are only provided for backward compatibility."
 Unfortunately, no more information about the error can be provided
 while using RAW-PYEVAL or RAW-PYEXEC."))
   (ecase cmd-char
-    (#\e (pyvalue* "_"))
+    (#\e (let ((ptr (pyvalue* "_")))
+           (pyforeign-funcall "Py_IncRef" :pointer ptr)
+           (pytrack ptr)))
     (#\x (values))))
 
 (defun raw-pyeval (&rest code-strings)
@@ -303,6 +307,8 @@ RAW-PY, RAW-PYEVAL, RAW-PYEXEC are only provided for backward compatibility."
 
 (defun pystop ()
   (when (python-alive-p)
+    (trivial-garbage:gc :full t)
+    (pygc)
     (pycall (pyvalue* "sys.stdout.close"))
     (pycall (pyvalue* "sys.stderr.close"))
     (pymethod *py-global-dict* "clear")
@@ -314,6 +320,9 @@ RAW-PY, RAW-PYEVAL, RAW-PYEXEC are only provided for backward compatibility."
     (makunbound '+empty-tuple-pointer+)
     (makunbound '+py-none+)
     (makunbound '+py-none-pointer+)
+    (bt:destroy-thread *py-output-reader-thread*)
+    (bt:destroy-thread *py-error-output-reader-thread*)
+    (sleep 0.01)
     nil))
 
 (defun pytype (name)

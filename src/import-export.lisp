@@ -341,95 +341,96 @@ Returns multiple values:
 - an ENSURE-PACKAGE form
 - the actual form that defines the package and functions
   "
-  (check-type pymodule-name string) ; is there a way to (declaim (macrotype ...?
-  (check-type lisp-package string)
+  (with-pygc
+    (check-type pymodule-name string) ; is there a way to (declaim (macrotype ...?
+    (check-type lisp-package string)
 
-  ;; This form is necessary, until
-  ;; (i)  slime displays case sensitive names
-  ;; (ii) case sensitive lisp becomes mainstream
-  ;; Because, until then, for "convenience", multiple python names
-  ;;   python_name PythonName Python_name pythonName
-  ;; will map to the same lisp name
-  (let ((package (find-package lisp-package))) ;; reload
-    (if package
-        (if reload
-            (uiop:delete-package* package :nuke t)
-            (return-from defpymodule* "Package already exists."))))
+    ;; This form is necessary, until
+    ;; (i)  slime displays case sensitive names
+    ;; (ii) case sensitive lisp becomes mainstream
+    ;; Because, until then, for "convenience", multiple python names
+    ;;   python_name PythonName Python_name pythonName
+    ;; will map to the same lisp name
+    (let ((package (find-package lisp-package))) ;; reload
+      (if package
+          (if reload
+              (uiop:delete-package* package :nuke t)
+              (return-from defpymodule* "Package already exists."))))
 
-  (python-start-if-not-alive)           ; Ensure python is running
+    (python-start-if-not-alive)           ; Ensure python is running
 
-  (import-module "inspect")
-  (import-module "pkgutil")
+    (import-module "inspect")
+    (import-module "pkgutil")
 
-  ;; fn-names  All callables whose names don't start with "_"
-  (let ((*lisp-package-supplied-p* lisp-package-supplied-p)
-        (*defpymodule-silent-p* silent))
-    (multiple-value-bind (package-import-string package-in-python)
-        (pymodule-import-string pymodule-name lisp-package)
-      (eval package-import-string)
-      (when (and reload (not silent))
-        (format t "~&Defining ~A for accessing python package ~A..~%"
-                lisp-package
-                package-in-python))
-      (let* ((fun-names (loop :for (name fn)
-                                :in (let* ((name-fns
-                                             (pycall "tuple"
-                                                     (pycall "inspect.getmembers"
-                                                             (pyvalue package-in-python)
-                                                             (pyvalue "callable")))))
-                                      (unless (listp name-fns)
-                                        (setq name-fns ()))
-                                      name-fns)
-                              :if (not (starts-with #\_ name))
-                                :collect name))
-             ;; Get the package name by passing through reader,
-             ;; rather than using STRING-UPCASE
-             ;; so that the result reflects changes to the readtable
-             ;; Note that the package doesn't use CL to avoid shadowing.
-             (exporting-package (ensure-package lisp-package :use '()))
-             (fun-symbols (mapcar (lambda (pyfun-name)
-                                    (fun-symbol pyfun-name
-                                                (concatenate 'string
-                                                             package-in-python
-                                                             "."
-                                                             pyfun-name)
-                                                lisp-package))
-                                  fun-names))
-             (package-exists-p (gensym "PACKAGE-EXISTS-P"))
-             (fun-symbol-names (mapcar #'symbol-name fun-symbols)))
-        (values `(defvar ,package-exists-p (find-package ,lisp-package))
-                ;; We need the package to even read the next form!
-                ;; But we can only know if or not the package exists beforehand
-                ;; before creating it! After creating it, it definitely exists!
-                `(uiop:ensure-package ,lisp-package
-                                      :use ()
-                                      :export ',fun-symbol-names)
-                ;; `(ensure-package  :use '())
-                `(,@(if reload
-                        `(progn)
-                        `(unless ,package-exists-p))
-                  (defpackage ,lisp-package
-                    (:use)
-                    (:export ,@fun-symbol-names))
-                  ,@(if import-submodules
-                        (defpysubmodules package-in-python
-                          lisp-package
-                          continue-ignoring-errors))
-                  ,@(iter (for fun-name in fun-names)
-                      (for fun-symbol in fun-symbols)
-                      (collect
-                          (let* ((*called-from-defpymodule* t)
-                                 (*function-reload-string*
-                                   (function-reload-string :pymodule-name pymodule-name
-                                                           :lisp-package lisp-package
-                                                           :fun-name fun-name)))
-                            (defpyfun* fun-name
-                              package-in-python
-                              fun-name
-                              (symbol-name fun-symbol)
-                              exporting-package
-                              safety))))
-                  t))))))
+    ;; fn-names  All callables whose names don't start with "_"
+    (let ((*lisp-package-supplied-p* lisp-package-supplied-p)
+          (*defpymodule-silent-p* silent))
+      (multiple-value-bind (package-import-string package-in-python)
+          (pymodule-import-string pymodule-name lisp-package)
+        (eval package-import-string)
+        (when (and reload (not silent))
+          (format t "~&Defining ~A for accessing python package ~A..~%"
+                  lisp-package
+                  package-in-python))
+        (let* ((fun-names (loop :for (name fn)
+                                  :in (let* ((name-fns
+                                               (pycall "tuple"
+                                                       (pycall "inspect.getmembers"
+                                                               (pyvalue package-in-python)
+                                                               (pyvalue "callable")))))
+                                        (unless (listp name-fns)
+                                          (setq name-fns ()))
+                                        name-fns)
+                                :if (not (starts-with #\_ name))
+                                  :collect name))
+               ;; Get the package name by passing through reader,
+               ;; rather than using STRING-UPCASE
+               ;; so that the result reflects changes to the readtable
+               ;; Note that the package doesn't use CL to avoid shadowing.
+               (exporting-package (ensure-package lisp-package :use '()))
+               (fun-symbols (mapcar (lambda (pyfun-name)
+                                      (fun-symbol pyfun-name
+                                                  (concatenate 'string
+                                                               package-in-python
+                                                               "."
+                                                               pyfun-name)
+                                                  lisp-package))
+                                    fun-names))
+               (package-exists-p (gensym "PACKAGE-EXISTS-P"))
+               (fun-symbol-names (mapcar #'symbol-name fun-symbols)))
+          (values `(defvar ,package-exists-p (find-package ,lisp-package))
+                  ;; We need the package to even read the next form!
+                  ;; But we can only know if or not the package exists beforehand
+                  ;; before creating it! After creating it, it definitely exists!
+                  `(uiop:ensure-package ,lisp-package
+                                        :use ()
+                                        :export ',fun-symbol-names)
+                  ;; `(ensure-package  :use '())
+                  `(,@(if reload
+                          `(progn)
+                          `(unless ,package-exists-p))
+                    (defpackage ,lisp-package
+                      (:use)
+                      (:export ,@fun-symbol-names))
+                    ,@(if import-submodules
+                          (defpysubmodules package-in-python
+                            lisp-package
+                            continue-ignoring-errors))
+                    ,@(iter (for fun-name in fun-names)
+                        (for fun-symbol in fun-symbols)
+                        (collect
+                            (let* ((*called-from-defpymodule* t)
+                                   (*function-reload-string*
+                                     (function-reload-string :pymodule-name pymodule-name
+                                                             :lisp-package lisp-package
+                                                             :fun-name fun-name)))
+                              (defpyfun* fun-name
+                                package-in-python
+                                fun-name
+                                (symbol-name fun-symbol)
+                                exporting-package
+                                safety))))
+                    t)))))))
 
 (defmacro defpyfuns (&rest args)
   "Each ARG is supposed to be a 2-3 element list of

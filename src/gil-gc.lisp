@@ -135,7 +135,8 @@ This avoids inadvertent calls to DecRef during recursions.")
   nil)
 
 (defmacro with-pygc (&body body)
-  "Code that expects to return a pointer for later use should not be surrounded by PYGC"
+  "Code surrounded by WITH-PYGC performs garbage collection
+only after executing all of BODY."
   `(unwind-protect
         (let ((*top-level-p* nil))
           ,@body)

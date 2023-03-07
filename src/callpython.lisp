@@ -91,10 +91,13 @@ with-remote-objects, evaluates the last result and returns not just a handle."
                (py-repr value)
                value)))
   (defun pyeval (&rest args)
+    (python-start-if-not-alive)
     (apply #'raw-pyeval (mapcar #'pythonize-if-needed args)))
   (defun pyexec (&rest args)
+    (python-start-if-not-alive)
     (apply #'raw-pyexec (mapcar #'pythonize-if-needed args)))
   (defun (setf pyeval) (value &rest args)
+    (python-start-if-not-alive)
     (apply #'pyexec (nconc args (list "=" value)))
     value))
 
@@ -252,4 +255,5 @@ python callable, which is then retrieved using PYVALUE*"
   (pycall "tuple" (pyvalue "sys.version_info")))
 
 (defun pygenerator (function stop-value)
-  (pycall "_py4cl_generator" function stop-value))
+  (with-pygc
+    (pycall "_py4cl_generator" function stop-value)))

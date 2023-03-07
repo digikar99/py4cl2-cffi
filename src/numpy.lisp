@@ -14,14 +14,15 @@
    :test #'equal))
 
 (defmacro numpy-funcall (name &rest args)
-  `(foreign-funcall-pointer
-    (foreign-funcall "ptr_idx"
-                     :pointer *numpy-c-api-pointer*
-                     :int (or (gethash ,name *numpy-function-index-table*)
-                              (error "No such numpy CAPI function found! May be it is not registered?"))
-                     :pointer)
-                            (:convention :cdecl)
-                            ,@args))
+  `(with-python-gil
+     (foreign-funcall-pointer
+      (foreign-funcall "ptr_idx"
+                       :pointer *numpy-c-api-pointer*
+                       :int (or (gethash ,name *numpy-function-index-table*)
+                                (error "No such numpy CAPI function found! May be it is not registered?"))
+                       :pointer)
+      (:convention :cdecl)
+      ,@args)))
 
 (defun cl-array-offset (array)
   (declare (optimize speed)
