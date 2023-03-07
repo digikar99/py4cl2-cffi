@@ -144,6 +144,10 @@ execution of THUNK as a string."
   "Gets the output of the python program executed in FORMS-DECL in the form a string."
   `(call-thunk-python-output (lambda () ,@forms-decl)))
 
+(defvar *additional-init-codes* nil
+  "A list of strings each of which should be python code. All the code
+will be executed by PYSTART.")
+
 (defun pystart ()
 
   (let ((*python-state* :initializing))
@@ -213,7 +217,8 @@ py4cl_utils = ctypes.cdll.LoadLibrary(\"~A\")
            (push :arrays *internal-features*))
           ((and (not (numpy-installed-p))
                 (member :arrays *internal-features*))
-           (removef *internal-features* :arrays))))
+           (removef *internal-features* :arrays)))
+    (mapc #'raw-pyexec *additional-init-codes*))
   (setq *python-state* :initialized)
   t)
 

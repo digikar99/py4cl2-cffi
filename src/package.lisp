@@ -7,6 +7,7 @@
            #:disable-pygc
 
            #:pystart
+           #:*additional-init-codes*
            #:python-alive-p
            #:python-start-if-not-alive
            #:with-python-output
