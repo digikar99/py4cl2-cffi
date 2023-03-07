@@ -107,6 +107,27 @@ Handles the reference counting of the return values but not the arguments."
             (:borrowed `()))
          ,ptr))))
 
+;;; Object Handles - for not really translated lisp objects
+
+(defvar *handle-counter* 0)
+(defvar *lisp-objects* (make-hash-table :test #'eql))
+
+(defun clear-lisp-objects ()
+  "Clear the *lisp-objects* object store, allowing them to be GC'd"
+  (maphash-keys (lambda (key) (remhash key *lisp-objects*)) *lisp-objects*)
+  (setf *handle-counter* 0))
+
+(defun lisp-object (handle)
+  "Get the lisp object corresponding to HANDLE"
+  (or (gethash handle *lisp-objects*)
+      (error "Invalid Handle.")))
+
+(defun object-handle (object)
+  "Store OBJECT and return a handle"
+  (let ((handle (incf *handle-counter*)))
+    (setf (gethash handle *lisp-objects*) object)
+    handle))
+
 ;;; Reference counting utilities
 
 (defvar *python-new-references* (make-hash-table))
@@ -121,17 +142,32 @@ PYGC will then decrement the references when called.")
   "Used inside PYGC and WITH-PYGC to avoid calling PYGC at non-top levels.
 This avoids inadvertent calls to DecRef during recursions.")
 
+;; FIXME: Do we leak this into the python-object finalizers?
+(defvar *pygc-enabled* t
+  "If NIL, expects PYGC to be called manually by the user.")
+
+(defmacro enable-pygc ()
+  `(eval-when (:compile-toplevel :load-toplevel :execute)
+     (setq *pygc-enabled* t)))
+
+(defmacro disable-pygc ()
+  `(eval-when (:compile-toplevel :load-toplevel :execute)
+     (setq *pygc-enabled* nil)))
+
+(declaim (inline pygc))
 (defun pygc ()
-  (when *top-level-p*
+  (when (and *top-level-p* *pygc-enabled*)
     (maphash-keys (lambda (key)
                     (let ((count (gethash key *python-new-references*))
                           (ptr (make-pointer key)))
+                      (declare (ignore count))
                       ;; (dotimes (i (print count))
                       ;;   (pyforeign-funcall "Py_DecRef" :pointer ptr))
                       ;; (format t "~&DecRef-ing ~D~%" key)
                       (pyforeign-funcall "Py_DecRef" :pointer ptr))
                     (remhash key *python-new-references*))
-                  *python-new-references*))
+                  *python-new-references*)
+    (clear-lisp-objects))
   nil)
 
 (defmacro with-pygc (&body body)

@@ -1,30 +1,5 @@
 (in-package :py4cl2-cffi)
 
-;;; Object Handles - for not really translated lisp objects
-
-(defvar *handle-counter* 0)
-(defvar *lisp-objects* (make-hash-table :test #'eql))
-
-(defun clear-lisp-objects ()
-  "Clear the *lisp-objects* object store, allowing them to be GC'd"
-  (setf *lisp-objects* (make-hash-table :test #'eql)
-        *handle-counter* 0))
-
-(defun free-handle (handle)
-  "Remove an object with HANDLE from the hash table"
-  (remhash handle *lisp-objects*))
-
-(defun lisp-object (handle)
-  "Get the lisp object corresponding to HANDLE"
-  (or (gethash handle *lisp-objects*)
-      (error "Invalid Handle.")))
-
-(defun object-handle (object)
-  "Store OBJECT and return a handle"
-  (let ((handle (incf *handle-counter*)))
-    (setf (gethash handle *lisp-objects*) object)
-    handle))
-
 ;;; Unknown python objects
 (defstruct python-object
   "A pointer to a python object which couldn't be translated into a Lisp value.
@@ -193,15 +168,22 @@ a New Reference"
 (defmethod pythonize ((o array))
   (pythonize-array o))
 
-(defcallback free-handle-fn :pointer ((handle :int))
-  (free-handle handle)
-  (null-pointer))
-
 (defcallback getattr-fn :pointer ((handle :int) (attr :pointer))
-  (pythonize (python-getattr (lisp-object handle) (lispify attr))))
+  (handler-case
+      (pythonize (python-getattr (lisp-object handle) (lispify attr)))
+    (error (c)
+      (pyforeign-funcall "PyErr_SetString"
+                         :pointer (pytype "Exception")
+                         :string (format nil "An error occured during lisp callback.~%~%~A~%" (trivial-backtrace:print-backtrace c :output nil)))
+      (null-pointer))))
 
 (defcallback setattr-fn :pointer ((handle :int) (attr :pointer) (new-value :pointer))
-  (python-setattr (lisp-object handle) (lispify attr) (lispify new-value))
+  (handler-case
+      (python-setattr (lisp-object handle) (lispify attr) (lispify new-value))
+    (error (c)
+      (pyforeign-funcall "PyErr_SetString"
+                         :pointer (pytype "Exception")
+                         :string (format nil "An error occured during lisp callback.~%~%~A~%" (trivial-backtrace:print-backtrace c :output nil)))))
   (null-pointer))
 
 (defcallback lisp-callback-fn :pointer ((handle :int) (args :pointer) (kwargs :pointer))

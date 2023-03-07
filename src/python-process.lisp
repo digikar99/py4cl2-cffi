@@ -165,7 +165,6 @@ can lead to memory leak.")))
 
     (foreign-funcall "set_lisp_callback_fn_ptr" :pointer (callback lisp-callback-fn))
     (foreign-funcall "set_helper_fn_ptr"
-                     :pointer (callback free-handle-fn)
                      :pointer (callback getattr-fn)
                      :pointer (callback setattr-fn))
     (raw-pyexec #.(format nil "import ctypes

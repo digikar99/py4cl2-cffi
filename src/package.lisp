@@ -2,6 +2,10 @@
   (:use :cl :cffi :alexandria :py4cl2-cffi/config :iterate)
   (:export #:*internal-features*
 
+           #:with-pygc
+           #:enable-pygc
+           #:disable-pygc
+
            #:pystart
            #:python-alive-p
            #:python-start-if-not-alive
