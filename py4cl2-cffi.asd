@@ -12,6 +12,7 @@
   :version "0.1.0" ; beta
   :depends-on ("bordeaux-threads"
                "cffi"
+               "cl-ppcre"
                "uiop"
                "alexandria"
                "trivial-garbage"
@@ -27,7 +28,7 @@
                (:file "lisp-utils")
                (:static-file "py4cl-utils.c")
                (:file "shared-objects")
-               (:static-file "libpychecks.so")
+               (:static-file "libpy4cl-utils.so")
                (:file "gil-gc")
                (:file "numpy")
                (:file "features")

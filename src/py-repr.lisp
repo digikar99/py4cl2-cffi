@@ -35,4 +35,10 @@
   (let ((repr (pycall "repr" object)))
     (if (typep object 'simple-vector)
         repr
-        (concatenate 'string "numpy.array" (subseq repr 5)))))
+        (ppcre:regex-replace `(:sequence #\=
+                                         (:register (:non-greedy-repetition
+                                                     0 nil :everything))
+                                         #\)
+                               :end-anchor)
+                             (concatenate 'string "numpy.array" (subseq repr 5))
+                             "='\\1')"))))
