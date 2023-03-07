@@ -8,7 +8,7 @@ jobs:
 
     strategy:
       matrix:
-        lisp: [sbcl, ccl]
+        lisp: [sbcl, ccl, ecl]
     runs-on: ubuntu-22.04
 
     continue-on-error: true

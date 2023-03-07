@@ -103,7 +103,8 @@ a New Reference"
 
 (defmethod pythonize ((o #+sbcl sb-sys:system-area-pointer
                          #+ccl  ccl:macptr
-                         #-(or sbcl ccl) foreign-pointer))
+                         #+ecl  si:foreign-data
+                         #-(or sbcl ccl ecl) foreign-pointer))
   o)
 (defmethod pythonize ((o python-object)) (python-object-pointer o))
 
