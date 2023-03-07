@@ -127,10 +127,10 @@ execution of THUNK as a string."
     ;; *PYTHON-STATE* to be whatever it was before.
 
     (uiop:run-program
-     "rm /tmp/py4cl2-cffi-output && mkfifo /tmp/py4cl2-cffi-output"
+     "rm /tmp/py4cl2-cffi-output ; mkfifo /tmp/py4cl2-cffi-output"
      :output t :error-output *error-output*)
     (uiop:run-program
-     "rm /tmp/py4cl2-cffi-error-output && mkfifo /tmp/py4cl2-cffi-error-output"
+     "rm /tmp/py4cl2-cffi-error-output ; mkfifo /tmp/py4cl2-cffi-error-output"
                       :output t :error-output *error-output*)
 
     (load-python-and-libraries)
