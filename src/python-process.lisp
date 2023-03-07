@@ -98,7 +98,8 @@ Value: The pointer to the module dictionary in embedded python")
            (lambda ()
              (setq *py-output-stream* (open *py-output-stream-pipe*
                                             :direction :input
-                                            :if-does-not-exist :create))
+                                            :if-does-not-exist :create
+                                            #+ccl :sharing #+ccl :lock))
              (loop :do (when (and *in-with-python-output*
                                   (not (listen *py-output-stream*)))
                          (bt:with-lock-held (*py-output-lock*)
@@ -120,7 +121,8 @@ Value: The pointer to the module dictionary in embedded python")
              (setq *py-error-output-stream*
                    (open *py-error-output-stream-pipe*
                          :direction :input
-                         :if-does-not-exist :create))
+                         :if-does-not-exist :create
+                         #+ccl :sharing #+ccl :lock))
              ;; PEEK-CHAR waits for input
              (loop :do (peek-char nil *py-error-output-stream* nil)
                        (let ((char (read-char *py-error-output-stream* nil)))
@@ -187,7 +189,7 @@ can lead to memory leak.")))
     (raw-pyexec (format nil "sys.stdout = open('~A', 'w')"
                         *py-output-stream-pipe*))
     (raw-pyexec (format nil "sys.stderr = open('~A', 'w')"
-                        *py-error-output-stream*))
+                        *py-error-output-stream-pipe*))
 
     (dolist (mod '("__main__" "builtins" "sys"))
       (setf (py-module-pointer mod)
