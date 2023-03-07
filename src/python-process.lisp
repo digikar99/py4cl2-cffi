@@ -73,6 +73,10 @@ Value: The pointer to the module dictionary in embedded python")
 ;;; This is more of a global variable than a dynamic variable.
 (defvar *in-with-python-output* nil)
 
+(defvar *py-output-stream-pipe*
+  (format nil "/tmp/py4cl2-cffi-output-~D" (swank/backend:getpid)))
+(defvar *py-error-output-stream-pipe*
+  (format nil "/tmp/py4cl2-cffi-error-output-~D" (swank/backend:getpid)))
 (defvar *py-output-stream* nil)
 (defvar *py-output-stream-string* nil)
 (defvar *py-output-reader-thread* nil)
@@ -92,7 +96,9 @@ Value: The pointer to the module dictionary in embedded python")
     (setq *py-output-reader-thread*
           (bt:make-thread
            (lambda ()
-             (setq *py-output-stream* (open #P"/tmp/py4cl2-cffi-output" :direction :input))
+             (setq *py-output-stream* (open *py-output-stream-pipe*
+                                            :direction :input
+                                            :if-does-not-exist :create))
              (loop :do (when (and *in-with-python-output*
                                   (not (listen *py-output-stream*)))
                          (bt:with-lock-held (*py-output-lock*)
@@ -112,7 +118,9 @@ Value: The pointer to the module dictionary in embedded python")
           (bt:make-thread
            (lambda ()
              (setq *py-error-output-stream*
-                   (open #P"/tmp/py4cl2-cffi-error-output" :direction :input))
+                   (open *py-error-output-stream-pipe*
+                         :direction :input
+                         :if-does-not-exist :create))
              ;; PEEK-CHAR waits for input
              (loop :do (peek-char nil *py-error-output-stream* nil)
                        (let ((char (read-char *py-error-output-stream* nil)))
@@ -144,11 +152,14 @@ execution of THUNK as a string."
     ;; *PYTHON-STATE* to be whatever it was before.
 
     (uiop:run-program
-     "rm /tmp/py4cl2-cffi-output ; mkfifo /tmp/py4cl2-cffi-output"
+     (format nil "rm ~A; mkfifo ~A"
+             *py-output-stream-pipe* *py-output-stream-pipe*)
      :output t :error-output *error-output*)
     (uiop:run-program
-     "rm /tmp/py4cl2-cffi-error-output ; mkfifo /tmp/py4cl2-cffi-error-output"
+     (format nil "rm ~A; mkfifo ~A"
+             *py-error-output-stream-pipe* *py-error-output-stream-pipe*)
      :output t :error-output *error-output*)
+    (sleep 0.1)
 
     (load-python-and-libraries)
     (foreign-funcall "Py_Initialize")
@@ -169,8 +180,10 @@ can lead to memory leak.")))
     (raw-pyexec "from fractions import Fraction")
 
     (python-output-thread)
-    (raw-pyexec "sys.stdout = open('/tmp/py4cl2-cffi-output', 'w')")
-    (raw-pyexec "sys.stderr = open('/tmp/py4cl2-cffi-error-output', 'w')")
+    (raw-pyexec (format nil "sys.stdout = open('~A', 'w')"
+                        *py-output-stream-pipe*))
+    (raw-pyexec (format nil "sys.stderr = open('~A', 'w')"
+                        *py-error-output-stream*))
 
     (dolist (mod '("__main__" "builtins" "sys"))
       (setf (py-module-pointer mod)
