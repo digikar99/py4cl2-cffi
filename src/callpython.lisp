@@ -45,20 +45,31 @@ with-remote-objects, evaluates the last result and returns not just a handle."
 (defun %pycall* (python-callable-pointer &rest args)
   (declare (type foreign-pointer python-callable-pointer)
            (optimize debug))
-  (let ((pythonized-args (pythonize-args args)))
-    (multiple-value-bind (pos-args kwargs)
-        (args-and-kwargs pythonized-args)
-      ;; PyObject_Call returns a new reference
-      (let* ((return-value (pyforeign-funcall "PyObject_Call"
-                                              :pointer python-callable-pointer
-                                              :pointer pos-args
-                                              :pointer kwargs
-                                              :pointer)))
-        return-value))))
+  (labels ((pin-and-call (&rest rem-args)
+             (cond ((null rem-args)
+                    (let ((pythonized-args (pythonize-args args)))
+                      (multiple-value-bind (pos-args kwargs)
+                          (args-and-kwargs pythonized-args)
+                        ;; PyObject_Call returns a new reference
+                        (let* ((return-value
+                                 (pyforeign-funcall "PyObject_Call"
+                                                    :pointer python-callable-pointer
+                                                    :pointer pos-args
+                                                    :pointer kwargs
+                                                    :pointer)))
+                          return-value))))
+                   ((and (arrayp (car rem-args))
+                         (not (eq t (array-element-type (car rem-args)))))
+                    (cffi:with-pointer-to-vector-data
+                        (ptr (array-storage (car rem-args)))
+                      (declare (ignore ptr))
+                      (apply #'pin-and-call (rest rem-args))))
+                   (t
+                    (apply #'pin-and-call (rest rem-args))))))
+    (apply #'pin-and-call args)))
 
 (defun %pycall (python-callable-pointer &rest args)
-  (declare (type foreign-pointer python-callable-pointer)
-           (optimize debug))
+  (declare (type foreign-pointer python-callable-pointer))
   (if *in-with-remote-objects-p*
       (apply #'%pycall* python-callable-pointer args)
       (with-pygc
