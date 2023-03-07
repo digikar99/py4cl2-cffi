@@ -16,7 +16,8 @@
        (single-float (format nil "numpy.float32(~A)" object))
        (double-float (format nil "numpy.float64(~A)"
                              (let* ((repr (write-to-string object))
-                                    (dpos (position #\d repr)))
+                                    (dpos (or (position #\d repr)
+                                              (position #\D repr))))
                                (when dpos (setf (char repr dpos) #\e))
                                repr)))))))
 
