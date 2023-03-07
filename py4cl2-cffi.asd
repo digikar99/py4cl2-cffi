@@ -21,7 +21,8 @@
                "float-features"
                "parse-number"
                "py4cl2-cffi/config"
-               "trivial-backtrace")
+               "trivial-backtrace"
+               "swank")
   :serial t
   :components ((:static-file "py4cl.py")
                (:file "package")
