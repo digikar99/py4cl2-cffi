@@ -6,6 +6,12 @@ Non Common Lisp approaches
 - see [this reddit thread](https://www.reddit.com/r/lisp/comments/yuipy7/pyffi_use_python_from_racket/) for PyFFI in racket, as well as Gambit Scheme
 - [PyCall in Julia](https://github.com/JuliaPy/PyCall.jl)
 
+### Caveats
+
+Unlike `py4cl` and `py4cl2`, `py4cl2-cffi` can only use one python version in a running lisp image. In addition, while the author has been successful in running the [py4cl2-cffi-tests](https://github.com/digikar99/py4cl2-cffi-tests) without segmentation faults, the project is still in beta stage, so be prepared to run into segmentation faults.
+
+I have been successful in loading `py4cl2-cffi` on CCL and ECL, I have been unsuccessful in loading or running the tests successfully on the CI.
+
 ### Configuration
 
 ```lisp
