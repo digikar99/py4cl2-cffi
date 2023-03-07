@@ -43,12 +43,12 @@
                (:file "do-after-load"))
   :perform (test-op (o c)
              (declare (ignore o c))
-             (handler-case (let ((system (asdf:find-system "py4cl2-tests/cffi")))
+             (handler-case (let ((system (asdf:find-system "py4cl2-cffi-tests")))
                              (asdf:test-system system))
                (asdf:missing-component (condition)
                  (declare (ignore condition))
                  (format *error-output* "Please find the tests at ~A~%"
-                         "https://github.com/digikar99/py4cl2-tests")
+                         "https://github.com/digikar99/py4cl2-cffi-tests")
                  (format *error-output*
                          "If you have already set up the tests, then something is wrong,
-as asdf was unable to find \"py4cl2-tests/cffi\".")))))
+as asdf was unable to find \"py4cl2-cffi-tests\".")))))

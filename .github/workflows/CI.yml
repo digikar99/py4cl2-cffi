@@ -32,8 +32,12 @@ jobs:
         ls -l
         bash <(curl -s https://raw.githubusercontent.com/digikar99/lisp-travis-lite/master/run.sh)
 
-    - name: Install numpy
-      run: sudo apt install python3-numpy # need to use sudo
+    - name: Install python modules
+      run: | # need to use sudo
+        sudo apt install python3-pip
+        pip3 install numpy
+        pip3 install networkx
+        pip3 install matplotlib
 
     - name: Run python-config
       run: |
@@ -43,15 +47,35 @@ jobs:
         python3-config --ldflags
         find '/usr/lib' -name "libpython*.so"
 
-    - name: Copy system to current directory
+    - name: Download Tests
       run: |
-        ls
+        git clone https://github.com/digikar99/py4cl2-cffi-tests ./tests
         pwd
+        ls -l
 
-    - name: Test quickloading system
+    - name: Set up directory with exotic name
       run: |
-        cl --eval '(push #P"./" ql:*local-project-directories*)' --eval '(ql:register-local-projects)' --eval '(ql:quickload "py4cl2-cffi")'
+        ls -l $HOME/bin/
+        echo $PATH
+        export EXOTIC_DIR="$HOME/(some exotic name')/"
+        export EXOTIC_DIR_PYTHON="$EXOTIC_DIR/python"
+        echo "EXOTIC_DIR=$EXOTIC_DIR" >> $GITHUB_ENV
+        echo "EXOTIC_DIR_PYTHON=$EXOTIC_DIR_PYTHON" >> $GITHUB_ENV
+        mkdir -p "$EXOTIC_DIR"
+        rsync -rR "$HOME/work/py4cl2-cffi/py4cl2-cffi" "$EXOTIC_DIR"
+        ln -s "/usr/bin/python3" "$EXOTIC_DIR_PYTHON"
+        cd ~/
+        ls -l
+        ls "$EXOTIC_DIR"
+        nproc
+        pwd
+        python3 --version
+        /"$EXOTIC_DIR_PYTHON" --version
 
-    - name: Test asdf compilation
-      run: |
-        cl --eval '(push #P"./" ql:*local-project-directories*)' --eval '(asdf:compile-system "py4cl2-cffi" :force t)'
+    - name: Compile Tests
+      run: cl --load "$EXOTIC_DIR/$HOME/work/py4cl2-cffi/py4cl2-cffi/ci-pre-test.lisp"
+
+    # Testing it on the second load confirms that functionalities do not
+    # solely eval-when compile-toplevel, and that they persist across multiple loads.
+    - name: Run Tests
+      run: cl --load "$EXOTIC_DIR/$HOME/work/py4cl2-cffi/py4cl2-cffi/ci-test.lisp" || cl --load "$EXOTIC_DIR/$HOME/work/py4cl2-cffi/py4cl2-cffi/ci-test.lisp"
