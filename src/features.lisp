@@ -10,18 +10,6 @@ The list can include one or more of:
   :TYPED-ARRAYS
 ")
 
-(defvar *numpy-installed-p*)
-(defun numpy-installed-p ()
-  (if (boundp '*numpy-installed-p*)
-      *numpy-installed-p*
-      (setq *numpy-installed-p*
-            (handler-case (progn
-                            (raw-pyexec "import numpy")
-                            t)
-              (pyerror (condition)
-                (declare (ignore condition))
-                nil)))))
-
 (defparameter *feature-exclusion-alist*
   `((:with-python-output        :ccl :ecl)
     (:typed-arrays              :abcl)))

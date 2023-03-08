@@ -27,6 +27,7 @@
   :components ((:static-file "py4cl.py")
                (:file "package")
                (:file "lisp-utils")
+               (:file "numpy-installed-p")
                (:static-file "py4cl-utils.c")
                (:file "shared-objects")
                (:static-file "libpy4cl-utils.so")

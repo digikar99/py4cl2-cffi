@@ -3,8 +3,8 @@
 #include <Python.h>
 
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
-#include "numpy/ndarraytypes.h"
-#include "numpy/arrayobject.h"
+#include <numpy/ndarraytypes.h>
+#include <numpy/arrayobject.h>
 
 const char* PyTypeObject_Name(PyTypeObject* o){return o->tp_name;}
 const char* PyTypeObject_Doc(PyTypeObject* o){return o->tp_doc;}
