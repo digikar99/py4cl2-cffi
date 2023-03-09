@@ -34,10 +34,9 @@
   (uiop:with-current-directory ((asdf:component-pathname (asdf:find-system "py4cl2-cffi")))
     (multiple-value-bind (numpy-path error-output error-status)
         (uiop:run-program
-         "python3 -c 'import numpy; print(numpy.__path__[0])'"
+         "cd ~/; python3 -c 'import numpy; print(numpy.__path__[0])'"
          :output :string :ignore-error-status t)
       (declare (ignore error-output))
-      (print (list numpy-path error-status))
       (let* ((numpy-installed-p
                (zerop error-status))
              (program-string
