@@ -22,6 +22,8 @@
            #:pythonize
            #:python-object
            #:python-object-type
+           #:python-object-eq
+           #:python-object-eq*
            #:define-lispifier
 
            #:*pythonizers*

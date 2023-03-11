@@ -57,7 +57,17 @@ a New Reference"
   "If non-NIL, python's 'str' is called on the python-object before printing.")
 
 (defun python-object-eq (o1 o2)
-  (declare (type python-object o1 o2))
+  "Returns T if O1 and O2 are both PYTHON-OBJECT with the same pointer, or
+the same lisp objects which are EQ to each other. Returns NIL in all other cases."
+  (or (eq o1 o2)
+      (and (typep o1 'python-object)
+           (typep o2 'python-object)
+           (python-object-eq* o1 o2))))
+
+(defun python-object-eq* (o1 o2)
+  "Like PYTHON-OBJECT-EQ but assumes that O1 and O2 are PYTHON-OBJECT each."
+  (declare (type python-object o1 o2)
+           (optimize speed))
   (pointer-eq (python-object-pointer o1)
               (python-object-pointer o2)))
 
