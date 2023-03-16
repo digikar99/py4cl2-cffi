@@ -160,11 +160,11 @@ will be executed by PYSTART.")
     (uiop:run-program
      (format nil "rm ~A; mkfifo ~A"
              *py-output-stream-pipe* *py-output-stream-pipe*)
-     :output t :error-output *error-output*)
+     :output t :error-output *error-output* :ignore-error-status t)
     (uiop:run-program
      (format nil "rm ~A; mkfifo ~A"
              *py-error-output-stream-pipe* *py-error-output-stream-pipe*)
-     :output t :error-output *error-output*)
+     :output t :error-output *error-output* :ignore-error-status t)
     (sleep 0.1)
 
     (load-python-and-libraries)
