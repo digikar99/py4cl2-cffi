@@ -114,7 +114,9 @@ the same lisp objects which are EQ to each other. Returns NIL in all other cases
 (defmethod pythonize ((o #+sbcl sb-sys:system-area-pointer
                          #+ccl  ccl:macptr
                          #+ecl  si:foreign-data
-                         #-(or sbcl ccl ecl) foreign-pointer))
+                         #+lispworks fli::pointer
+                         #-(or sbcl ccl ecl lispworks)
+			 foreign-pointer))
   o)
 (defmethod pythonize ((o python-object)) (python-object-pointer o))
 
