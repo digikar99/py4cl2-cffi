@@ -174,13 +174,14 @@ will be executed by PYSTART.")
       (when (pygil-held-p)
         (warn "Python GIL was not released from the main thread. This means on implementations (like SBCL) that call lisp object finalizers from a separate thread may never get a chance to run, and thus python foreign objects associated with PYTHON-OBJECT
 can lead to memory leak.")))
-    (float-features:with-float-traps-masked (:overflow :invalid)
-      (when *numpy-installed-p*
-        (import-module "numpy")
-        (pushnew :typed-arrays *internal-features*))
-      (when (member :typed-arrays *internal-features*)
-        (setq *numpy-c-api-pointer*
-              (with-python-gil (foreign-funcall "import_numpy" :pointer)))))
+    (when *numpy-installed-p*
+      (float-features:with-float-traps-masked (:overflow :invalid)
+        (ignore-some-conditions (floating-point-overflow floating-point-invalid-operation)
+          (import-module "numpy")
+          (pushnew :typed-arrays *internal-features*)
+          (when (member :typed-arrays *internal-features*)
+            (setq *numpy-c-api-pointer*
+                  (with-python-gil (foreign-funcall "import_numpy" :pointer)))))))
     (import-module "sys")
     (import-module "traceback")
     (import-module "fractions")
