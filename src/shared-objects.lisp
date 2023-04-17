@@ -55,4 +55,5 @@
                           :error-output *error-output*
                           :output *standard-output*)))))
 
-(compile-utils-shared-object)
+(eval-when (:compile-toplevel)
+  (compile-utils-shared-object))
