@@ -22,7 +22,8 @@
 
 (defvar *python-compile-command*
   (concatenate
-   'string "gcc -I'~A' -I'~A' -c -Wall -Werror -fpic py4cl-utils.c && "
+   'string
+   "gcc -I'~A' -I'~A' -c -Wall -Werror -fpic py4cl-utils.c && "
    "gcc -shared -o libpy4cl-utils.so py4cl-utils.o"))
 
 (defun return-value-as-list (cmd)
