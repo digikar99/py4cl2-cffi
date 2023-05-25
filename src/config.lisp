@@ -4,6 +4,7 @@
            #:*python-include-path*
            #:*python-additional-libraries*
            #:*python-additional-libraries-search-path*
+	   #:*python-compile-command*
            #:print-configuration))
 
 (in-package :py4cl2-cffi/config)
@@ -16,6 +17,13 @@
                *python-shared-object-path*
                *python-include-path*
                *python-additional-libraries-search-path*))
+
+(declaim (type string *python-compile-command*))
+
+(defvar *python-compile-command*
+  (concatenate
+   'string "gcc -I'~A' -I'~A' -c -Wall -Werror -fpic py4cl-utils.c && "
+   "gcc -shared -o libpy4cl-utils.so py4cl-utils.o"))
 
 (defun return-value-as-list (cmd)
   (remove ""
