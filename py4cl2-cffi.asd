@@ -4,6 +4,12 @@
   :serial t
   :components ((:file "config")))
 
+(defsystem "py4cl2-cffi/config-darwin"
+  :pathname #P"src/"
+  :depends-on ("uiop")
+  :serial t
+  :components ((:file "config-darwin")))
+
 (defsystem "py4cl2-cffi"
   :pathname #P"src/"
   :description "CFFI based alternative to PY4CL2, primarily developed for performance reasons."
@@ -21,6 +27,7 @@
                "float-features"
                "parse-number"
                "py4cl2-cffi/config"
+               "py4cl2-cffi/config-darwin"
                "trivial-backtrace"
                "swank")
   :serial t
