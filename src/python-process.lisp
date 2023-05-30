@@ -157,14 +157,16 @@ will be executed by PYSTART.")
     ;; We are using a let, because if something fails, we want
     ;; *PYTHON-STATE* to be whatever it was before.
 
-    (uiop:run-program
-     (format nil "rm ~A; mkfifo ~A"
-             *py-output-stream-pipe* *py-output-stream-pipe*)
-     :output t :error-output *error-output* :ignore-error-status t)
-    (uiop:run-program
-     (format nil "rm ~A; mkfifo ~A"
-             *py-error-output-stream-pipe* *py-error-output-stream-pipe*)
-     :output t :error-output *error-output* :ignore-error-status t)
+    (when (probe-file *py-output-stream-pipe*)
+      (uiop:run-program
+       (format nil "rm ~A; mkfifo ~A"
+               *py-output-stream-pipe* *py-output-stream-pipe*)
+       :output t :error-output *error-output* :ignore-error-status t))
+    (when (probe-file *py-error-output-stream-pipe*)
+      (uiop:run-program
+       (format nil "rm ~A; mkfifo ~A"
+               *py-error-output-stream-pipe* *py-error-output-stream-pipe*)
+       :output t :error-output *error-output* :ignore-error-status t))
     (sleep 0.1)
 
     (load-python-and-libraries)
