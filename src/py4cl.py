@@ -76,6 +76,11 @@ class ExecutionFailure (object):
 		self.stack = traceback.format_exc()
 
 	@property
+	def exception_message(self) -> str:
+		"""The error message."""
+		return str(self.ex)
+
+	@property
 	def exception_type(self) -> str:
 		"""The fully qualified class name of the raised exceptiion."""
 		cn: str = str(type(self.ex))

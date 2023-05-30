@@ -236,6 +236,8 @@ py4cl_utils = ctypes.cdll.LoadLibrary(\"~A\")
                      :initform "A python error occured")
    (format-arguments :initarg :format-arguments
                      :initform ())
+   (exception-message :initarg :exception-message
+		      :initform nil)
    (exception-type   :initarg :exception-type
 		     :initform nil))
   (:report (lambda (condition stream)
@@ -360,7 +362,8 @@ while using RAW-PYEVAL or RAW-PYEXEC.")))
       (error 'pyerror
 	     :format-control (format nil "Python raised an exception:~%~a"
 				     (pyslot-value val "stack"))
-	     :exception-type (pyslot-value val "exception_type")))
+	     :exception-type (pyslot-value val "exception_type")
+	     :exception-message (pyslot-value val "exception_message")))
     (ecase cmd-char
       (#\e (progn
 	     ;; track evaluated instances
