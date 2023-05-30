@@ -235,7 +235,9 @@ py4cl_utils = ctypes.cdll.LoadLibrary(\"~A\")
   ((format-control   :initarg :format-control
                      :initform "A python error occured")
    (format-arguments :initarg :format-arguments
-                     :initform ()))
+                     :initform ())
+   (exception-type   :initarg :exception-type
+		     :initform nil))
   (:report (lambda (condition stream)
              (with-slots (format-control format-arguments)
                  condition
@@ -297,6 +299,31 @@ py4cl_utils = ctypes.cdll.LoadLibrary(\"~A\")
               `(error 'pyerror))
          ,pointer)))
 
+(defun wrap-pytry (code evalp)
+  "Wrap all newline separated Python lines of CODE in a try/except.
+If EVALP is non-nil, add a `_ =' in front of each line.  If any exception is
+raised in the code block, and instance of ExecutionFailure is returned, which
+is then raised as a Lisp error in `raw-py'."
+  (apply #'concatenate 'string
+	 (append
+	  '("_ = None"
+	    (#\Newline)
+	    "try:"
+	    (#\Newline))
+	  (mapcar (lambda (s)
+		    (when (> (length (string-trim '(#\Newline) s)) 0)
+		      (concatenate 'string
+				   "  "
+				   (if evalp "_ = " "")
+				   s '(#\Newline))))
+		  (cl-ppcre:split "\\n" code))
+	  '("except Exception as e:"
+	    (#\Newline)
+	    "  if 'ExecutionFailure' in globals():
+    _ = ExecutionFailure(e)
+  else:
+    raise e"))))
+
 (defun raw-py (cmd-char &rest code-strings)
   "CMD-CHAR should be #\e for eval and #\x for exec.
 
@@ -304,26 +331,43 @@ Unlike PY4CL or PY4CL2, the use of RAW-PY, RAW-PYEVAL and RAW-PYEXEC,
 PYEVAL, PYEXEC should be avoided unless necessary.
 Instead, use PYCALL, PYVALUE, (SETF PYVALUE), PYSLOT-VALUE, (SETF PYSLOT-VALUE), and PYMETHOD.
 
-RAW-PY, RAW-PYEVAL, RAW-PYEXEC are only provided for backward compatibility."
+RAW-PY, RAW-PYEVAL, RAW-PYEXEC are only provided for backward compatibility.
+
+All CODE-STRINGS are wrapped in `wrap-pytry' so that any Python level exception
+is raised as a Lisp error."
   (python-start-if-not-alive)
-  (unless (zerop (pyforeign-funcall "PyRun_SimpleString"
-                                    :string (apply #'concatenate
-                                                   'string
-                                                   (ecase cmd-char
-                                                     (#\e "_ = ")
-                                                     (#\x ""))
-                                                   code-strings)
-                                    :int))
-    (error 'pyerror
-           :format-control "An unknown python error occurred.
+  (let ((code (wrap-pytry (apply #'concatenate 'string code-strings)
+			  (ecase cmd-char
+                            (#\e t)
+                            (#\x nil)))))
+    (unless (zerop (pyforeign-funcall "PyRun_SimpleString"
+                                      :string code :int))
+      (error 'pyerror
+             :format-control "An unknown python error occurred.
 
 Unfortunately, no more information about the error can be provided
-while using RAW-PYEVAL or RAW-PYEXEC."))
-  (ecase cmd-char
-    (#\e (let ((ptr (pyvalue* "_")))
-           (pyforeign-funcall "Py_IncRef" :pointer ptr)
-           (pytrack ptr)))
-    (#\x (values))))
+while using RAW-PYEVAL or RAW-PYEXEC.")))
+  ;; look for caught exceptions
+  (let* ((ptr (pyvalue* "_"))
+	 (val (if *in-with-remote-objects-p*
+		  ptr
+		  (with-pygc (lispify ptr))))
+	 (errp (and (eq (type-of val) 'python-object)
+		    (equal (slot-value val 'type)
+			   "<class '__main__.ExecutionFailure'>"))))
+    ;; raise an error if a Python exception was raised
+    (when errp
+      (error 'pyerror
+	     :format-control (format nil "Python raised an exception:~%~a"
+				     (pyslot-value val "stack"))
+	     :exception-type (pyslot-value val "exception_type")))
+    (ecase cmd-char
+      (#\e (progn
+	     ;; track evaluated instances
+	     (pyforeign-funcall "Py_IncRef" :pointer ptr)
+             (pytrack ptr)
+	     val))
+      (#\x (values)))))
 
 (defun raw-pyeval (&rest code-strings)
   "
@@ -332,9 +376,7 @@ PYEVAL, PYEXEC should be avoided unless necessary.
 Instead, use PYCALL, PYVALUE, (SETF PYVALUE), PYSLOT-VALUE, (SETF PYSLOT-VALUE), and PYMETHOD.
 
 RAW-PY, RAW-PYEVAL, RAW-PYEXEC are only provided for backward compatibility."
-  (if *in-with-remote-objects-p*
-      (apply #'raw-py #\e code-strings)
-      (with-pygc (lispify (apply #'raw-py #\e code-strings)))))
+  (apply #'raw-py #\e code-strings))
 
 (defun raw-pyexec (&rest code-strings)
   "
