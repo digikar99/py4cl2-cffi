@@ -25,7 +25,7 @@
                  (zerop error-status))
                (program-string
                  (format nil
-                         "gcc -I'~A' -I'~A' -c -Wall -Werror -fpic py4cl-utils.c && gcc -shared -o libpy4cl-utils.so py4cl-utils.o"
+                         *python-compile-command*
                          (namestring *python-include-path*)
                          (if numpy-installed-p
                              (format nil "~A/core/include/"
