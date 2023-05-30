@@ -189,7 +189,7 @@ For example,
   (raw-pyeval \"[1, 2, 3]\") ;=> #(1 2 3) ; the default lispified object
   (with-lispifiers ((vector (lambda (x) (coerce (print x) 'list))))
     (print (raw-pyeval \"[1,2,3]\"))
-    (print (raw-pyeval 5)))
+    (print (raw-pyeval \"5\")))
   ; #(1 2 3) ; default lispified object
   ; (1 2 3)  ; coerced to LIST by the lispifier
   ; 5        ; lispifier uncalled for non-VECTOR
