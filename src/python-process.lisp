@@ -179,7 +179,8 @@ can lead to memory leak.")))
     (when *numpy-installed-p*
       (float-features:with-float-traps-masked (:overflow :invalid)
         (ignore-some-conditions (floating-point-overflow floating-point-invalid-operation)
-	  (pushnew :typed-arrays *internal-features*)
+          (import-module "numpy")
+          (pushnew :typed-arrays *internal-features*)
           (when (member :typed-arrays *internal-features*)
             (setq *numpy-c-api-pointer*
                   (with-python-gil (foreign-funcall "import_numpy" :pointer)))))))
