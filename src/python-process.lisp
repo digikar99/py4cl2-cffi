@@ -176,16 +176,19 @@ will be executed by PYSTART.")
       (when (pygil-held-p)
         (warn "Python GIL was not released from the main thread. This means on implementations (like SBCL) that call lisp object finalizers from a separate thread may never get a chance to run, and thus python foreign objects associated with PYTHON-OBJECT
 can lead to memory leak.")))
+    (import-module "traceback")
+    (import-module "sys")
     (when *numpy-installed-p*
       (float-features:with-float-traps-masked (:overflow :invalid)
         (ignore-some-conditions (floating-point-overflow floating-point-invalid-operation)
-          (import-module "numpy")
+	  (handler-case
+	      (import-module "numpy")
+	    (error (e)
+	      (warn (format nil "Could not import numpy: ~S~%" e))))
           (pushnew :typed-arrays *internal-features*)
           (when (member :typed-arrays *internal-features*)
             (setq *numpy-c-api-pointer*
                   (with-python-gil (foreign-funcall "import_numpy" :pointer)))))))
-    (import-module "sys")
-    (import-module "traceback")
     (import-module "fractions")
     (raw-pyexec "from fractions import Fraction")
 
