@@ -6,7 +6,6 @@
 (ql:quickload "py4cl2-cffi-tests")
 (py4cl2-cffi/config:print-configuration)
 (let ((report (py4cl2-cffi-tests:run)))
-  (princ report)
   (when (or (plusp (slot-value report 'clunit::failed))
             (plusp (slot-value report 'clunit::errors)))
     (uiop:quit 1)))
