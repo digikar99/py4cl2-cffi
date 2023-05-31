@@ -54,11 +54,23 @@ jobs:
         python3-config --ldflags
         find '/usr/lib' -name "libpython*.so"
 
+    - name: Download download-dependencies
+      run: |
+        git clone https://github.com/digikar99/download-dependencies $HOME/quicklisp/local-projects/download-dependencies
+
+
     - name: Download Tests
       run: |
         git clone https://github.com/digikar99/py4cl2-cffi-tests ./tests
         pwd
         ls -l
+
+    - name: Download Test Dependencies
+      run: >
+        cl --eval '(ql:quickload "download-dependencies")' \
+           --eval '(in-package :download-dependencies)' \
+           --eval '(push #P"./" ql:*local-project-directories*)' \
+           --eval '(let ((*dependencies-home* (first ql:*local-project-directories*))) (ensure-system "py4cl2-cffi-tests"))'
 
     - name: Set up directory with exotic name
       run: |
