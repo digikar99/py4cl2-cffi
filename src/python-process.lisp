@@ -238,48 +238,62 @@ py4cl_utils = ctypes.cdll.LoadLibrary(\"~A\")
                  condition
                (apply #'format stream format-control format-arguments)))))
 
-(defun python-may-be-error (&optional already-retrieving-exceptions)
+(defvar *already-retrieving-exceptions* nil
+  "Set to non-NIL inside PYTHON-MAY-BE-ERROR so that calling PYFOREIGN-FUNCALL
+from inside PYTHON-MAY-BE-ERROR does not lead to an infinite recursion.")
+;;; FIXME: Perhaps this leaves open the case of an exception occuring during
+;;; the handling of an exception.
+
+(defun python-may-be-error ()
   (declare (optimize debug))
   (python-start-if-not-alive)
-  (unless already-retrieving-exceptions
-    (with-python-gil
-      (let ((may-be-error-type (pyforeign-funcall "PyErr_Occurred" :pointer)))
-        (unless (null-pointer-p may-be-error-type)
-          (with-pygc
-            (with-foreign-objects ((ptype  :pointer)
-                                   (pvalue :pointer)
-                                   (ptraceback :pointer))
-              (pyforeign-funcall "PyErr_Fetch"
-                                 :pointer ptype
-                                 :pointer pvalue
-                                 :pointer ptraceback)
-              (let* ((type      (mem-aref ptype :pointer))
-                     (value     (mem-aref pvalue :pointer))
-                     (traceback (mem-aref ptraceback :pointer))
-                     (value-str
-                       (foreign-string-to-lisp
-                        (pyforeign-funcall "PyUnicode_AsUTF8"
-                                           :pointer (pyforeign-funcall "PyObject_Str"
-                                                                       :pointer value
-                                                                       :pointer)
-                                           :pointer)))
-                     (traceback-str
-                       (if (null-pointer-p traceback)
-                           (pycall "traceback.format_exception_only" type value)
-                           (pycall "traceback.format_exception" type value traceback))))
-                (with-simple-restart (continue-ignoring-errors "")
-                  (if traceback-str
-                      (error 'pyerror
-                             :format-control "A python error occurred:~%  ~A~%~%Traceback:~%~%~A"
-                             :format-arguments (list value-str traceback-str))
-                      (error 'pyerror
-                             :format-control "A python error occurred:~%  ~A"
-                             :format-arguments (list value-str))))))))))))
+  (unless *already-retrieving-exceptions*
+    (let ((*already-retrieving-exceptions* t))
+      (with-python-gil
+        (let ((may-be-error-type (pyforeign-funcall "PyErr_Occurred" :pointer)))
+          (unless (null-pointer-p may-be-error-type)
+            (with-pygc
+              (with-foreign-objects ((ptype  :pointer)
+                                     (pvalue :pointer)
+                                     (ptraceback :pointer))
+                (pyforeign-funcall "PyErr_Fetch"
+                                   :pointer ptype
+                                   :pointer pvalue
+                                   :pointer ptraceback)
+                (let* ((type      (mem-aref ptype :pointer))
+                       (value     (mem-aref pvalue :pointer))
+                       (traceback (mem-aref ptraceback :pointer))
+                       (value-str
+                         (foreign-string-to-lisp
+                          (pyforeign-funcall "PyUnicode_AsUTF8"
+                                             :pointer (pyforeign-funcall "PyObject_Str"
+                                                                         :pointer value
+                                                                         :pointer)
+                                             :pointer)))
+                       (traceback-str
+                         (let ((*in-with-remote-objects-p* nil))
+                           (if (null-pointer-p traceback)
+                               (pycall "traceback.format_exception_only" type value)
+                               (pycall "traceback.format_exception" type value traceback)))))
+                  (with-simple-restart (continue-ignoring-errors "")
+                    (if traceback-str
+                        (error 'pyerror
+                               :format-control "A python error occurred:~%  ~A~%~%~A"
+                               :format-arguments
+                               (list value-str
+                                     (etypecase traceback-str
+                                       (string traceback-str)
+                                       (vector (apply #'uiop:strcat
+                                                      (coerce traceback-str 'list)))
+                                       (list (apply #'uiop:strcat traceback-str)))))
+                        (error 'pyerror
+                               :format-control "A python error occurred:~%  ~A"
+                               :format-arguments (list value-str)))))))))))))
 
 (defmacro with-python-exceptions (&body body)
   (with-gensyms (may-be-exception-type)
     `(progn
-       (python-may-be-error t)
+       (python-may-be-error)
        (locally ,@body))))
 
 (defmacro ensure-non-null-pointer (pointer
