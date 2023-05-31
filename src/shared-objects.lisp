@@ -34,7 +34,7 @@
                               (asdf:component-pathname
                                (asdf:find-system "py4cl2-cffi")))))))
           (setq *numpy-installed-p* numpy-installed-p)
-          (write-line program-string)
+          (format t "~&~A~%" program-string)
           (uiop:run-program program-string
                             :error-output *error-output*
                             :output *standard-output*))))))
