@@ -1,5 +1,8 @@
 # This file is expected to be executed by RAW-PYEXEC after
 # its contents are read into a string.
+import traceback
+import re
+
 class LispCallbackObject (object):
 	"""
 	Represents a lisp function which can be called.
@@ -63,6 +66,34 @@ class UnknownLispObject (object):
 				ctypes.py_object(attr),
 				ctypes.py_object(value)
 			)
+
+class ExecutionFailure (object):
+	"""
+        Captures a raised exception in the ``raw-py`` Lisp function.
+	"""
+	def __init__(self, ex: Exception):
+		self.ex = ex
+		self.stack = traceback.format_exc()
+
+	@property
+	def exception_message(self) -> str:
+		"""The error message."""
+		return str(self.ex)
+
+	@property
+	def exception_type(self) -> str:
+		"""The fully qualified class name of the raised exceptiion."""
+		cn: str = str(type(self.ex))
+		m: re.Match = re.match(r"^<class '(.+)'>$", cn)
+		if m is None:
+			cn = self.ex.__class__.__name__
+		else:
+			cn = m.group(1)
+		return cn
+
+	def __str__(self) -> str:
+		return self.stack
+
 
 def generator(function, stop_value):
 	temp = None
