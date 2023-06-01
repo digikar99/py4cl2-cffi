@@ -70,81 +70,139 @@ Value: The pointer to the module dictionary in embedded python")
 (defvar *py-builtins-dict* nil
   "Pointer to the dictionary mapping names to PyObjects in the builtins namespace of embedded python.")
 
+(defstruct output-sync-struct
+  py-stream
+  in-with-python-count
+  with-python-count-lock
+  with-python-stream
+  with-python-start-semaphore
+  with-python-end-semaphore)
+
+(defvar *py-output-sync-struct*
+  (make-output-sync-struct
+   ;; py-stream will be set inside the thread
+   :in-with-python-count 0
+   :with-python-count-lock (bt:make-recursive-lock "output-count-lock")
+   :with-python-stream nil
+   :with-python-start-semaphore (bt:make-semaphore :name "output-start-semaphore")
+   :with-python-end-semaphore (bt:make-semaphore :name "output-end-semaphore")))
+
+(defvar *py-error-sync-struct*
+  (make-output-sync-struct
+   ;; py-stream will be set inside the thread
+   :in-with-python-count 0
+   :with-python-count-lock (bt:make-recursive-lock "error-count-lock")
+   :with-python-stream nil
+   :with-python-start-semaphore (bt:make-semaphore :name "error-start-semaphore")
+   :with-python-end-semaphore (bt:make-semaphore :name "error-end-semaphore")))
+
+;; This is called from a separate thread
+(defun read-output-with-sync (output-sync-struct default-output-stream)
+  "Reads output from the stream in the struct while
+checking whether to output to the standard streams, or
+to the stream specified in WITH-PYTHON-*-OUTPUT "
+  (with-slots (py-stream with-python-stream
+               in-with-python-count with-python-count-lock
+               with-python-start-semaphore with-python-end-semaphore)
+      output-sync-struct
+    (loop :if (< 0 in-with-python-count)
+            :do ;; Wait until the thunk finishes executing
+                ;; This is "START" in the sense that we start reading now.
+                ;; If the thunk has not finished executing and not flushed,
+                ;; then LISTEN will return NIL, and this will end
+                (bt:wait-on-semaphore with-python-start-semaphore)
+                (loop :while (listen py-stream)
+                      :do (let ((char (read-char-no-hang py-stream nil)))
+                            (when char
+                              (write-char char with-python-stream))))
+                ;; Signal the WITH-PYTHON-*-OUTPUT to continue
+                (bt:signal-semaphore with-python-end-semaphore)
+                (bt:with-recursive-lock-held (with-python-count-lock)
+                  (decf in-with-python-count))
+          :else
+            :do ;; PEEK-CHAR waits for input
+                (peek-char nil py-stream nil)
+                (when (zerop in-with-python-count)
+                  (let ((char (read-char-no-hang py-stream nil)))
+                    (when char
+                      (write-char char default-output-stream)))))))
+
+;; Alternate idea: Instead of having the thread write to the string-output-stream
+;; open the named pipe and read from it directly.
+;; Opening the pipe multiple times does not work, at least for small read/writes,
+;; the data in the pipes accumulates. Thus every time the pipe is opened, *all*
+;; the writes until that point of time are read.
+(defun call-thunk-python-error-or-output (thunk output-sync-struct stderr-or-stdout)
+  "Capture and return the output produced by python during the
+execution of THUNK as a string."
+  (with-slots (py-stream with-python-stream
+               in-with-python-count with-python-count-lock
+               with-python-start-semaphore with-python-end-semaphore)
+      output-sync-struct
+    (let ((all-signalled-p)
+          (old-with-python-stream-value with-python-stream))
+      (unwind-protect
+           (progn
+             (setf with-python-stream (make-string-output-stream))
+             (bt:with-recursive-lock-held (with-python-count-lock)
+               (incf in-with-python-count))
+             (pycall (format nil "sys.~A.write" stderr-or-stdout) ".")
+             (funcall thunk)
+             (pycall (format nil "sys.~A.flush" stderr-or-stdout))
+             (bt:signal-semaphore with-python-start-semaphore)
+             (bt:wait-on-semaphore with-python-end-semaphore)
+             (setq all-signalled-p t)
+             (let* ((output (get-output-stream-string with-python-stream))
+                    (len    (length output)))
+               (if (zerop len)
+                   output
+                   (subseq output 1))))
+        (progn
+          (unless all-signalled-p
+            (bt:signal-semaphore with-python-start-semaphore)
+            (bt:wait-on-semaphore with-python-end-semaphore))
+          (setf with-python-stream old-with-python-stream-value))))))
+
 ;;; This is more of a global variable than a dynamic variable.
-(defvar *in-with-python-output* nil)
 
 (defvar *py-output-stream-pipe*
   (format nil "/tmp/py4cl2-cffi-output-~D" (swank/backend:getpid)))
 (defvar *py-error-output-stream-pipe*
   (format nil "/tmp/py4cl2-cffi-error-output-~D" (swank/backend:getpid)))
-(defvar *py-output-stream* nil)
-(defvar *py-output-stream-string* nil)
 (defvar *py-output-reader-thread* nil)
-(defvar *py-error-output-stream* nil)
 (defvar *py-error-output-reader-thread* nil)
 
-(defvar *py-output-lock* (bt:make-lock "python-output-lock"))
-(defvar *py-output-condition*
-  (bt:make-condition-variable :name "python-output-condition"))
-
-(let ((string-output-stream  nil))
-
-  (defun python-output-thread ()
-    (when (and *py-output-reader-thread*
-               (bt:thread-alive-p *py-output-reader-thread*))
-      (bt:destroy-thread *py-output-reader-thread*))
-    (setq *py-output-reader-thread*
-          (bt:make-thread
-           (lambda ()
-             (setq *py-output-stream* (open *py-output-stream-pipe*
-                                            :direction :input
-                                            :if-does-not-exist :create
-                                            #+ccl :sharing #+ccl :lock))
-             (loop :do (when (and *in-with-python-output*
-                                  (not (listen *py-output-stream*)))
-                         (bt:with-lock-held (*py-output-lock*)
-                           (bt:condition-notify *py-output-condition*)))
-                       ;; PEEK-CHAR waits for input
-                       (peek-char nil *py-output-stream* nil)
-                       (let ((char (read-char-no-hang *py-output-stream* nil)))
-                         (when char
-                           (write-char char
-                                       (if *in-with-python-output*
-                                           string-output-stream
-                                           *standard-output*))))))))
-    (when (and *py-error-output-reader-thread*
-               (bt:thread-alive-p *py-error-output-reader-thread*))
-      (bt:destroy-thread *py-error-output-reader-thread*))
-    (setq *py-error-output-reader-thread*
-          (bt:make-thread
-           (lambda ()
-             (setq *py-error-output-stream*
-                   (open *py-error-output-stream-pipe*
-                         :direction :input
-                         :if-does-not-exist :create
-                         #+ccl :sharing #+ccl :lock))
-             ;; PEEK-CHAR waits for input
-             (loop :do (peek-char nil *py-error-output-stream* nil)
-                       (let ((char (read-char *py-error-output-stream* nil)))
-                         (when char
-                           (write-char char *error-output*))))))))
-
-  ;; TODO: Instead of having the thread write to the string-output-stream
-  ;; open the named pipe and read from it directly.
-  (defun call-thunk-python-output (thunk)
-    "Capture and return the output produced by python during the
-execution of THUNK as a string."
-    (bt:with-lock-held (*py-output-lock*)
-      (thread-global-let ((string-output-stream    (make-string-output-stream))
-                          (*in-with-python-output* t))
-        (funcall thunk)
-        (pycall "sys.stdout.flush")
-        (bt:condition-wait *py-output-condition* *py-output-lock*)
-        (get-output-stream-string string-output-stream)))))
+(defun python-output-thread ()
+  (when (and *py-output-reader-thread*
+             (bt:thread-alive-p *py-output-reader-thread*))
+    (bt:destroy-thread *py-output-reader-thread*))
+  (setq *py-output-reader-thread*
+        (bt:make-thread
+         (lambda ()
+           (setf (slot-value *py-output-sync-struct* 'py-stream)
+                 (open *py-output-stream-pipe*
+                       :direction :input
+                       :if-does-not-exist :create
+                       #+ccl :sharing #+ccl :lock))
+           (read-output-with-sync *py-output-sync-struct* *standard-output*))))
+  (when (and *py-error-output-reader-thread*
+             (bt:thread-alive-p *py-error-output-reader-thread*))
+    (bt:destroy-thread *py-error-output-reader-thread*))
+  (setq *py-error-output-reader-thread*
+        (bt:make-thread
+         (lambda ()
+           (setf (slot-value *py-error-sync-struct* 'py-stream)
+                 (open *py-error-output-stream-pipe*
+                       :direction :input
+                       :if-does-not-exist :create
+                       #+ccl :sharing #+ccl :lock))
+           (read-output-with-sync *py-error-sync-struct* *error-output*)))))
 
 (defmacro with-python-output (&body forms-decl)
   "Gets the output of the python program executed in FORMS-DECL in the form a string."
-  `(call-thunk-python-output (lambda () ,@forms-decl)))
+  `(call-thunk-python-error-or-output (lambda () ,@forms-decl)
+                                      *py-output-sync-struct*
+                                      "stdout"))
 
 (defvar *additional-init-codes* nil
   "A list of strings each of which should be python code. All the code
