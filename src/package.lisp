@@ -11,6 +11,7 @@
            #:python-alive-p
            #:python-start-if-not-alive
            #:with-python-output
+           #:with-python-error-output
            #:pystop
            #:raw-pyeval
            #:pyeval

@@ -204,6 +204,12 @@ execution of THUNK as a string."
                                       *py-output-sync-struct*
                                       "stdout"))
 
+(defmacro with-python-error-output (&body forms-decl)
+  "Gets the output of the python program executed in FORMS-DECL in the form a string."
+  `(call-thunk-python-error-or-output (lambda () ,@forms-decl)
+                                      *py-error-sync-struct*
+                                      "stderr"))
+
 (defvar *additional-init-codes* nil
   "A list of strings each of which should be python code. All the code
 will be executed by PYSTART.")
@@ -234,15 +240,15 @@ will be executed by PYSTART.")
       (when (pygil-held-p)
         (warn "Python GIL was not released from the main thread. This means on implementations (like SBCL) that call lisp object finalizers from a separate thread may never get a chance to run, and thus python foreign objects associated with PYTHON-OBJECT
 can lead to memory leak.")))
-    (import-module "traceback")
     (import-module "sys")
+    (import-module "traceback")
     (when *numpy-installed-p*
       (float-features:with-float-traps-masked (:overflow :invalid)
         (ignore-some-conditions (floating-point-overflow floating-point-invalid-operation)
-	  (handler-case
-	      (import-module "numpy")
-	    (error (e)
-	      (warn (format nil "Could not import numpy: ~S~%" e))))
+      (handler-case
+          (import-module "numpy")
+        (error (e)
+          (warn (format nil "Could not import numpy: ~S~%" e))))
           (pushnew :typed-arrays *internal-features*)
           (when (member :typed-arrays *internal-features*)
             (setq *numpy-c-api-pointer*
@@ -378,24 +384,29 @@ Instead, use PYCALL, PYVALUE, (SETF PYVALUE), PYSLOT-VALUE, (SETF PYSLOT-VALUE),
 
 RAW-PY, RAW-PYEVAL, RAW-PYEXEC are only provided for backward compatibility."
   (python-start-if-not-alive)
-  (unless (zerop (pyforeign-funcall "PyRun_SimpleString"
-                                    :string (apply #'concatenate
-                                                   'string
-                                                   (ecase cmd-char
-                                                     (#\e "_ = ")
-                                                     (#\x ""))
-                                                   code-strings)
-                                    :int))
-    (error 'pyerror
-           :format-control "An unknown python error occurred.
-
-Unfortunately, no more information about the error can be provided
-while using RAW-PYEVAL or RAW-PYEXEC."))
-  (ecase cmd-char
-    (#\e (let ((ptr (pyvalue* "_")))
-           (pyforeign-funcall "Py_IncRef" :pointer ptr)
-           (pytrack ptr)))
-    (#\x (values))))
+  (with-python-gil
+    (let* ((return-code nil)
+           (command (ecase cmd-char
+                      (#\e (apply #'concatenate 'string "_ = " code-strings))
+                      (#\x (apply #'concatenate 'string code-strings))))
+           (error-output
+             (ecase *python-state*
+               (:initialized
+                (with-python-error-output
+                  (setq return-code
+                        (pyforeign-funcall "PyRun_SimpleString" :string command :int))))
+               (:initializing
+                (setq return-code
+                      (pyforeign-funcall "PyRun_SimpleString" :string command :int))
+                ""))))
+      (unless (zerop return-code)
+        (error 'pyerror
+               :format-control error-output))
+      (ecase cmd-char
+        (#\e (let ((ptr (pyvalue* "_")))
+               (pyforeign-funcall "Py_IncRef" :pointer ptr)
+               (pytrack ptr)))
+        (#\x (values))))))
 
 (defun raw-pyeval (&rest code-strings)
   "
