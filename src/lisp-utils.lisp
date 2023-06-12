@@ -46,3 +46,6 @@
                    ,@body
                    (setq ,old-item-pos (when ,new-item-pos
                                          (1+ ,new-item-pos))))))))
+
+(defun mkfifo (path)
+  (cffi:foreign-funcall "mkfifo" :string path :int #o0664))

@@ -182,7 +182,6 @@ execution of THUNK as a string."
            (setf (slot-value *py-output-sync-struct* 'py-stream)
                  (open *py-output-stream-pipe*
                        :direction :input
-                       :if-does-not-exist :create
                        #+ccl :sharing #+ccl :lock))
            (read-output-with-sync *py-output-sync-struct* *standard-output*))))
   (when (and *py-error-output-reader-thread*
@@ -194,7 +193,6 @@ execution of THUNK as a string."
            (setf (slot-value *py-error-sync-struct* 'py-stream)
                  (open *py-error-output-stream-pipe*
                        :direction :input
-                       :if-does-not-exist :create
                        #+ccl :sharing #+ccl :lock))
            (read-output-with-sync *py-error-sync-struct* *error-output*)))))
 
@@ -216,22 +214,20 @@ will be executed by PYSTART.")
 
 (defun pystart ()
 
+  (when (eq *python-state* :initialized)
+    (return-from pystart))
+
   (let ((*python-state* :initializing))
 
     ;; We are using a let, because if something fails, we want
     ;; *PYTHON-STATE* to be whatever it was before.
 
     (when (probe-file *py-output-stream-pipe*)
-      (uiop:run-program
-       (format nil "rm ~A; mkfifo ~A"
-               *py-output-stream-pipe* *py-output-stream-pipe*)
-       :output t :error-output *error-output* :ignore-error-status t))
+      (delete-file *py-output-stream-pipe*))
+    (mkfifo *py-output-stream-pipe*)
     (when (probe-file *py-error-output-stream-pipe*)
-      (uiop:run-program
-       (format nil "rm ~A; mkfifo ~A"
-               *py-error-output-stream-pipe* *py-error-output-stream-pipe*)
-       :output t :error-output *error-output* :ignore-error-status t))
-    (sleep 0.1)
+      (delete-file *py-error-output-stream-pipe*))
+    (mkfifo *py-error-output-stream-pipe*)
 
     (load-python-and-libraries)
     (foreign-funcall "Py_Initialize")
@@ -569,12 +565,14 @@ Use PYVALUE* if you want to refer to names containing full-stops."
 
 (defun pyvalue (python-value-or-variable)
   (declare (type (or python-object string) python-value-or-variable))
+  (python-start-if-not-alive)
   (if *in-with-remote-objects-p*
       (pyvalue* python-value-or-variable)
       (with-pygc (lispify (pyvalue* python-value-or-variable)))))
 
 (defun (setf pyvalue) (new-value python-value-or-variable)
   (declare (type string python-value-or-variable))
+  (python-start-if-not-alive)
   (with-pygc
     (setf (pyvalue* python-value-or-variable)
           ;; UNTRACK because we do not want to lose reference to this object!
