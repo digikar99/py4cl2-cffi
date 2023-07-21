@@ -371,6 +371,36 @@ from inside PYTHON-MAY-BE-ERROR does not lead to an infinite recursion.")
               `(error 'pyerror))
          ,pointer)))
 
+#+ccl
+(defun raw-py (cmd-char &rest code-strings)
+  "CMD-CHAR should be #\e for eval and #\x for exec.
+
+Unlike PY4CL or PY4CL2, the use of RAW-PY, RAW-PYEVAL and RAW-PYEXEC,
+PYEVAL, PYEXEC should be avoided unless necessary.
+Instead, use PYCALL, PYVALUE, (SETF PYVALUE), PYSLOT-VALUE, (SETF PYSLOT-VALUE), and PYMETHOD.
+
+RAW-PY, RAW-PYEVAL, RAW-PYEXEC are only provided for backward compatibility."
+  (python-start-if-not-alive)
+  (unless (zerop (pyforeign-funcall "PyRun_SimpleString"
+                                    :string (apply #'concatenate
+                                                   'string
+                                                   (ecase cmd-char
+                                                     (#\e "_ = ")
+                                                     (#\x ""))
+                                                   code-strings)
+                                    :int))
+    (error 'pyerror
+           :format-control "An unknown python error occurred.
+Unfortunately, no more information about the error can be provided
+while using RAW-PYEVAL or RAW-PYEXEC on ~A"
+           :format-arguments (lisp-implementation-version)))
+  (ecase cmd-char
+    (#\e (let ((ptr (pyvalue* "_")))
+           (pyforeign-funcall "Py_IncRef" :pointer ptr)
+           (pytrack ptr)))
+    (#\x (values))))
+
+#-ccl
 (defun raw-py (cmd-char &rest code-strings)
   "CMD-CHAR should be #\e for eval and #\x for exec.
 
