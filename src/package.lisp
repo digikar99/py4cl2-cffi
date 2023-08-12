@@ -1,5 +1,7 @@
 (defpackage :py4cl2-cffi
   (:use :cl :cffi :alexandria :py4cl2-cffi/config :iterate)
+  (:import-from #:py4cl2-cffi/config
+                #:%shared-library-from-lflag)
   (:export #:*internal-features*
 
            #:with-pygc
