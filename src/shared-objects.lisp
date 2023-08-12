@@ -26,7 +26,7 @@
                (program-string
                  (format nil
                          *python-compile-command*
-                         (namestring *python-include-path*)
+                         (format nil "~{~a~^ ~}" *python-includes*)
                          (if numpy-installed-p
                              (format nil "~A/core/include/"
                                      (string-trim (list #\newline) numpy-path))
@@ -62,3 +62,39 @@
                               :if-does-not-exist :create))
     (setq *numpy-installed-p* numpy-installed-p)))
 
+(defun load-python-and-libraries ()
+  (labels ((ensure-directory-name (namestring)
+             (if (ends-with-subseq "/" namestring :test #'char=)
+                 namestring
+                 (concatenate 'string namestring "/")))
+           (libraries-and-search-paths (ldflags)
+             ;; Following https://sourceware.org/pipermail/libc-alpha/2021-August/129718.html
+             ;;   we will ignore lpthread, ldl, lutil, lanl
+             ;; But we will also ignore lm
+             (loop :with libraries := ()
+                   :with search-paths := ()
+                   :with unknown-flags := ()
+                   :for flag :in ldflags
+                   :do (cond ((< (length flag) 2)
+                              (push flag unknown-flags))
+                             ((member flag '("-lpthread" "-ldl" "-lutil"
+                                             "-lanl" "-lm")
+                                      :test #'string=))
+                             ((starts-with-subseq "-L" flag :test #'char=)
+                              (push (ensure-directory-name (subseq flag 2))
+                                    search-paths))
+                             ((starts-with-subseq "-l" flag :test #'char=)
+                              (push (format nil "lib~A.so" (subseq flag 2))
+                                    libraries)))
+                   :finally (return (values (nreverse libraries)
+                                            (nreverse search-paths))))))
+    (multiple-value-bind (libraries search-paths)
+        (libraries-and-search-paths *python-ldflags*)
+      (mapc (lambda (library)
+              (load-foreign-library library :search-path search-paths))
+            libraries))
+    (load-foreign-library *utils-shared-object-path*)
+    (setq *python-libraries-loaded-p* t)))
+
+#+cmucl
+(load-python-and-libraries)

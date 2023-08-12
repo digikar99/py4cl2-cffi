@@ -27,7 +27,7 @@
                "float-features"
                "parse-number"
                "py4cl2-cffi/config"
-               "py4cl2-cffi/config-darwin"
+               (:feature :darwin "py4cl2-cffi/config-darwin")
                "trivial-backtrace"
                "swank")
   :serial t
