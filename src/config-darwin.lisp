@@ -3,8 +3,8 @@
 (defpackage :py4cl2-cffi/config-darwin
   (:documentation "Configures macOS operating systems.")
   (:use #:cl
-	#:cl-ppcre
-	:py4cl2-cffi/config))
+        #:cl-ppcre
+        :py4cl2-cffi/config))
 (in-package #:py4cl2-cffi/config-darwin)
 
 (defun python-system ()
@@ -15,17 +15,17 @@
 import sys
 print(f'(:base-exec-prefix \\\"{sys.base_exec_prefix}\\\"' +
       f' :exec-prefix \\\"{sys.exec_prefix}\\\")')\""
-		       :output stream)
+                       :output stream)
      stream)))
 
 (defun configure ()
   (let* ((ps (python-system))
-	 (prefix (getf ps :base-exec-prefix))
-	 (search-path (getf ps :exec-prefix))
-	 (python-version (ppcre:register-groups-bind (version)
-			     ("^.+\/(.+)?$" prefix :sharedp t)
-			   version))
-	 (path (format nil "~A/" prefix)))
+         (prefix (getf ps :base-exec-prefix))
+         (search-path (getf ps :exec-prefix))
+         (python-version (ppcre:register-groups-bind (version)
+                             ("^.+\/(.+)?$" prefix :sharedp t)
+                           version))
+         (path (format nil "~A/" prefix)))
     (setq
      py4cl2-cffi/config:*python-shared-object-path*
      (merge-pathnames (format nil "lib/libpython~A.dylib" python-version) path)
