@@ -3,23 +3,29 @@
 (defmethod py-repr (object)
   (pycall "repr" object))
 
-(defmethod py-repr ((object float))
-  (switch (object :test #'eql)
-    (float-features:double-float-nan "numpy.float64('nan')")
-    (float-features:single-float-positive-infinity "numpy.float32('inf')")
-    (float-features:single-float-negative-infinity "-numpy.float32('inf')")
-    (float-features:double-float-positive-infinity "numpy.float64('inf')")
-    (float-features:double-float-negative-infinity "-numpy.float64('inf')")
-    (float-features:single-float-nan "numpy.float32('nan')")
-    (t
-     (etypecase object
-       (single-float (format nil "numpy.float32(~A)" object))
-       (double-float (format nil "numpy.float64(~A)"
-                             (let* ((repr (write-to-string object))
-                                    (dpos (or (position #\d repr)
-                                              (position #\D repr))))
-                               (when dpos (setf (char repr dpos) #\e))
-                               repr)))))))
+(defmethod py-repr ((float float))
+  (cond ((float-features:float-nan-p float)
+         (etypecase float
+           (single-float "numpy.float32('nan')")
+           (double-float "numpy.float64('nan')")))
+        ((float-features:float-infinity-p float)
+         (cond ((< 0 float)
+                (etypecase float
+                  (single-float "numpy.float32('inf')")
+                  (double-float "numpy.float64('inf')")))
+               ((> 0 float)
+                (etypecase float
+                  (single-float "-numpy.float32('inf')")
+                  (double-float "-numpy.float64('inf')")))))
+        (t
+         (etypecase float
+           (single-float (format nil "numpy.float32(~A)" float))
+           (double-float (format nil "numpy.float64(~A)"
+                                 (let* ((repr (write-to-string float))
+                                        (dpos (or (position #\d repr)
+                                                  (position #\D repr))))
+                                   (when dpos (setf (char repr dpos) #\e))
+                                   repr)))))))
 
 (defmethod py-repr ((object string))
   (cond ((find #\newline object)
