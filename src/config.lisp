@@ -3,7 +3,8 @@
   (:export #:*python-ldflags*
            #:*python-includes*
            #:*python-compile-command*
-           #:print-configuration))
+           #:print-configuration
+           #:shared-library-from-lflag))
 
 (in-package :py4cl2-cffi/config)
 
@@ -45,6 +46,22 @@
   (return-value-as-list "python3-config --includes"))
 
 (defun print-configuration ()
-  (format t "Python ldflags: ~A~%Python includes: ~A~%"
+  (format t "Python ldflags: ~{~A~^ ~}~%Python includes: ~{~A~^ ~}~%"
           *python-ldflags*
           *python-includes*))
+
+(defun %shared-library-from-lflag (lflag)
+  "Given a lflag, for example, \"-lpython3.10\", return the shared library name
+corresponding to it. In this case, on linux, it will return libpython3.10.so"
+  (shared-library-from-lflag lflag
+                             (intern (string-upcase (software-type))
+                                     :keyword)))
+
+(defmethod shared-library-from-lflag (lflag (software-type (eql :linux)))
+  (format nil "lib~A.so" (subseq lflag 2)))
+
+(defmethod shared-library-from-lflag (lflag (software-type (eql :darwin)))
+  (format nil "lib~A.dylib" (subseq lflag 2)))
+
+(defmethod shared-library-from-lflag (lflag (software-type (eql :windows)))
+  (format nil "lib~A.dll" (subseq lflag 2)))

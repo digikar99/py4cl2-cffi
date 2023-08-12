@@ -84,7 +84,7 @@
                               (push (ensure-directory-name (subseq flag 2))
                                     search-paths))
                              ((starts-with-subseq "-l" flag :test #'char=)
-                              (push (format nil "lib~A.so" (subseq flag 2))
+                              (push (%shared-library-from-lflag flag)
                                     libraries)))
                    :finally (return (values (nreverse libraries)
                                             (nreverse search-paths))))))

@@ -21,26 +21,25 @@ print(f'(:base-exec-prefix \\\"{sys.base_exec_prefix}\\\"' +
 (defun configure ()
   (let* ((ps (python-system))
          (prefix (getf ps :base-exec-prefix))
+         (path (format nil "~A/" prefix))
          (search-path (getf ps :exec-prefix))
          (python-version (ppcre:register-groups-bind (version)
                              ("^.+\/(.+)?$" prefix :sharedp t)
-                           version))
-         (path (format nil "~A/" prefix)))
-    (setq
-     py4cl2-cffi/config:*python-shared-object-path*
-     (merge-pathnames (format nil "lib/libpython~A.dylib" python-version) path)
+                           version)))
+    (setq py4cl2-cffi/config:*python-ldflags*
+          (list (format nil "-L'~A' -L'lib/~A' -l'~A'"
+                        (make-pathname :name search-path)
+                        path
+                        (format nil "python~A" python-version)))
 
-     py4cl2-cffi/config:*python-additional-libraries-search-path*
-     (make-pathname :name search-path)
-
-     py4cl2-cffi/config:*python-compile-command*
-     (concatenate
-      'string
-      "gcc -I'~A' -I'~A' -c -Wall -Werror -fpic py4cl-utils.c && "
-      (format
-       nil
-       "gcc -L'~A/lib' -shared -o libpy4cl-utils.so py4cl-utils.o -lpython~A"
-       path python-version)))))
+          py4cl2-cffi/config:*python-compile-command*
+          (concatenate
+           'string
+           "gcc ~A -I'~A' -c -Wall -Werror -fpic py4cl-utils.c && "
+           (format
+            nil
+            "gcc -L'~A/lib' -shared -o libpy4cl-utils.so py4cl-utils.o -lpython~A"
+            path python-version)))))
 
 (if (equal "Darwin" (software-type))
     (configure))
