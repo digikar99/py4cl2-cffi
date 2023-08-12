@@ -110,15 +110,17 @@ to the stream specified in WITH-PYTHON-*-OUTPUT "
                 ;; This is "START" in the sense that we start reading now.
                 ;; If the thunk has not finished executing and not flushed,
                 ;; then LISTEN will return NIL, and this will end
-                (bt:wait-on-semaphore with-python-start-semaphore)
+                (without-python-gil
+                  (bt:wait-on-semaphore with-python-start-semaphore))
                 (loop :while (listen py-stream)
                       :do (let ((char (read-char-no-hang py-stream nil)))
                             (when char
                               (write-char char with-python-stream))))
                 ;; Signal the WITH-PYTHON-*-OUTPUT to continue
                 (bt:signal-semaphore with-python-end-semaphore)
-                (bt:with-recursive-lock-held (with-python-count-lock)
-                  (decf in-with-python-count))
+                (without-python-gil
+                  (bt:with-recursive-lock-held (with-python-count-lock)
+                    (decf in-with-python-count)))
           :else
             :do ;; PEEK-CHAR waits for input
                 (peek-char nil py-stream nil)
@@ -144,13 +146,15 @@ execution of THUNK as a string."
       (unwind-protect
            (progn
              (setf with-python-stream (make-string-output-stream))
-             (bt:with-recursive-lock-held (with-python-count-lock)
-               (incf in-with-python-count))
+             (without-python-gil
+               (bt:with-recursive-lock-held (with-python-count-lock)
+                 (incf in-with-python-count)))
              (pycall (format nil "sys.~A.write" stderr-or-stdout) ".")
              (funcall thunk)
              (pycall (format nil "sys.~A.flush" stderr-or-stdout))
              (bt:signal-semaphore with-python-start-semaphore)
-             (bt:wait-on-semaphore with-python-end-semaphore)
+             (without-python-gil
+               (bt:wait-on-semaphore with-python-end-semaphore))
              (setq all-signalled-p t)
              (let* ((output (get-output-stream-string with-python-stream))
                     (len    (length output)))
@@ -160,7 +164,8 @@ execution of THUNK as a string."
         (progn
           (unless all-signalled-p
             (bt:signal-semaphore with-python-start-semaphore)
-            (bt:wait-on-semaphore with-python-end-semaphore))
+            (without-python-gil
+              (bt:wait-on-semaphore with-python-end-semaphore)))
           (setf with-python-stream old-with-python-stream-value))))))
 
 ;;; This is more of a global variable than a dynamic variable.
@@ -371,36 +376,6 @@ from inside PYTHON-MAY-BE-ERROR does not lead to an infinite recursion.")
               `(error 'pyerror))
          ,pointer)))
 
-#+ccl
-(defun raw-py (cmd-char &rest code-strings)
-  "CMD-CHAR should be #\e for eval and #\x for exec.
-
-Unlike PY4CL or PY4CL2, the use of RAW-PY, RAW-PYEVAL and RAW-PYEXEC,
-PYEVAL, PYEXEC should be avoided unless necessary.
-Instead, use PYCALL, PYVALUE, (SETF PYVALUE), PYSLOT-VALUE, (SETF PYSLOT-VALUE), and PYMETHOD.
-
-RAW-PY, RAW-PYEVAL, RAW-PYEXEC are only provided for backward compatibility."
-  (python-start-if-not-alive)
-  (unless (zerop (pyforeign-funcall "PyRun_SimpleString"
-                                    :string (apply #'concatenate
-                                                   'string
-                                                   (ecase cmd-char
-                                                     (#\e "_ = ")
-                                                     (#\x ""))
-                                                   code-strings)
-                                    :int))
-    (error 'pyerror
-           :format-control "An unknown python error occurred.
-Unfortunately, no more information about the error can be provided
-while using RAW-PYEVAL or RAW-PYEXEC on ~A"
-           :format-arguments (lisp-implementation-version)))
-  (ecase cmd-char
-    (#\e (let ((ptr (pyvalue* "_")))
-           (pyforeign-funcall "Py_IncRef" :pointer ptr)
-           (pytrack ptr)))
-    (#\x (values))))
-
-#-ccl
 (defun raw-py (cmd-char &rest code-strings)
   "CMD-CHAR should be #\e for eval and #\x for exec.
 

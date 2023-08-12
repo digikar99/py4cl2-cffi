@@ -26,12 +26,25 @@
 (defun pyeval-restore-thread (thread-state)
   (foreign-funcall "PyEval_RestoreThread" :pointer thread-state))
 
+(defvar *gil*)
+
 (defmacro with-python-gil (&body body)
-  (with-gensyms (gil)
-    `(let* ((,gil (pygil-ensure)))
+  `(let* ((*gil* (pygil-ensure)))
+     (unwind-protect (locally ,@body)
+       (python-may-be-error)
+       (pygil-release *gil*))))
+
+(defmacro without-python-gil (&body body)
+  (with-gensyms (count)
+    `(let ((,count (if (boundp '*gil*)
+                       (loop :while (pygil-held-p)
+                             :for ,count :from 0
+                             :do (pygil-release *gil*)
+                             :finally (return ,count))
+                       0)))
        (unwind-protect (locally ,@body)
-         (python-may-be-error)
-         (pygil-release ,gil)))))
+         (loop :repeat ,count
+               :do (setq *gil* (pygil-ensure)))))))
 
 (define-constant +python-function-reference-type-alist+
     '(("Py_Initialize"      nil)
