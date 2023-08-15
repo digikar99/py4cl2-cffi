@@ -4,7 +4,7 @@
            #:*python-includes*
            #:*python-compile-command*
            #:print-configuration
-           #:shared-library-from-lflag))
+           #:shared-library-from-ldflag))
 
 (in-package :py4cl2-cffi/config)
 
@@ -50,18 +50,19 @@
           *python-ldflags*
           *python-includes*))
 
-(defun %shared-library-from-lflag (lflag)
-  "Given a lflag, for example, \"-lpython3.10\", return the shared library name
+(defun %shared-library-from-ldflag (ldflag)
+  "Given a ldflag, for example, \"-lpython3.10\", return the shared library name
 corresponding to it. In this case, on linux, it will return libpython3.10.so"
-  (shared-library-from-lflag lflag
+  (shared-library-from-ldflag ldflag
                              (intern (string-upcase (software-type))
                                      :keyword)))
 
-(defmethod shared-library-from-lflag (lflag (software-type (eql :linux)))
-  (format nil "lib~A.so" (subseq lflag 2)))
 
-(defmethod shared-library-from-lflag (lflag (software-type (eql :darwin)))
-  (format nil "lib~A.dylib" (subseq lflag 2)))
+(defmethod shared-library-from-ldflag (ldflag (software-type (eql :linux)))
+  (format nil "lib~A.so" (subseq ldflag 2)))
 
-(defmethod shared-library-from-lflag (lflag (software-type (eql :windows)))
-  (format nil "lib~A.dll" (subseq lflag 2)))
+(defmethod shared-library-from-ldflag (ldflag (software-type (eql :darwin)))
+  (format nil "lib~A.dylib" (subseq ldflag 2)))
+
+(defmethod shared-library-from-ldflag (ldflag (software-type (eql :windows)))
+  (format nil "lib~A.dll" (subseq ldflag 2)))
