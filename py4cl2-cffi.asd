@@ -15,7 +15,7 @@
   :description "CFFI based alternative to PY4CL2, primarily developed for performance reasons."
   :author "Shubhamkar Ayare <shubhamayare@yahoo.co.in>"
   :license "MIT"
-  :version "0.1.2" ; beta
+  :version "0.2.0" ; beta
   :depends-on ("bordeaux-threads"
                "cffi"
                "cl-ppcre"
