@@ -46,6 +46,8 @@
   (return-value-as-list "python3-config --includes"))
 
 (defun print-configuration ()
+  "Prints the ldflags and includes that will be used for the compilation
+of the utility shared object/library that bridges the python C-API with lisp."
   (format t "Python ldflags: ~{~A~^ ~}~%Python includes: ~{~A~^ ~}~%"
           *python-ldflags*
           *python-includes*))
@@ -57,6 +59,8 @@ corresponding to it. In this case, on linux, it will return libpython3.10.so"
                              (intern (string-upcase (software-type))
                                      :keyword)))
 
+(defgeneric shared-library-from-ldflag (ldflag software-type)
+  (:documentation "This is a generic function which takes in two arguments. The first argument is an ldflag (like `-lpython3.10`) and the second argument is the `(software-type)` as a keyword to be used for specialization on the users systems. Each method should return the shared library name associated with that ldflag and software type. For example, when `(intern (string-upcase (software-type)) :keyword)` is `:linux`, the relevant method should return `python3.10.so`"))
 
 (defmethod shared-library-from-ldflag (ldflag (software-type (eql :linux)))
   (format nil "lib~A.so" (subseq ldflag 2)))
