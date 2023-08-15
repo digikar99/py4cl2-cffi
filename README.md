@@ -24,26 +24,20 @@ To load "py4cl2-cffi/config":
 ("py4cl2-cffi/config")
 ```
 
-Set the various configuration parameters in the package `py4cl2/cffi-config` (optionally, first start the lisp process in the virtual environment and then set the configuration parameters):
+For the most part, configuration happens automatically while loading `py4cl2-cffi/config`. This requires that `python3-config` points to the right program in the shell environment in which the lisp is run. Loading `py4cl2-cffi/config` sets the following variables in the `py4cl2-cffi/config` package:
 
-- `*python-additional-libraries*`
-- `*python-additional-libraries-search-path*`
-- `*python-include-path*`
-- `*python-shared-object-path*`
+- `*python-ldflags*`
+- `*python-includes*`
 
-One can use the `python3-config` or equivalent to find these parameters. (See [../.github/workflows/CI-cffi.yml](../.github/workflows/CI-cffi.yml) For instance, the following lisp command sets the parameters to their appropriate values on the author's PC using a miniconda environment:
+In addition, `py4cl2-cffi/config` also exports the following useful symbols:
 
-```lisp
-PY4CL2/CFFI-CONFIG> (setq *python-shared-object-path* #P"/home/user/miniconda3/lib/libpython3.8.so"
-                          *python-include-path* #P"/home/user/miniconda3/include/python3.8/"
-                          *python-additional-libraries-search-path* #P"/home/user/miniconda3/lib/")
-#P"/home/user/miniconda3/lib/"
-```
+- `print-configuration`: It is fbound to a function which prints the ldflags and includes that will be used for the compilation of the utility shared object/library that bridges the python C-API with lisp.
+- `shared-library-from-lflag`: This is fbound to a generic function which takes in two arguments. The first argument is an ldflag (like `-lpython3.10`) and the second argument is the `(software-type)` as a keyword to be used for specialization on the users systems. Each method should return the shared library name associated with that ldflag and software type. For example, when `(intern (string-upcase (software-type)) :keyword)` is `:linux`, the relevant method should return `python3.10.so`.
 
 ### Status
 
 - [x] garbage collection touches
-  - An effort has been made to keep a track of reference counts; but if something is missed, and users notice a memory leak, feel free to [raise an issue](https://github.com/digikar99/py4cl2/issues/new)!
+    - An effort has been made o keep a track of reference counts; but if something is missed, and users notice a memory leak, feel free to [raise an issue](https://github.com/digikar99/py4cl2/issues/new)!
   - trivial-garbage:finalize is used to establish the decref process for the pointer corresponding to the pyobject. However, this requires holding the GIL, and so, the user might need to evaluate `(py4cl2-cffi::pygil-release)` at the top level to release the GIL of the current thread, so that the finalizer thread can then acquire it.
 - [x] function return-values
 - [x] function arguments

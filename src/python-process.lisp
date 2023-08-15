@@ -6,16 +6,6 @@
 (defvar *python-libraries-loaded-p* nil)
 (defvar *in-with-remote-objects-p* nil)
 
-(defun load-python-and-libraries ()
-  (load-foreign-library *python-shared-object-path*)
-  (dolist (lib (loop :for lib :in *python-additional-libraries*
-                     :nconcing
-                     (uiop:directory-files
-                      *python-additional-libraries-search-path* (format nil "lib~A.so*" lib))))
-    (load-foreign-library lib))
-  (load-foreign-library *utils-shared-object-path*)
-  (setq *python-libraries-loaded-p* t))
-
 (defvar *python-state* :uninitialized)
 (declaim (type (member :uninitialized :initialized :initializing) *python-state*))
 

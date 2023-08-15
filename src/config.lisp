@@ -1,11 +1,10 @@
 (defpackage :py4cl2-cffi/config
   (:use :cl)
-  (:export #:*python-shared-object-path*
-           #:*python-include-path*
-           #:*python-additional-libraries*
-           #:*python-additional-libraries-search-path*
-	   #:*python-compile-command*
-           #:print-configuration))
+  (:export #:*python-ldflags*
+           #:*python-includes*
+           #:*python-compile-command*
+           #:print-configuration
+           #:shared-library-from-ldflag))
 
 (in-package :py4cl2-cffi/config)
 
@@ -13,17 +12,19 @@
 
 ;; TODO: Could set up better defaults for different OS
 
-(declaim (type pathname
-               *python-shared-object-path*
-               *python-include-path*
-               *python-additional-libraries-search-path*))
+(declaim (type list
+               *python-ldflags*
+               *python-includes*))
 
 (declaim (type string *python-compile-command*))
 
 (defvar *python-compile-command*
   (concatenate
    'string
-   "gcc -I'~A' -I'~A' -c -Wall -Werror -fpic py4cl-utils.c && "
+   ;; The first ~A corresponds to the *python-includes* defined below.
+   ;; The second ~A corresponds to the numpy include files discovered
+   ;;   in shared-objects.lisp
+   "gcc ~A -I'~A' -c -Wall -Werror -fpic py4cl-utils.c && "
    "gcc -shared -o libpy4cl-utils.so py4cl-utils.o"))
 
 (defun return-value-as-list (cmd)
@@ -35,42 +36,37 @@
                                           :error-output *error-output*)))
           :test #'string=))
 
-(defun strip-i-and-l (arg)
-  (declare (type string arg))
-  (cond ((< (length arg) 2)
-         arg)
-        ((member (subseq arg 0 2)
-                 '("-i" "-l")
-                 :test #'string-equal)
-         (subseq arg 2))
-        (t
-         arg)))
-
 (let ((python-version-string (second (return-value-as-list "python3 --version"))))
   (if (uiop:version< python-version-string "3.8.0")
-      (destructuring-bind (libpython-path more-libs-path &rest more-libs)
-          (mapcar #'strip-i-and-l
-                  (return-value-as-list "python3-config --ldflags"))
-        (defvar *python-shared-object-path*
-          (let ((libpython (apply #'format nil "python~D.~D"
-                                  (subseq (uiop:parse-version python-version-string)
-                                          0 2))))
-            (pathname (uiop:strcat libpython-path "/lib" libpython ".so"))))
-        (defvar *python-additional-libraries* more-libs)
-        (defvar *python-additional-libraries-search-path* (pathname more-libs-path)))
-      (destructuring-bind (libpython-path more-libs-path libpython &rest more-libs)
-          (mapcar #'strip-i-and-l
-                  (return-value-as-list "python3-config --embed --ldflags"))
-        (defvar *python-shared-object-path*
-          (pathname (uiop:strcat libpython-path "/lib" libpython ".so")))
-        (defvar *python-additional-libraries* more-libs)
-        (defvar *python-additional-libraries-search-path* (pathname more-libs-path)))))
+      (defvar *python-ldflags* (return-value-as-list "python3-config --ldflags"))
+      (defvar *python-ldflags*
+        (return-value-as-list "python3-config --embed --ldflags"))))
 
-(defvar *python-include-path*
-  (pathname (strip-i-and-l (nth 0 (return-value-as-list "python3-config --includes")))))
+(defvar *python-includes*
+  (return-value-as-list "python3-config --includes"))
 
 (defun print-configuration ()
-  (format t "Python Shared Object Path: ~A~%Python Include Path: ~A~%Python Ldflags Search Path: ~A~%"
-          *python-shared-object-path*
-          *python-include-path*
-          *python-additional-libraries-search-path*))
+  "Prints the ldflags and includes that will be used for the compilation
+of the utility shared object/library that bridges the python C-API with lisp."
+  (format t "Python ldflags: ~{~A~^ ~}~%Python includes: ~{~A~^ ~}~%"
+          *python-ldflags*
+          *python-includes*))
+
+(defun %shared-library-from-ldflag (ldflag)
+  "Given a ldflag, for example, \"-lpython3.10\", return the shared library name
+corresponding to it. In this case, on linux, it will return libpython3.10.so"
+  (shared-library-from-ldflag ldflag
+                             (intern (string-upcase (software-type))
+                                     :keyword)))
+
+(defgeneric shared-library-from-ldflag (ldflag software-type)
+  (:documentation "This is a generic function which takes in two arguments. The first argument is an ldflag (like `-lpython3.10`) and the second argument is the `(software-type)` as a keyword to be used for specialization on the users systems. Each method should return the shared library name associated with that ldflag and software type. For example, when `(intern (string-upcase (software-type)) :keyword)` is `:linux`, the relevant method should return `python3.10.so`"))
+
+(defmethod shared-library-from-ldflag (ldflag (software-type (eql :linux)))
+  (format nil "lib~A.so" (subseq ldflag 2)))
+
+(defmethod shared-library-from-ldflag (ldflag (software-type (eql :darwin)))
+  (format nil "lib~A.dylib" (subseq ldflag 2)))
+
+(defmethod shared-library-from-ldflag (ldflag (software-type (eql :windows)))
+  (format nil "lib~A.dll" (subseq ldflag 2)))
