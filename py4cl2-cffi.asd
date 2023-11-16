@@ -6,7 +6,7 @@
 
 (defsystem "py4cl2-cffi/config-darwin"
   :pathname #P"src/"
-  :depends-on ("uiop")
+  :depends-on ("cl-ppcre" "py4cl2-cffi/config" "uiop")
   :serial t
   :components ((:file "config-darwin")))
 
