@@ -119,7 +119,7 @@ with-remote-objects, evaluates the last result and returns not just a handle."
   (and (stringp name)
        (every (lambda (char)
                 (or (alphanumericp char)
-                    (char= char #\.)))
+                    (member char '(#\. #\_) :test #'char=)))
               name)))
 (deftype python-name ()
   `(and string (satisfies python-name-p)))
