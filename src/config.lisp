@@ -1,6 +1,7 @@
 (defpackage :py4cl2-cffi/config
   (:use :cl)
   (:export #:*python-ldflags*
+           #:*python-ignore-ldflags*
            #:*python-includes*
            #:*python-compile-command*
            #:print-configuration
@@ -52,12 +53,17 @@ of the utility shared object/library that bridges the python C-API with lisp."
           *python-ldflags*
           *python-includes*))
 
+(defvar *python-ignore-ldflags*
+  '("-lpthread" "-ldl" "-lutil" "-lanl" "-lm")
+  "A list of ldflags that will be ignored during the compilation of
+the utility shared object/library.")
+
 (defun %shared-library-from-ldflag (ldflag)
   "Given a ldflag, for example, \"-lpython3.10\", return the shared library name
 corresponding to it. In this case, on linux, it will return libpython3.10.so"
   (shared-library-from-ldflag ldflag
-                             (intern (string-upcase (software-type))
-                                     :keyword)))
+                              (intern (string-upcase (software-type))
+                                      :keyword)))
 
 (defgeneric shared-library-from-ldflag (ldflag software-type)
   (:documentation "This is a generic function which takes in two arguments. The first argument is an ldflag (like `-lpython3.10`) and the second argument is the `(software-type)` as a keyword to be used for specialization on the users systems. Each method should return the shared library name associated with that ldflag and software type. For example, when `(intern (string-upcase (software-type)) :keyword)` is `:linux`, the relevant method should return `python3.10.so`"))

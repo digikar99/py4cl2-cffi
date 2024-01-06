@@ -77,8 +77,7 @@
                    :for flag :in ldflags
                    :do (cond ((< (length flag) 2)
                               (push flag unknown-flags))
-                             ((member flag '("-lpthread" "-ldl" "-lutil"
-                                             "-lanl" "-lm")
+                             ((member flag *python-ignore-ldflags*
                                       :test #'string=))
                              ((starts-with-subseq "-L" flag :test #'char=)
                               (push (ensure-directory-name (subseq flag 2))
