@@ -10,16 +10,9 @@ const char* PyTypeObject_Name(PyTypeObject* o){return o->tp_name;}
 const char* PyTypeObject_Doc(PyTypeObject* o){return o->tp_doc;}
 
 void *lisp_callback_fn_ptr = NULL;
-void set_lisp_callback_fn_ptr(void* ptr){
-  lisp_callback_fn_ptr = ptr;
-}
 
 PyObject* (*getattr_ptr)(int, PyObject*) = NULL;
 void (*setattr_ptr)(int, PyObject*, PyObject*) = NULL;
-void set_helper_fn_ptr(void* _getattr_ptr, void* _setattr_ptr){
-  getattr_ptr = _getattr_ptr;
-  setattr_ptr = _setattr_ptr;
-}
 
 PyObject* getattr(int handle, PyObject* attr){
   return getattr_ptr(handle, attr);

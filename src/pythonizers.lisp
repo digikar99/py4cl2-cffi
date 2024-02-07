@@ -181,6 +181,7 @@ the same lisp objects which are EQ to each other. Returns NIL in all other cases
 (defmethod pythonize ((o array))
   (pythonize-array o))
 
+(defcvar ("getattr_ptr" *getattr-ptr*) :pointer)
 (defcallback getattr-fn :pointer ((handle :int) (attr :pointer))
   (handler-case
       (pythonize (python-getattr (lisp-object handle) (lispify attr)))
@@ -190,6 +191,7 @@ the same lisp objects which are EQ to each other. Returns NIL in all other cases
                          :string (format nil "An error occured during lisp callback.~%~%~A~%" (trivial-backtrace:print-backtrace c :output nil)))
       (null-pointer))))
 
+(defcvar ("setattr_ptr" *setattr-ptr*) :pointer)
 (defcallback setattr-fn :pointer ((handle :int) (attr :pointer) (new-value :pointer))
   (handler-case
       (python-setattr (lisp-object handle) (lispify attr) (lispify new-value))
@@ -199,6 +201,7 @@ the same lisp objects which are EQ to each other. Returns NIL in all other cases
                          :string (format nil "An error occured during lisp callback.~%~%~A~%" (trivial-backtrace:print-backtrace c :output nil)))))
   (null-pointer))
 
+(defcvar ("lisp_callback_fn_ptr" *lisp-callback-fn-ptr*) :pointer)
 (defcallback lisp-callback-fn :pointer ((handle :int) (args :pointer) (kwargs :pointer))
   (declare (optimize debug))
   (with-pygc
