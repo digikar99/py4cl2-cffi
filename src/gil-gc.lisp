@@ -30,8 +30,9 @@
 
 (defmacro with-python-gil (&body body)
   `(let* ((*gil* (pygil-ensure)))
-     (unwind-protect (locally ,@body)
-       (python-may-be-error)
+     (unwind-protect
+          (unwind-protect (locally ,@body)
+            (python-may-be-error))
        (pygil-release *gil*))))
 
 (defmacro without-python-gil (&body body)
