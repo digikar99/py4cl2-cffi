@@ -123,7 +123,7 @@ the same lisp objects which are EQ to each other. Returns NIL in all other cases
 (defmethod pythonize ((o integer))
   (unless (typep o 'c-long)
     ;; TODO: Proper warning class
-    (warn "Given integer ~S is too bit to be interpreted as a C long" o))
+    (warn "Given integer ~S is too big to be interpreted as a C long" o))
   (pyforeign-funcall "PyLong_FromLong" :long o :pointer))
 
 (defmethod pythonize ((o float))

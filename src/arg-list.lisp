@@ -65,7 +65,7 @@
 ;;; kwargs '(:a a :b b)
 
 (defun get-arg-list (fullname lisp-package)
-  "Returns a list of two lists: PARAMETER-LIST and PASS_LIST"
+  "Returns a list of two lists: PARAMETER-LIST and PASS-LIST"
   (declare (optimize debug))
   (import-module "inspect")
   (%get-arg-list (intern (foreign-funcall "PyTypeObject_Name"
@@ -76,7 +76,7 @@
                  fullname
                  lisp-package))
 
-(defmethod %get-arg-list ((package (eql :|numpy.ufunc|))
+(defmethod %get-arg-list ((callable-type (eql :|numpy.ufunc|))
                           fullname lisp-package)
   (let* ((n (pyslot-value (pyvalue fullname) "nin"))
          (arg-list-without-keys
@@ -88,12 +88,12 @@
       ((declare (ignore out where))
        (apply #'pycall ,fullname ,@arg-list-without-keys keys)))))
 
-(defmethod %get-arg-list ((package (eql :|builtin_function_or_method|))
+(defmethod %get-arg-list ((callable-type (eql :|builtin_function_or_method|))
                           fullname lisp-package)
   `((&rest args)
     (() (apply #'pycall ,fullname args))))
 
-(defmethod %get-arg-list ((package (eql :|type|))
+(defmethod %get-arg-list ((callable-type (eql :|type|))
                           fullname lisp-package)
   `((&rest args)
     (() (apply #'pycall ,fullname args))))
@@ -103,7 +103,7 @@
 (define-condition both-positional-and-keyword-rest (default-arg-list-necessary) ())
 
 ;; https://stackoverflow.com/questions/2677185/how-can-i-read-a-functions-signature-including-default-argument-values
-(defmethod %get-arg-list (package fullname lisp-package)
+(defmethod %get-arg-list (callable-type fullname lisp-package)
   (flet ((ensure-tuple->list (object)
            (if (and (stringp object) (string= object "()"))
                nil
