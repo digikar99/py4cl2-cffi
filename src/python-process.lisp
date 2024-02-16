@@ -140,12 +140,13 @@ execution of THUNK as a string."
                (bt:with-recursive-lock-held (with-python-count-lock)
                  (incf in-with-python-count)))
              (pycall (format nil "sys.~A.write" stderr-or-stdout) ".")
-             (funcall thunk)
-             (pycall (format nil "sys.~A.flush" stderr-or-stdout))
-             (bt:signal-semaphore with-python-start-semaphore)
-             (without-python-gil
-               (bt:wait-on-semaphore with-python-end-semaphore))
-             (setq all-signalled-p t)
+             (unwind-protect
+                  (funcall thunk)
+               (pycall (format nil "sys.~A.flush" stderr-or-stdout))
+               (bt:signal-semaphore with-python-start-semaphore)
+               (without-python-gil
+                 (bt:wait-on-semaphore with-python-end-semaphore))
+               (setq all-signalled-p t))
              (let* ((output (get-output-stream-string with-python-stream))
                     (len    (length output)))
                (if (zerop len)
@@ -156,7 +157,8 @@ execution of THUNK as a string."
             (bt:signal-semaphore with-python-start-semaphore)
             (without-python-gil
               (bt:wait-on-semaphore with-python-end-semaphore)))
-          (setf with-python-stream old-with-python-stream-value))))))
+          (setf with-python-stream old-with-python-stream-value)
+          (pycall (format nil "sys.~A.flush" stderr-or-stdout)))))))
 
 ;;; This is more of a global variable than a dynamic variable.
 
