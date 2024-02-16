@@ -187,7 +187,7 @@ and return the appropriate object user expects.
 For example,
 
   (raw-pyeval \"[1, 2, 3]\") ;=> #(1 2 3) ; the default lispified object
-  (with-lispifiers ((vector (lambda (x) (coerce (print x) 'list))))
+  (with-lispifiers ((vector (lambda (x) (coerce x 'list))))
     (print (raw-pyeval \"[1,2,3]\"))
     (print (raw-pyeval \"5\")))
   ; #(1 2 3) ; default lispified object

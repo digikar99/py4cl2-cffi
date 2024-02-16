@@ -390,12 +390,18 @@ and return the appropriate object user expects.
 
 For example,
 
-  (raw-pyeval \"[1, 2, 3]\") ;=> #(1 2 3) ; the default object
+  ; A convenience function
+  (defun pyprint (object)
+    (pycall \"print\" object)
+    (pycall \"sys.stdout.flush\")
+    (values))
+
+  (pyprint #(1 2 3)) ; prints [1, 2, 3] ; the default object
   (with-pythonizers ((vector \"tuple\"))
-    (print (pycall #'identity #(1 2 3)))
-    (print (pycall #'identity 5)))
-  ; (1 2 3)  ; coerced to tuple by the pythonizer, which then translates to list
-  ; 5        ; pythonizer uncalled for non-VECTOR
+    (pyprint #(1 2 3))
+    (pyprint 5))
+  ; (1, 2, 3) ; coerced to tuple by the pythonizer
+  ; 5         ; pythonizer uncalled for non-VECTOR
   5
 
 NOTE: This is a new feature and hence unstable; recommended to avoid in production code."
