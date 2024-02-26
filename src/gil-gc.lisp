@@ -134,7 +134,7 @@ Handles the reference counting of the return values but not the arguments."
 (defun clear-lisp-objects ()
   "Clear the *lisp-objects* object store, allowing them to be GC'd"
   (maphash-keys (lambda (key) (remhash key *lisp-objects*)) *lisp-objects*)
-  (setf *handle-counter* 0))
+  nil)
 
 (defun lisp-object (handle)
   "Get the lisp object corresponding to HANDLE"
@@ -182,12 +182,27 @@ This avoids inadvertent calls to DecRef during recursions.")
 
 (declaim (inline pygc))
 (defun pygc ()
+  (declare (optimize speed))
   (when (and *top-level-p* *pygc-enabled*)
-    (with-hash-table-iterator (gen *python-new-references*)
-      (multiple-value-bind (morep key) (gen)
-        (declare (ignore morep))
-        (remhash key *python-new-references*)
-        (pyforeign-funcall "Py_DecRef" :unsigned-long key)))
+    (let ((ht *python-new-references*)
+          (*top-level-p* nil))
+      (declare (type hash-table ht))
+      ;; (loop :for (addr . count) :in (hash-table-alist ht)
+      ;;       :do (let ((ptr (make-pointer addr)))
+      ;;             (format t "~%At ~A with refcnt ~A:~% ~A"
+      ;;                     ptr count (lispify ptr))))
+      (maphash (lambda (addr count)
+                 (when (and addr (not (zerop addr)))
+                   (with-python-gil/no-errors
+                     (cond ((< count 0)
+                            (foreign-funcall "Py_IncRef" :unsigned-long addr))
+                           ((> count 0)
+                            (foreign-funcall "Py_DecRef" :unsigned-long addr))))))
+               ht)
+      (maphash (lambda (addr count)
+                 (declare (ignore count))
+                 (remhash addr ht))
+               ht))
     (clear-lisp-objects))
   nil)
 
