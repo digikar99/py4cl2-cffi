@@ -10,6 +10,8 @@
 const char* PyTypeObject_Name(PyTypeObject* o){return o->tp_name;}
 const char* PyTypeObject_Doc(PyTypeObject* o){return o->tp_doc;}
 
+Py_ssize_t Py_RefCnt(PyObject* o){return Py_REFCNT(o);}
+
 void *lisp_callback_fn_ptr = NULL;
 
 PyObject* (*getattr_ptr)(int, PyObject*) = NULL;

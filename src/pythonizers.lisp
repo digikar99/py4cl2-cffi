@@ -309,6 +309,12 @@ the same lisp objects which are EQ to each other. Returns NIL in all other cases
   (let ((len (pyforeign-funcall "PyLong_FromLong" :long int :pointer)))
     (pyforeign-funcall "PyLong_AsSsize_t" :pointer len :pointer)))
 
+(defun py-size->integer (ptr)
+  "WARNING: This function does not track reference counts."
+  (with-python-gil/no-errors
+    (let ((pylong (foreign-funcall "PyLong_FromSsize_t" :pointer ptr :pointer)))
+      (foreign-funcall "PyLong_AsLong" :pointer pylong :long))))
+
 (defun pythonize-list (list)
   (let* ((len   (length list))
          (tuple (pyforeign-funcall "PyTuple_New" :int len :pointer)))

@@ -66,6 +66,7 @@
       ("PyObject_GetAttrString" :new)
       ("PyObject_SetAttrString" nil)
       ("PyLong_FromLong"    :new)
+      ("PyLong_FromSsize_t" :new)
       ("PyLong_AsLong"      nil)
       ("PyFloat_FromDouble" :new)
       ("PyFloat_AsDouble"   nil)
@@ -171,6 +172,13 @@ This avoids inadvertent calls to DecRef during recursions.")
 (defmacro disable-pygc ()
   `(eval-when (:compile-toplevel :load-toplevel :execute)
      (setq *pygc-enabled* nil)))
+
+(defun py-refcnt (python-object-pointer)
+  (declare (type foreign-pointer python-object-pointer))
+  (py-size->integer
+   (foreign-funcall "Py_RefCnt"
+                    :pointer python-object-pointer
+                    :pointer)))
 
 (declaim (inline pygc))
 (defun pygc ()
