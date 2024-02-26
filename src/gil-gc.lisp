@@ -35,6 +35,12 @@
             (python-may-be-error))
        (pygil-release *gil*))))
 
+(defmacro with-python-gil/no-errors (&body body)
+  `(let* ((*gil* (pygil-ensure)))
+     (unwind-protect
+          (locally ,@body)
+       (pygil-release *gil*))))
+
 (defmacro without-python-gil (&body body)
   (with-gensyms (count)
     `(let ((,count (if (boundp '*gil*)
