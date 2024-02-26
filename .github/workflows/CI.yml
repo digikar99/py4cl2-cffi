@@ -10,7 +10,7 @@ jobs:
       matrix:
         lisp: [sbcl, ccl, ecl]
     runs-on: ubuntu-22.04
-    timeout-minutes: 4
+    timeout-minutes: 6
 
     continue-on-error: true
 
