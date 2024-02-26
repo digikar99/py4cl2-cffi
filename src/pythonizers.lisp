@@ -100,7 +100,7 @@ the same lisp objects which are EQ to each other. Returns NIL in all other cases
                          #+ecl  si:foreign-data
                          #+lispworks fli::pointer
                          #-(or sbcl ccl ecl lispworks)
-			 foreign-pointer))
+                         foreign-pointer))
   o)
 (defmethod pythonize ((o python-object)) (python-object-pointer o))
 

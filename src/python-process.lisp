@@ -238,10 +238,10 @@ can lead to memory leak.")))
     (when *numpy-installed-p*
       (float-features:with-float-traps-masked (:overflow :invalid)
         (ignore-some-conditions (floating-point-overflow floating-point-invalid-operation)
-      (handler-case
-          (import-module "numpy")
-        (error (e)
-          (warn (format nil "Could not import numpy: ~S~%" e))))
+          (handler-case
+              (import-module "numpy")
+            (error (e)
+              (warn (format nil "Could not import numpy: ~S~%" e))))
           (pushnew :typed-arrays *internal-features*)
           (when (member :typed-arrays *internal-features*)
             (setq *numpy-c-api-pointer*

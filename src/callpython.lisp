@@ -2,7 +2,7 @@
 
 (defmacro with-remote-objects (&body body)
   "Ensures that all values returned by python functions
-and methods are kept in python, and only handles returned to lisp.
+and methods are kept in python, and only pointers are returned to lisp.
 This is useful if performing operations on large datasets."
   `(thread-global-let ((*in-with-remote-objects-p* t))
      ,@body))

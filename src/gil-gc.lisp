@@ -85,7 +85,7 @@
       ("PyDict_Keys"        :new)
       ("PyTuple_New"        :new)
       ("PyTuple_Size"       nil)
-      ("PyTuple_SetItem"    nil) ; arguments
+      ("PyTuple_SetItem"    nil) ; arguments - steals a reference
       ("PyTuple_GetItem"    :borrowed)
       ("PyErr_SetString"    nil)
       ("PyErr_Fetch"        nil)
@@ -192,6 +192,10 @@ This avoids inadvertent calls to DecRef during recursions.")
       ;;             (format t "~%At ~A with refcnt ~A:~% ~A"
       ;;                     ptr count (lispify ptr))))
       (maphash (lambda (addr count)
+                 (declare (type #+64-bit (unsigned-byte 64)
+                                #-64-bit unsigned-byte
+                                addr)
+                          (type fixnum count))
                  (when (and addr (not (zerop addr)))
                    (with-python-gil/no-errors
                      (cond ((< count 0)
@@ -212,16 +216,31 @@ only after executing all of BODY."
   `(unwind-protect
         (let ((*top-level-p* nil))
           ,@body)
-     ;; (print (hash-table-alist *python-new-references*))
      (pygc)))
 
 
 (defun pytrack (python-object-pointer)
   "Call this function when the foreign function of the Python C-API returns
-a New Reference. The value in *PYTHON-NEW-REFERENCES* indicates the number
-of new references owned by lisp."
+a New Reference.
+
+The value in *PYTHON-NEW-REFERENCES* indicates the number
+of new references owned by lisp and which are not handled by finalizers
+of PYTHON-OBJECT structure instance in lisp."
   (declare (type foreign-pointer python-object-pointer)
            (optimize speed))
+  ;; (let ((*top-level-p* nil)
+  ;;       (*already-retrieving-exceptions* t))
+  ;;   (with-python-gil/no-errors
+  ;;     (let ((pystr (foreign-funcall "PyObject_Str"
+  ;;                                   :pointer python-object-pointer
+  ;;                                   :pointer)))
+  ;;       (print (list :track
+  ;;                    python-object-pointer
+  ;;                    (nth-value 0
+  ;;                               (foreign-string-to-lisp
+  ;;                                (foreign-funcall "PyUnicode_AsUTF8"
+  ;;                                                 :pointer pystr
+  ;;                                                 :pointer))))))))
   (unless (null-pointer-p python-object-pointer)
     (when (boundp '*python-new-references*)
       (let ((ht   *python-new-references*)
@@ -234,20 +253,34 @@ of new references owned by lisp."
 
 (defun pyuntrack (python-object-pointer)
   "Call this function when the foreign function of the Python C-API steals
-a reference. The value in *PYTHON-NEW-REFERENCES* indicates the number
-of new references owned by lisp."
+a reference.
+
+The value in *PYTHON-NEW-REFERENCES* indicates the number
+of new references owned by lisp and which are not handled by finalizers
+of PYTHON-OBJECT structure instance in lisp."
   (declare (type foreign-pointer python-object-pointer)
            (optimize speed))
-  (when (boundp '*python-new-references*)
-    (let ((ht   *python-new-references*)
-          (addr (pointer-address python-object-pointer)))
-      ;; FIXME: Should we remove or should we decrement?
-      (if (gethash addr ht)
-          (remhash addr ht)
-          ;; If we do not own any references, and yet someone
-          ;; wants to UNTRACK the object, that means perhaps they
-          ;; are stealing the reference, and we better increment the reference.
-          (pyforeign-funcall "Py_IncRef" :pointer python-object-pointer))))
+  ;; (with-python-gil/no-errors
+  ;;   (let ((pystr (foreign-funcall "PyObject_Str"
+  ;;                                 :pointer python-object-pointer
+  ;;                                 :pointer)))
+  ;;     (print (list :untrack
+  ;;                  python-object-pointer
+  ;;                  (nth-value 0
+  ;;                             (foreign-string-to-lisp
+  ;;                              (foreign-funcall "PyUnicode_AsUTF8"
+  ;;                                               :pointer pystr :pointer)))))))
+  (unless (null-pointer-p python-object-pointer)
+    (when (boundp '*python-new-references*)
+      (let ((ht   *python-new-references*)
+            (addr (pointer-address python-object-pointer)))
+        ;; FIXME: Should we remove or should we decrement?
+        (if (gethash addr ht)
+            (remhash addr ht)
+            ;; If lisp does not own any references, and yet someone
+            ;; wants to UNTRACK the object, that means perhaps they
+            ;; are stealing the reference, and we better increment the reference.
+            (pyforeign-funcall "Py_IncRef" :pointer python-object-pointer)))))
   python-object-pointer)
 
 (defun pyobject-tracked-p (python-object-pointer)
