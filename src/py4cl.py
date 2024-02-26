@@ -30,20 +30,18 @@ class UnknownLispObject (object):
 
 	__during_init = True # Do not send changes during __init__
 
-	def __init__(self, lisptype, handle):
+	def __init__(self, handle):
 		"""
-		lisptype  A string describing the type. Mainly for debugging
 		handle    A number, used to refer to the object in Lisp
 		"""
-		self.lisptype = lisptype
 		self.handle = handle
 		self.__during_init = False  # Further changes are sent to Lisp
 
 	def __str__(self):
-		return "UnknownLispObject(\"{0}\", {1})".format(self.lisptype, str(self.handle))
+		return "UnknownLispObject({0})".format(self.handle)
 
 	def __repr__(self):
-		return "UnknownLispObject(\"{0}\", {1})".format(self.lisptype, str(self.handle))
+		return "UnknownLispObject({0})".format(self.handle)
 
 	def __getattr__(self, attr):
 		getattr_fn = getattr(py4cl_utils, "getattr")

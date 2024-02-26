@@ -103,9 +103,7 @@ the same lisp objects which are EQ to each other. Returns NIL in all other cases
 (defgeneric pythonize (lisp-value-or-object))
 
 (defmethod pythonize (lisp-object)
-  (pycall* "_py4cl_UnknownLispObject"
-           (type-of lisp-object)
-           (object-handle lisp-object)))
+  (pycall* "_py4cl_UnknownLispObject" (object-handle lisp-object)))
 
 (deftype c-long ()
   (let ((num-bits (* 8 (cffi:foreign-type-size :long))))
