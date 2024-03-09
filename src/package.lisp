@@ -54,6 +54,7 @@
            #:defpymodule
            #:*defpymodule-silent-p*
            #:*print-python-object*
+           #:*print-python-object-identity*
            #:export-function
 
            #:+py-empty-tuple+

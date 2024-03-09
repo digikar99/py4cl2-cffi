@@ -42,6 +42,9 @@ a New Reference"
 (defvar *print-python-object* t
   "If non-NIL, python's 'str' is called on the python-object before printing.")
 
+(defvar *print-python-object-identity* nil
+  "If non-NIL, print's the lisp type and identity of the python-object.")
+
 (defun python-object-eq (o1 o2)
   "Returns T if O1 and O2 are both PYTHON-OBJECT with the same pointer, or
 the same lisp objects which are EQ to each other. Returns NIL in all other cases."
@@ -58,21 +61,32 @@ the same lisp objects which are EQ to each other. Returns NIL in all other cases
               (python-object-pointer o2)))
 
 (defmethod print-object ((o python-object) s)
-  (print-unreadable-object (o s :type t :identity t)
-    (with-pygc
-      (with-slots (type pointer) o
-        (if *print-python-object*
-            (progn
-              (format s ":type ~A~%" type)
-              (pprint-logical-block (s nil :per-line-prefix "  ")
-                ()
-                (write-string (lispify (pyforeign-funcall "PyObject_Str"
-                                                          :pointer pointer :pointer))
-                              s))
-              (terpri s))
-            (format s ":POINTER ~A :TYPE ~A" pointer
-                    (lispify (pyforeign-funcall "PyObject_Str"
-                                                :pointer type :pointer))))))))
+  (if *print-python-object-identity*
+      (print-unreadable-object (o s :type t :identity t)
+        (with-pygc
+          (with-slots (type pointer) o
+            (if *print-python-object*
+                (progn
+                  (format s ":type ~A~%" type)
+                  (pprint-logical-block (s nil :per-line-prefix "  ")
+                    (write-string (lispify (pyforeign-funcall "PyObject_Str"
+                                                              :pointer pointer
+                                                              :pointer))
+                                  s))
+                  (terpri s))
+                (format s ":POINTER ~A :TYPE ~A" pointer
+                        (lispify (pyforeign-funcall "PyObject_Str"
+                                                    :pointer type :pointer)))))))
+      (with-pygc
+        (with-slots (type pointer) o
+          (if *print-python-object*
+              (write-string (lispify (pyforeign-funcall "PyObject_Str"
+                                                        :pointer pointer
+                                                        :pointer))
+                            s)
+              (format s ":POINTER ~A :TYPE ~A" pointer
+                      (lispify (pyforeign-funcall "PyObject_Str"
+                                                  :pointer type :pointer))))))))
 
 (defmethod make-load-form ((o python-object) &optional env)
   (with-slots (pointer load-form) o
