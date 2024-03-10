@@ -38,7 +38,8 @@ In addition, `py4cl2-cffi/config` also exports the following useful symbols:
 
 - [x] garbage collection touches
     - An effort has been made o keep a track of reference counts; but if something is missed, and users notice a memory leak, feel free to [raise an issue](https://github.com/digikar99/py4cl2/issues/new)!
-  - trivial-garbage:finalize is used to establish the decref process for the pointer corresponding to the pyobject. However, this requires holding the GIL, and so, the user might need to evaluate `(py4cl2-cffi::pygil-release)` at the top level to release the GIL of the current thread, so that the finalizer thread can then acquire it.
+    - trivial-garbage:finalize is used to establish the decref process for the pointer corresponding to the pyobject. However, this requires holding the GIL, and so, the user might need to evaluate `(py4cl2-cffi::pygil-release)` at the top level to release the GIL of the current thread, so that the finalizer thread can then acquire it.
+- [ ] documentation: currently, the primary source of documentation is docstrings; these need to be collected into a more user-friendly reference and tied to tutorials.
 - [x] function return-values
 - [x] function arguments
 - [x] integers
@@ -59,7 +60,7 @@ In addition, `py4cl2-cffi/config` also exports the following useful symbols:
 - [x] numpy arrays to non-CL arrays
 - [x] arbitrary module import
 - [x] numpy floats
-- [ ] optimizing pythonizers and lispifiers using static-dispatch
+- [ ] optimization: [PyCall.jl](https://github.com/JuliaPy/PyCall.jl) is just about 2x slower than native CPython, while we are 10-20x as slow!
 
 ... and much more ...
 
