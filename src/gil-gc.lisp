@@ -29,7 +29,34 @@
 (defvar *gil*)
 
 (defmacro with-python-gil (&body body)
+  "The intended usage of WITH-PYTHON-GIL to hold and release
+the python gil without fail.
+
+However, WITH-PYTHON-GIL can also be used at the toplevel to improve
+the performance of python calls, as it avoids the need to
+hold and release the python gil repeatedly. Note that doing so will
+prevent other threads from running, including those calling
+python-object finalizers during GC. But, this may not be a problem if
+PYTHON-OBJECT are never generated.
+
+For example, the following piece of code is expected to be faster
+
+  (time
+   (with-python-gil
+     (loop for i below 100000
+           do (pycall \"str\" i))))
+
+than the following
+
+  (time
+   (loop for i below 100000
+         do (pycall \"str\" i)))
+
+"
   `(let* ((*gil* (pygil-ensure)))
+     ;; A fair amount of consing comes from the dynamic binding of *GIL*
+     ;; However, this is required, because WITHOUT-PYTHON-GIL below
+     ;; accesses it. And this in-turn it utilized in READ-OUTPUT-WITH-SYNC
      (unwind-protect
           (unwind-protect (locally ,@body)
             (python-may-be-error))
