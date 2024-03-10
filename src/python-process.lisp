@@ -549,12 +549,14 @@ Use PYVALUE* if you want to refer to names containing full-stops."
       (let (value previous-value previous-name)
         (do-subseq-until (name python-value-or-variable #\. :test #'char=)
           (setq previous-value value)
-          (cond ((string= name python-value-or-variable)
-                 (setf (%pyvalue name) new-value))
-                (value
-                 (%pyslot-value value name))
-                (t
-                 (%pyvalue name)))
+          (setq value
+                (cond ((string= name python-value-or-variable)
+                       ;; No need to traverse or reassign.
+                       (setf (%pyvalue name) new-value))
+                      (value
+                       (%pyslot-value value name))
+                      (t
+                       (%pyvalue name))))
           (setq previous-name name))
         (when previous-value
           (setf (%pyslot-value previous-value previous-name) new-value)))))
