@@ -420,26 +420,35 @@ Instead, use PYCALL, PYVALUE, (SETF PYVALUE), PYSLOT-VALUE, (SETF PYSLOT-VALUE),
 RAW-PY, RAW-PYEVAL, RAW-PYEXEC are only provided for backward compatibility."
   (apply #'raw-py #\x code-strings))
 
+(defvar *disable-pystop* nil
+  "When non-NIL, prevents the python interpreter from being reset by (PYSTOP).
+Non-NIL value enables optimization for PYCALL with positional arguments.
+
+Note that if its value is initially T and then NIL, and then (PYSTOP) is called,
+all the calls to PYCALL that might have been compiled in that time might become invalid.")
+
 (defun pystop ()
-  (when (python-alive-p)
-    (trivial-garbage:gc :full t)
-    (pygc)
-    (pycall (pyvalue* "sys.stdout.close"))
-    (pycall (pyvalue* "sys.stderr.close"))
-    (pymethod *py-global-dict* "clear")
-    (setq *py-module-pointer-table* (make-hash-table :test #'equal))
-    (setq *py-module-dict-pointer-table* (make-hash-table :test #'equal))
-    (setq *py-global-dict* nil)
-    (setq *py-builtins-dict* nil)
-    (setq *python-state* :uninitialized)
-    (makunbound '+empty-tuple+)
-    (makunbound '+empty-tuple-pointer+)
-    (makunbound '+py-none+)
-    (makunbound '+py-none-pointer+)
-    (bt:destroy-thread *py-output-reader-thread*)
-    (bt:destroy-thread *py-error-output-reader-thread*)
-    (sleep 0.01)
-    nil))
+  (if *disable-pystop*
+      (error "Cannot reset the embedded python interpreter while *DISABLE-PYSTOP* is non-NIL.")
+      (when (python-alive-p)
+        (trivial-garbage:gc :full t)
+        (pygc)
+        (pycall (pyvalue* "sys.stdout.close"))
+        (pycall (pyvalue* "sys.stderr.close"))
+        (pymethod *py-global-dict* "clear")
+        (setq *py-module-pointer-table* (make-hash-table :test #'equal))
+        (setq *py-module-dict-pointer-table* (make-hash-table :test #'equal))
+        (setq *py-global-dict* nil)
+        (setq *py-builtins-dict* nil)
+        (setq *python-state* :uninitialized)
+        (makunbound '+empty-tuple+)
+        (makunbound '+empty-tuple-pointer+)
+        (makunbound '+py-none+)
+        (makunbound '+py-none-pointer+)
+        (bt:destroy-thread *py-output-reader-thread*)
+        (bt:destroy-thread *py-error-output-reader-thread*)
+        (sleep 0.01)
+        nil)))
 
 (defun pytype (name)
   (python-start-if-not-alive)
