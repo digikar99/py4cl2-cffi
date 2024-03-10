@@ -100,7 +100,16 @@ the same lisp objects which are EQ to each other. Returns NIL in all other cases
            `(pyeval ,(pycall "repr" pointer))))))
 
 (declaim (type (function (t) foreign-pointer) pythonize))
-(defgeneric pythonize (lisp-value-or-object))
+(defgeneric pythonize (lisp-value-or-object)
+  (:documentation "Given a lisp object, return a CFFI:FOREIGN-POINTER pointing to the python object corresponding to the given lisp object.
+
+The implemented methods are expected to return a new (strong) reference
+to the python object. The method is also expected to call PYTRACK
+to notify the PYGC functionality to delete the reference once the object
+is no longer needed.
+
+See the documentation for PYGC to understand when reference deletion
+takes place."))
 
 (defmethod pythonize (lisp-object)
   (pycall* "_py4cl_UnknownLispObject" (object-handle lisp-object)))

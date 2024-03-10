@@ -501,9 +501,9 @@ Use PYVALUE* if you want to refer to names containing full-stops."
                       (string slot-name)
                       (symbol (pythonize-symbol slot-name))))
          (return-value (pyforeign-funcall "PyObject_GetAttrString"
-                                            :pointer object-pointer
-                                            :string slot-name
-                                            :pointer)))
+                                          :pointer object-pointer
+                                          :string slot-name
+                                          :pointer)))
     (ensure-non-null-pointer return-value
                              :format-control
                              "~A~%in python does not have the attribute ~A"
@@ -561,7 +561,7 @@ Use PYVALUE* if you want to refer to names containing full-stops."
         (when previous-value
           (setf (%pyslot-value previous-value previous-name) new-value)))))
 
-(defun pyvalue (python-value-or-variable)
+(defun pyvalue (python-name-or-variable)
   "Get the value of a python-name-or-variable.
 Example:
 
@@ -573,13 +573,13 @@ Example:
     \"/home/user/miniconda3/lib/python3.10/lib-dynload\"
     \"/home/user/miniconda3/lib/python3.10/site-packages\")
 "
-  (declare (type (or python-object string) python-value-or-variable))
+  (declare (type (or python-object string) python-name-or-variable))
   (python-start-if-not-alive)
   (if *in-with-remote-objects-p*
-      (pyvalue* python-value-or-variable)
-      (with-pygc (lispify (pyvalue* python-value-or-variable)))))
+      (pyvalue* python-name-or-variable)
+      (with-pygc (lispify (pyvalue* python-name-or-variable)))))
 
-(defun (setf pyvalue) (new-value python-value-or-variable)
+(defun (setf pyvalue) (new-value python-name-or-variable)
   "Set the value of a python-name-or-variable.
 Example:
 
@@ -596,10 +596,10 @@ Example:
     \"/home/user/miniconda3/lib/python3.10/lib-dynload\"
     \"/home/user/miniconda3/lib/python3.10/site-packages\")
 "
-  (declare (type string python-value-or-variable))
+  (declare (type string python-name-or-variable))
   (python-start-if-not-alive)
   (with-pygc
-    (setf (pyvalue* python-value-or-variable)
+    (setf (pyvalue* python-name-or-variable)
           ;; UNTRACK because we do not want to lose reference to this object!
           (pyuntrack (%pythonize new-value)))
     new-value))
