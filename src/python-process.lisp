@@ -562,6 +562,17 @@ Use PYVALUE* if you want to refer to names containing full-stops."
           (setf (%pyslot-value previous-value previous-name) new-value)))))
 
 (defun pyvalue (python-value-or-variable)
+  "Get the value of a python-name-or-variable.
+Example:
+
+(pyvalue \"sys\") ;=> <module 'sys' (built-in)>
+(pyvalue \"sys.path\")
+;=>
+  #(\"/home/user/miniconda3/lib/python310.zip\"
+    \"/home/user/miniconda3/lib/python3.10\"
+    \"/home/user/miniconda3/lib/python3.10/lib-dynload\"
+    \"/home/user/miniconda3/lib/python3.10/site-packages\")
+"
   (declare (type (or python-object string) python-value-or-variable))
   (python-start-if-not-alive)
   (if *in-with-remote-objects-p*
@@ -569,6 +580,22 @@ Use PYVALUE* if you want to refer to names containing full-stops."
       (with-pygc (lispify (pyvalue* python-value-or-variable)))))
 
 (defun (setf pyvalue) (new-value python-value-or-variable)
+  "Set the value of a python-name-or-variable.
+Example:
+
+(setf (pyvalue \"foo\") 5) ;=> 5
+(pyvalue \"foo\") ;=> 5
+
+(with-lispifiers (((and vector (not string))
+                   (lambda (x) (coerce x 'list))))
+  (with-pythonizers ((list \"list\"))
+    (push \"./\" (pyvalue \"sys.path\"))))
+;=>
+   (\"./\" \"/home/user/miniconda3/lib/python310.zip\"
+    \"/home/user/miniconda3/lib/python3.10\"
+    \"/home/user/miniconda3/lib/python3.10/lib-dynload\"
+    \"/home/user/miniconda3/lib/python3.10/site-packages\")
+"
   (declare (type string python-value-or-variable))
   (python-start-if-not-alive)
   (with-pygc
