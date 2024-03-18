@@ -7,15 +7,30 @@
         :py4cl2-cffi/config))
 (in-package #:py4cl2-cffi/config-darwin)
 
+(defun python-executable ()
+  "Determine if the name of the python executable."
+  (or (multiple-value-bind (_ e)
+          (ignore-errors (uiop:run-program "which python"))
+        (declare (ignore _))
+        (unless e "python"))
+      (multiple-value-bind (_ e)
+          (ignore-errors (uiop:run-program "which python3"))
+        (declare (ignore _))
+        (unless e "python3"))
+      (error "Python executable not found.")))
+
 (defun python-system ()
   "The path to the Python install or where the virtual environment originates."
   (read-from-string
    (with-output-to-string (stream)
-     (uiop:run-program "python -c \"
+     (uiop:run-program
+      (format nil
+              "~a -c \"
 import sys
 print(f'(:base-exec-prefix \\\"{sys.base_exec_prefix}\\\"' +
       f' :exec-prefix \\\"{sys.exec_prefix}\\\")')\""
-                       :output stream)
+              (python-executable))
+      :output stream)
      stream)))
 
 (defun configure ()
