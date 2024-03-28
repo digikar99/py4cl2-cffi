@@ -37,9 +37,9 @@ In addition, `py4cl2-cffi/config` also exports the following useful symbols:
 ### Status
 
 - [x] garbage collection touches
-    - An effort has been made o keep a track of reference counts; but if something is missed, and users notice a memory leak, feel free to [raise an issue](https://github.com/digikar99/py4cl2/issues/new)!
+    - An effort has been made to keep track of reference counts; but if something is missed, and users notice a memory leak, feel free to [raise an issue](https://github.com/digikar99/py4cl2/issues/new)!
     - trivial-garbage:finalize is used to establish the decref process for the pointer corresponding to the pyobject. However, this requires holding the GIL, and so, the user might need to evaluate `(py4cl2-cffi::pygil-release)` at the top level to release the GIL of the current thread, so that the finalizer thread can then acquire it.
-- [ ] documentation: currently, the primary source of documentation is docstrings; these need to be collected into a more user-friendly reference and tied to tutorials.
+- [ ] documentation: see the docstrings for the moment; these need to be collected into a more user-friendly reference along with a couple of other things.
 - [x] function return-values
 - [x] function arguments
 - [x] integers
@@ -61,6 +61,9 @@ In addition, `py4cl2-cffi/config` also exports the following useful symbols:
 - [x] arbitrary module import
 - [x] numpy floats
 - [ ] optimization: [PyCall.jl](https://github.com/JuliaPy/PyCall.jl) is just about 2x slower than native CPython, while we are 10-20x as slow!
+- [ ] unloading python libraries to allow reloading python without restarting lisp (?)
+- [ ] playing nice with dumping a lisp image
+- [ ] single threaded mode: some python libraries (including matplotlib) hate multithreaded environments
 
 ... and much more ...
 
