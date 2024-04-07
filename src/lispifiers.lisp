@@ -86,23 +86,38 @@
                            (pyforeign-funcall "PyArray_element_type_from_array"
                                               :pointer o :pointer)))))
          (from-vec  (pyforeign-funcall "PyArray_Data" :pointer o :pointer))
-         ;; FIXME: Strides
          (array     (make-array dims :element-type element-type))
          (num-bytes (* (array-element-type-num-bytes array)
                        (reduce #'* dims :initial-value 1))))
-    (if (type= t element-type)
-        (let* ((numpy-array-data (pyforeign-funcall "PyArray_Data"
-                                                    :pointer o :pointer)))
-          (loop :for idx :below (array-total-size array)
-                :do (setf (row-major-aref array idx)
-                          (lispify
-                           (pyforeign-funcall "PyArray_GetItem"
-                                              :pointer o
-                                              :pointer (inc-pointer numpy-array-data
-                                                                    (cl:* idx 8))
-                                              :pointer)))))
+    (when (zerop (foreign-funcall "PyArray_Is_C_Contiguous"
+                                  :pointer o :int))
+      (let ((new-pyarray
+              (pyforeign-funcall
+               "PY4CL_PyArray_FromArray"
+               :pointer o
+               :pointer (pyforeign-funcall
+                         "PyArray_Descr_from_element_type_code"
+                         :string (array-element-typecode array)
+                         :pointer)
+               :int (mem-ref (foreign-symbol-pointer
+                              "PyArray_C_Contiguous")
+                             :int)
+               :pointer)))
+        (setq from-vec (pyforeign-funcall "PyArray_Data"
+                                          :pointer new-pyarray
+                                          :pointer))))
+    (if (type= element-type t)
+        (loop :for idx :below (array-total-size array)
+              :do (setf (row-major-aref array idx)
+                        (lispify
+                         (pyforeign-funcall "PyArray_GetItem"
+                                            :pointer o
+                                            :pointer (inc-pointer from-vec
+                                                                  (cl:* idx 8))
+                                            :pointer))))
         (with-pointer-to-vector-data (to-vec (array-storage array))
-          (pyforeign-funcall "memcpy" :pointer to-vec :pointer from-vec :int num-bytes)))
+          (pyforeign-funcall "memcpy" :pointer to-vec :pointer from-vec
+                                      :int num-bytes)))
     array))
 
   ;; TODO: Test these aka find reference in documentation for why this works

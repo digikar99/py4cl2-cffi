@@ -95,3 +95,17 @@ void* PyArray_GetItem(PyArrayObject* arr, void* itemptr){
 int PyArray_SetItem(PyArrayObject* arr, void* itemptr, PyObject* obj){
   return PyArray_SETITEM(arr, itemptr, obj);
 }
+
+const int PyArray_C_Contiguous = NPY_ARRAY_C_CONTIGUOUS;
+const int PyArray_F_Contiguous = NPY_ARRAY_F_CONTIGUOUS;
+
+int PyArray_Is_C_Contiguous(PyArrayObject* arr){
+  return PyArray_IS_C_CONTIGUOUS(arr);
+}
+int PyArray_Is_F_Contiguous(PyArrayObject* arr){
+  return PyArray_IS_F_CONTIGUOUS(arr);
+}
+
+PyObject* PY4CL_PyArray_FromArray(PyArrayObject *op, PyArray_Descr *newtype, int requirements){
+  return PyArray_FromArray(op, newtype, requirements);
+}

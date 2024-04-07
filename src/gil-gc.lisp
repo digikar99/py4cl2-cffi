@@ -102,8 +102,11 @@
       ("PyArray_Data"       nil)
       ("PyArray_GetItem"    nil)
       ("PyArray_SetItem"    nil)
+      ("PyArray_Is_C_Contiguous" nil)
+      ("PyArray_Is_F_Contiguous" nil)
       ("memcpy"             nil)
-      ("PyArray_element_type_from_array" nil))
+      ("PyArray_element_type_from_array" nil)
+      ("PY4CL_PyArray_FromArray"  :new))
   :test #'equal)
 
 (defmacro pyforeign-funcall (name-and-options &rest args)
