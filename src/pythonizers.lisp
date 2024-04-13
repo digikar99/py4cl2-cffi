@@ -39,7 +39,7 @@ a New Reference"
 (defvar *print-pyobject* t
   "If non-NIL, python's 'str' is called on the python-object before printing.")
 
-(defvar *print-pyobject-wrapper-identity* nil
+(defvar *print-pyobject-wrapper-identity* t
   "If non-NIL, print's the lisp type and identity of the pyobject-wrapper.")
 
 (defun pyobject-wrapper-eq (o1 o2)
@@ -59,34 +59,37 @@ the same lisp objects which are EQ to each other. Returns NIL in all other cases
 
 (defmethod print-object ((o pyobject-wrapper) s)
   (with-pygc
-    (let* ((pointer (pyobject-wrapper-pointer o)))
-      (flet ((type ()
-               (let ((may-be-type (pyforeign-funcall "PyObject_Type"
-                                                     :pointer pointer
-                                                     :pointer)))
-                 (ensure-non-null-pointer may-be-type)
-                 (lispify
-                  (pyforeign-funcall "PyObject_Str"
-                                     :pointer may-be-type
-                                     :pointer)))))
-        (if *print-pyobject-wrapper-identity*
-            (print-unreadable-object (o s :type t :identity t)
-              (if *print-pyobject*
-                  (progn
-                    (format s ":type ~A~%" (type))
-                    (pprint-logical-block (s nil :per-line-prefix "  ")
-                      (write-string (lispify (pyforeign-funcall "PyObject_Str"
-                                                                :pointer pointer
-                                                                :pointer))
-                                    s))
-                    (terpri s))
-                  (format s ":POINTER ~A :TYPE ~A" pointer (type))))
+    (let* ((pointer (pyobject-wrapper-pointer o))
+           (type (let ((may-be-type (pyforeign-funcall "PyObject_Type"
+                                                       :pointer pointer
+                                                       :pointer)))
+                   (ensure-non-null-pointer may-be-type)
+                   (lispify
+                    (pyforeign-funcall "PyObject_Str"
+                                       :pointer may-be-type
+                                       :pointer)))))
+      (if *print-pyobject-wrapper-identity*
+          (print-unreadable-object (o s :type t :identity t)
             (if *print-pyobject*
-                (write-string (lispify (pyforeign-funcall "PyObject_Str"
-                                                          :pointer pointer
-                                                          :pointer))
-                              s)
-                (format s ":POINTER ~A :TYPE ~A" pointer (type))))))))
+                (progn
+                  (format s ":type ~A~%" type)
+                  (pprint-logical-block (s nil :per-line-prefix "  ")
+                    (format s (if (string= "<class 'str'>" type)
+                                  "\"~A\""
+                                  "~A")
+                            (lispify (pyforeign-funcall "PyObject_Str"
+                                                        :pointer pointer
+                                                        :pointer))))
+                  (terpri s))
+                (format s ":POINTER ~A :TYPE ~A" pointer type)))
+          (if *print-pyobject*
+              (format s (if (string= "<class 'str'>" type)
+                            "\"~A\""
+                            "~A")
+                      (lispify (pyforeign-funcall "PyObject_Str"
+                                                  :pointer pointer
+                                                  :pointer)))
+              (format s ":POINTER ~A :TYPE ~A" pointer type))))))
 
 (defmethod make-load-form ((o pyobject-wrapper) &optional env)
   (with-slots (pointer load-form) o
@@ -212,7 +215,7 @@ takes place."))
 (defcallback lisp-callback-fn :pointer ((handle :int) (args :pointer) (kwargs :pointer))
   (declare (optimize debug))
   (with-pygc
-    (thread-global-let ((*in-with-remote-objects-p* nil))
+    (thread-global-let ((*pyobject-translation-mode* :lisp))
       (handler-case
           (let ((lisp-callback (lisp-object handle)))
             (pythonize (apply lisp-callback

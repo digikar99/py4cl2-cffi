@@ -4,7 +4,7 @@
   "Ensures that all values returned by python functions
 and methods are kept in python, and only pointers are returned to lisp.
 This is useful if performing operations on large datasets."
-  `(thread-global-let ((*in-with-remote-objects-p* t))
+  `(thread-global-let ((*pyobject-translation-mode* :wrapper))
      ,@body))
 
 (defmacro with-remote-objects* (&body body)
@@ -13,8 +13,8 @@ and methods are kept in python, and only handles returned to lisp.
 This is useful if performing operations on large datasets. Unlike
 with-remote-objects, evaluates the last result and returns not just a handle."
   `(with-pygc
-     (thread-global-let ((*in-with-remote-objects-p* nil))
-       (lispify (with-remote-objects ,@body)))))
+     (thread-global-let ((*pyobject-translation-mode* :lisp))
+       (lispify (pyobject-wrapper-pointer (with-remote-objects ,@body))))))
 
 (defun pythonize-args (lisp-args)
   (loop :for arg :in lisp-args
@@ -34,18 +34,26 @@ with-remote-objects, evaluates the last result and returns not just a handle."
 (defun %pycall-return-value (return-value)
   (declare (optimize speed))
   (with-python-exceptions
-    ;; FIXME: Why did we write it this way?
-    (let ((lispified-return-value (if (typep return-value 'foreign-pointer)
-                                      (lispify return-value)
-                                      return-value)))
-      lispified-return-value)))
+    (if (typep return-value 'foreign-pointer)
+        (lispify return-value)
+        return-value)))
 
-;; %PYCALL and %PYCALL* take a pointer to callable as the argument
-;; but the rest of the arguments can be lisp objects and need not be pointers.
+;; %PYCALL and %PYCALL* take a pointer to callable as the argument.
+;; %PYCALL* and PYCALL* return a pointer to the return value
+;;   without wrapping or lispifying it.
+;; The arguments to all the four variants can be lisp objects
+;;   and need not be pointers.
 
+(declaim (ftype (function (foreign-pointer &rest t)
+                          (values foreign-pointer &optional))
+                %pycall*))
 (defun %pycall* (python-callable-pointer &rest args)
+  "Fastest (non compile-time) variant of PYCALL.
+It takes in a foreign-pointer to a python callable and returns a foreign pointer to the return value which is a pyobject."
   (declare (type foreign-pointer python-callable-pointer)
            (optimize speed))
+  ;; It is not appropriate to use PYGC here.
+  ;; We expect the task of GC-ing to be performed by higher level functions.
   (labels ((pin-and-call (&rest rem-args)
              (cond ((null rem-args)
                     (let ((pythonized-args (pythonize-args args)))
@@ -71,28 +79,34 @@ with-remote-objects, evaluates the last result and returns not just a handle."
 
 (defun %pycall (python-callable-pointer &rest args)
   (declare (type foreign-pointer python-callable-pointer))
-  (if *in-with-remote-objects-p*
-      (apply #'%pycall* python-callable-pointer args)
-      (with-pygc
-        ;; We can't just rely on %PYCALL* because we also need to deal with
-        ;; PYTHONIZED-ARGS while lispifying the values
-        (let ((pythonized-args (pythonize-args args)))
-          (multiple-value-bind (pos-args kwargs)
-              (args-and-kwargs pythonized-args)
-            ;; PyObject_Call returns a new reference
-            (let* ((return-value (pyforeign-funcall "PyObject_Call"
-                                                    :pointer python-callable-pointer
-                                                    :pointer pos-args
-                                                    :pointer kwargs
-                                                    :pointer)))
-              ;; If the RETURN-VALUE is an array amongst the inputs,
-              ;; then avoid lispifying the return-value
-              (mapc (lambda (pyarg arg)
-                      (when (and (arrayp arg)
-                                 (pointer-eq pyarg return-value))
-                        (setq return-value arg)))
-                    pythonized-args args)
-              (%pycall-return-value return-value)))))))
+  (ecase *pyobject-translation-mode*
+    (:foreign-pointer (apply #'%pycall* python-callable-pointer args))
+    (:wrapper
+     (let ((pyobject-pointer (apply #'%pycall* python-callable-pointer args)))
+       (pyuntrack pyobject-pointer)
+       (make-tracked-pyobject-wrapper
+        (apply #'%pycall* python-callable-pointer args))))
+    (:lisp
+     (with-pygc
+       ;; We can't just rely on %PYCALL* because we also need to deal with
+       ;; PYTHONIZED-ARGS while lispifying the values
+       (let ((pythonized-args (pythonize-args args)))
+         (multiple-value-bind (pos-args kwargs)
+             (args-and-kwargs pythonized-args)
+           ;; PyObject_Call returns a new reference
+           (let* ((return-value (pyforeign-funcall "PyObject_Call"
+                                                   :pointer python-callable-pointer
+                                                   :pointer pos-args
+                                                   :pointer kwargs
+                                                   :pointer)))
+             ;; If the RETURN-VALUE is an array amongst the inputs,
+             ;; then avoid lispifying the return-value
+             (mapc (lambda (pyarg arg)
+                     (when (and (arrayp arg)
+                                (pointer-eq pyarg return-value))
+                       (setq return-value arg)))
+                   pythonized-args args)
+             (%pycall-return-value return-value))))))))
 
 (labels ((pythonizep (value)
            "Determines if VALUE should be pythonized."
@@ -133,7 +147,7 @@ python callable, which is then retrieved using PYVALUE*"
                  (python-name
                   (pyvalue* python-callable))
                  (string
-                  (with-remote-objects (raw-pyeval python-callable)))
+                  (raw-py #\e python-callable))
                  (symbol
                   (pyvalue* (pythonize-symbol python-callable)))
                  (pyobject-wrapper
@@ -144,14 +158,24 @@ python callable, which is then retrieved using PYVALUE*"
         (error "Python function ~A is not defined" python-callable)
         (apply #'%pycall* pyfun args))))
 
+(declaim (inline pyobject-pointer-translate))
+(defun pyobject-pointer-translate (pyobject-pointer)
+  (declare (optimize speed)
+           (type foreign-pointer pyobject-pointer))
+  (ecase *pyobject-translation-mode*
+    (:foreign-pointer pyobject-pointer)
+    (:wrapper
+     (pyuntrack pyobject-pointer)
+     (make-tracked-pyobject-wrapper pyobject-pointer))
+    (:lisp
+     (with-pygc (%pycall-return-value pyobject-pointer)))))
+
 (defun pycall (python-callable &rest args)
   "If PYTHON-CALLABLE is a string or symbol, it is treated as the name of a
 python callable, which is then retrieved using PYVALUE*"
   (declare (optimize speed))
   (python-start-if-not-alive)
-  (if *in-with-remote-objects-p*
-      (apply #'pycall* python-callable args)
-      (with-pygc (%pycall-return-value (apply #'pycall* python-callable args)))))
+  (pyobject-pointer-translate (apply #'pycall* python-callable args)))
 
 (defun pyslot-value* (object slot-name)
   (let* ((object-pointer (%pythonize object))
@@ -162,9 +186,7 @@ python callable, which is then retrieved using PYVALUE*"
   (declare (type (or symbol string) slot-name)
            (optimize debug))
   (python-start-if-not-alive)
-  (if *in-with-remote-objects-p*
-      (pyslot-value* object slot-name)
-      (with-pygc (%pycall-return-value (pyslot-value* object slot-name)))))
+  (pyobject-pointer-translate (pyslot-value* object slot-name)))
 
 (defun (setf pyslot-value) (new-value object slot-name)
   (python-start-if-not-alive)

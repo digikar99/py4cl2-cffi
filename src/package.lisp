@@ -24,7 +24,6 @@
 
            #:pythonize
            #:pyobject-wrapper
-           #:pyobject-wrapper-type
            #:pyobject-wrapper-eq
            #:pyobject-wrapper-eq*
            #:define-lispifier

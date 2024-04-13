@@ -4,7 +4,10 @@
 ;; Multithreading reference: https://www.linuxjournal.com/article/3641
 
 (defvar *python-libraries-loaded-p* nil)
-(defvar *in-with-remote-objects-p* nil)
+
+(declaim (type (member :foreign-pointer :wrapper :lisp)
+               *pyobject-translation-mode*))
+(defvar *pyobject-translation-mode* :lisp)
 
 (defvar *python-state* :uninitialized)
 (declaim (type (member :uninitialized :initialized :initializing) *python-state*))
@@ -233,8 +236,8 @@ will be executed by PYSTART.")
       (when (pygil-held-p)
         (warn "Python GIL was not released from the main thread. This means on implementations (like SBCL) that call lisp object finalizers from a separate thread may never get a chance to run, and thus python foreign objects associated with PYOBJECT-WRAPPER
 can lead to memory leak.")))
-    (import-module "sys")
     (import-module "traceback")
+    (import-module "sys")
     (when *numpy-installed-p*
       (float-features:with-float-traps-masked (:overflow :invalid)
         (ignore-some-conditions (floating-point-overflow floating-point-invalid-operation)
@@ -330,7 +333,7 @@ from inside PYTHON-MAY-BE-ERROR does not lead to an infinite recursion.")
                                                                          :pointer)
                                              :pointer)))
                        (traceback-str
-                         (let ((*in-with-remote-objects-p* nil))
+                         (let ((*pyobject-translation-mode* :lisp))
                            (if (null-pointer-p traceback)
                                (pycall "traceback.format_exception_only" type value)
                                (pycall "traceback.format_exception" type value traceback)))))
@@ -395,9 +398,7 @@ PYEVAL, PYEXEC should be avoided unless necessary.
 Instead, use PYCALL, PYVALUE, (SETF PYVALUE), PYSLOT-VALUE, (SETF PYSLOT-VALUE), and PYMETHOD.
 
 RAW-PY, RAW-PYEVAL, RAW-PYEXEC are only provided for backward compatibility."
-  (if *in-with-remote-objects-p*
-      (apply #'raw-py #\e code-strings)
-      (with-pygc (lispify (apply #'raw-py #\e code-strings)))))
+  (pyobject-pointer-translate (apply #'raw-py #\e code-strings)))
 
 (defun raw-pyexec (&rest code-strings)
   "
@@ -533,6 +534,7 @@ Use PYVALUE* if you want to refer to names containing full-stops."
            (type foreign-pointer new-value))
   (python-start-if-not-alive)
   (if (pyobject-wrapper-p python-value-or-variable)
+      ;; FIXME
       python-value-or-variable
       (let (value previous-value previous-name)
         (do-subseq-until (name python-value-or-variable #\. :test #'char=)
@@ -563,9 +565,7 @@ Example:
 "
   (declare (type (or pyobject-wrapper string) python-name-or-variable))
   (python-start-if-not-alive)
-  (if *in-with-remote-objects-p*
-      (pyvalue* python-name-or-variable)
-      (with-pygc (lispify (pyvalue* python-name-or-variable)))))
+  (pyobject-pointer-translate (pyvalue* python-name-or-variable)))
 
 (defun (setf pyvalue) (new-value python-name-or-variable)
   "Set the value of a python-name-or-variable.
