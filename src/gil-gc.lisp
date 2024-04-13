@@ -194,22 +194,22 @@ This avoids inadvertent calls to DecRef during recursions.")
       ;;       :do (let ((ptr (make-pointer addr)))
       ;;             (format t "~%At ~A with refcnt ~A:~% ~A"
       ;;                     ptr count (lispify ptr))))
-      (maphash (lambda (addr count)
-                 (declare (type #+64-bit (unsigned-byte 64)
-                                #-64-bit unsigned-byte
-                                addr)
-                          (type fixnum count))
-                 (when (and addr (not (zerop addr)))
-                   (with-python-gil/no-errors
-                     (cond ((< count 0)
-                            (foreign-funcall "Py_IncRef" :unsigned-long addr))
-                           ((> count 0)
-                            (foreign-funcall "Py_DecRef" :unsigned-long addr))))))
-               ht)
-      (maphash (lambda (addr count)
-                 (declare (ignore count))
-                 (remhash addr ht))
-               ht))
+      (with-python-gil/no-errors
+        (with-hash-table-iterator (ht-iter ht)
+          (loop :do (multiple-value-bind (validp addr count) (ht-iter)
+                      (unless validp (return))
+                      (locally (declare (type #+64-bit (unsigned-byte 64)
+                                              #-64-bit unsigned-byte
+                                              addr)
+                                        (type fixnum count))
+                        (when (not (zerop addr))
+                          (cond ((< count 0)
+                                 (foreign-funcall "Py_IncRef"
+                                                  :unsigned-long addr))
+                                ((> count 0)
+                                 (foreign-funcall "Py_DecRef"
+                                                  :unsigned-long addr))))
+                        (remhash addr ht)))))))
     (clear-lisp-objects))
   nil)
 
