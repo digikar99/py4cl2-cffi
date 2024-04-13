@@ -2,14 +2,12 @@
 
 (defstruct pyobject-wrapper
   "A wrapper around a pointer to a python object.
-TYPE slot is the python type string
-POINTER slot points to the object"
-  type
+LOAD-FORM is used if the pyobject-wrapper is dumped into a compiled lisp file."
   pointer
   load-form)
 
-(defun make-tracked-pyobject-wrapper (&key type pointer)
-  (let* ((pyobject-wrapper (make-pyobject-wrapper :type type :pointer pointer)))
+(defun make-tracked-pyobject-wrapper (pointer)
+  (let* ((pyobject-wrapper (make-pyobject-wrapper :pointer pointer)))
     (unless (null-pointer-p pointer)
       (tg:finalize pyobject-wrapper (finalization-lambda (pointer-address pointer))))
     pyobject-wrapper))
@@ -60,32 +58,35 @@ the same lisp objects which are EQ to each other. Returns NIL in all other cases
               (pyobject-wrapper-pointer o2)))
 
 (defmethod print-object ((o pyobject-wrapper) s)
-  (if *print-pyobject-wrapper-identity*
-      (print-unreadable-object (o s :type t :identity t)
-        (with-pygc
-          (with-slots (type pointer) o
-            (if *print-pyobject-wrapper*
-                (progn
-                  (format s ":type ~A~%" type)
-                  (pprint-logical-block (s nil :per-line-prefix "  ")
-                    (write-string (lispify (pyforeign-funcall "PyObject_Str"
-                                                              :pointer pointer
-                                                              :pointer))
-                                  s))
-                  (terpri s))
-                (format s ":POINTER ~A :TYPE ~A" pointer
-                        (lispify (pyforeign-funcall "PyObject_Str"
-                                                    :pointer type :pointer)))))))
-      (with-pygc
-        (with-slots (type pointer) o
-          (if *print-pyobject-wrapper*
-              (write-string (lispify (pyforeign-funcall "PyObject_Str"
-                                                        :pointer pointer
-                                                        :pointer))
-                            s)
-              (format s ":POINTER ~A :TYPE ~A" pointer
-                      (lispify (pyforeign-funcall "PyObject_Str"
-                                                  :pointer type :pointer))))))))
+  (with-pygc
+    (let* ((pointer (pyobject-wrapper-pointer o)))
+      (flet ((type ()
+               (let ((may-be-type (pyforeign-funcall "PyObject_Type"
+                                                     :pointer pointer
+                                                     :pointer)))
+                 (ensure-non-null-pointer may-be-type)
+                 (lispify
+                  (pyforeign-funcall "PyObject_Str"
+                                     :pointer may-be-type
+                                     :pointer)))))
+        (if *print-pyobject-wrapper-identity*
+            (print-unreadable-object (o s :type t :identity t)
+              (if *print-pyobject*
+                  (progn
+                    (format s ":type ~A~%" (type))
+                    (pprint-logical-block (s nil :per-line-prefix "  ")
+                      (write-string (lispify (pyforeign-funcall "PyObject_Str"
+                                                                :pointer pointer
+                                                                :pointer))
+                                    s))
+                    (terpri s))
+                  (format s ":POINTER ~A :TYPE ~A" pointer (type))))
+            (if *print-pyobject*
+                (write-string (lispify (pyforeign-funcall "PyObject_Str"
+                                                          :pointer pointer
+                                                          :pointer))
+                              s)
+                (format s ":POINTER ~A :TYPE ~A" pointer (type))))))))
 
 (defmethod make-load-form ((o pyobject-wrapper) &optional env)
   (with-slots (pointer load-form) o

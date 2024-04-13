@@ -355,18 +355,6 @@ from inside PYTHON-MAY-BE-ERROR does not lead to an infinite recursion.")
        (python-may-be-error)
        (locally ,@body))))
 
-(defmacro ensure-non-null-pointer (pointer
-                                   &key (format-control nil format-control-p)
-                                     format-arguments)
-  (once-only (pointer)
-    `(if (null-pointer-p ,pointer)
-         ,(if format-control-p
-              `(error 'pyerror
-                      :format-control ,format-control
-                      :format-arguments ,format-arguments)
-              `(error 'pyerror))
-         ,pointer)))
-
 (defun raw-py (cmd-char &rest code-strings)
   "CMD-CHAR should be #\e for eval and #\x for exec.
 

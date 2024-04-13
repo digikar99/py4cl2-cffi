@@ -49,3 +49,15 @@
 
 (defun mkfifo (path)
   (cffi:foreign-funcall "mkfifo" :string path :int #o0664))
+
+(defmacro ensure-non-null-pointer (pointer
+                                   &key (format-control nil format-control-p)
+                                     format-arguments)
+  (once-only (pointer)
+    `(if (null-pointer-p ,pointer)
+         ,(if format-control-p
+              `(error 'pyerror
+                      :format-control ,format-control
+                      :format-arguments ,format-arguments)
+              `(error 'pyerror))
+         ,pointer)))
