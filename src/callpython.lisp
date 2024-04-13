@@ -84,8 +84,7 @@ It takes in a foreign-pointer to a python callable and returns a foreign pointer
     (:wrapper
      (let ((pyobject-pointer (apply #'%pycall* python-callable-pointer args)))
        (pyuntrack pyobject-pointer)
-       (make-tracked-pyobject-wrapper
-        (apply #'%pycall* python-callable-pointer args))))
+       (make-tracked-pyobject-wrapper pyobject-pointer)))
     (:lisp
      (with-pygc
        ;; We can't just rely on %PYCALL* because we also need to deal with
