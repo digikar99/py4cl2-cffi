@@ -1,19 +1,18 @@
 (in-package :py4cl2-cffi)
 
-;;; Unknown python objects
-(defstruct python-object
-  "A pointer to a python object which couldn't be translated into a Lisp value.
+(defstruct pyobject-wrapper
+  "A wrapper around a pointer to a python object.
 TYPE slot is the python type string
 POINTER slot points to the object"
   type
   pointer
   load-form)
 
-(defun make-tracked-python-object (&key type pointer)
-  (let* ((python-object (make-python-object :type type :pointer pointer)))
+(defun make-tracked-pyobject-wrapper (&key type pointer)
+  (let* ((pyobject-wrapper (make-pyobject-wrapper :type type :pointer pointer)))
     (unless (null-pointer-p pointer)
-      (tg:finalize python-object (finalization-lambda (pointer-address pointer))))
-    python-object))
+      (tg:finalize pyobject-wrapper (finalization-lambda (pointer-address pointer))))
+    pyobject-wrapper))
 
 (defun finalization-lambda (address)
   (lambda ()
@@ -21,51 +20,51 @@ POINTER slot points to the object"
       (with-python-gil/no-errors
         (foreign-funcall "Py_DecRef" :pointer (make-pointer address))))))
 
-(defun pytrack* (python-object)
+(defun pytrack* (pyobject-wrapper)
   "Call this function when the foreign function of the Python C-API returns
 a New Reference"
-  (declare (type python-object python-object)
+  (declare (type pyobject-wrapper pyobject-wrapper)
            (optimize speed))
-  (let ((ptr (python-object-pointer python-object)))
+  (let ((ptr (pyobject-wrapper-pointer pyobject-wrapper)))
     (unless (null-pointer-p ptr)
-      (tg:finalize python-object (finalization-lambda (pointer-address ptr)))))
-  python-object)
+      (tg:finalize pyobject-wrapper (finalization-lambda (pointer-address ptr)))))
+  pyobject-wrapper)
 
-(defun pyuntrack* (python-object)
+(defun pyuntrack* (pyobject-wrapper)
   "Call this function when the foreign function of the Python C-API steals
 a New Reference"
-  (declare (type python-object python-object)
+  (declare (type pyobject-wrapper pyobject-wrapper)
            (optimize speed))
-  (tg:cancel-finalization python-object)
+  (tg:cancel-finalization pyobject-wrapper)
   nil)
 
-(defvar *print-python-object* t
+(defvar *print-pyobject* t
   "If non-NIL, python's 'str' is called on the python-object before printing.")
 
-(defvar *print-python-object-identity* nil
-  "If non-NIL, print's the lisp type and identity of the python-object.")
+(defvar *print-pyobject-wrapper-identity* nil
+  "If non-NIL, print's the lisp type and identity of the pyobject-wrapper.")
 
-(defun python-object-eq (o1 o2)
-  "Returns T if O1 and O2 are both PYTHON-OBJECT with the same pointer, or
+(defun pyobject-wrapper-eq (o1 o2)
+  "Returns T if O1 and O2 are both PYOBJECT-WRAPPER with the same pointer, or
 the same lisp objects which are EQ to each other. Returns NIL in all other cases."
   (or (eq o1 o2)
-      (and (typep o1 'python-object)
-           (typep o2 'python-object)
-           (python-object-eq* o1 o2))))
+      (and (typep o1 'pyobject-wrapper)
+           (typep o2 'pyobject-wrapper)
+           (pyobject-wrapper-eq* o1 o2))))
 
-(defun python-object-eq* (o1 o2)
-  "Like PYTHON-OBJECT-EQ but assumes that O1 and O2 are PYTHON-OBJECT each."
-  (declare (type python-object o1 o2)
+(defun pyobject-wrapper-eq* (o1 o2)
+  "Like PYOBJECT-WRAPPER-EQ but assumes that O1 and O2 are PYOBJECT-WRAPPER each."
+  (declare (type pyobject-wrapper o1 o2)
            (optimize speed))
-  (pointer-eq (python-object-pointer o1)
-              (python-object-pointer o2)))
+  (pointer-eq (pyobject-wrapper-pointer o1)
+              (pyobject-wrapper-pointer o2)))
 
-(defmethod print-object ((o python-object) s)
-  (if *print-python-object-identity*
+(defmethod print-object ((o pyobject-wrapper) s)
+  (if *print-pyobject-wrapper-identity*
       (print-unreadable-object (o s :type t :identity t)
         (with-pygc
           (with-slots (type pointer) o
-            (if *print-python-object*
+            (if *print-pyobject-wrapper*
                 (progn
                   (format s ":type ~A~%" type)
                   (pprint-logical-block (s nil :per-line-prefix "  ")
@@ -79,7 +78,7 @@ the same lisp objects which are EQ to each other. Returns NIL in all other cases
                                                     :pointer type :pointer)))))))
       (with-pygc
         (with-slots (type pointer) o
-          (if *print-python-object*
+          (if *print-pyobject-wrapper*
               (write-string (lispify (pyforeign-funcall "PyObject_Str"
                                                         :pointer pointer
                                                         :pointer))
@@ -88,7 +87,7 @@ the same lisp objects which are EQ to each other. Returns NIL in all other cases
                       (lispify (pyforeign-funcall "PyObject_Str"
                                                   :pointer type :pointer))))))))
 
-(defmethod make-load-form ((o python-object) &optional env)
+(defmethod make-load-form ((o pyobject-wrapper) &optional env)
   (with-slots (pointer load-form) o
     (cond ((eq pointer +py-empty-tuple-pointer+)
            `(pycall "tuple"))
@@ -125,7 +124,7 @@ takes place."))
                          #-(or sbcl ccl ecl lispworks)
                          foreign-pointer))
   o)
-(defmethod pythonize ((o python-object)) (python-object-pointer o))
+(defmethod pythonize ((o pyobject-wrapper)) (pyobject-wrapper-pointer o))
 
 (defmethod pythonize ((o integer))
   (unless (typep o 'c-long)

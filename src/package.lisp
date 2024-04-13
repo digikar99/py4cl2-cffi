@@ -23,10 +23,10 @@
            #:pyvalue
 
            #:pythonize
-           #:python-object
-           #:python-object-type
-           #:python-object-eq
-           #:python-object-eq*
+           #:pyobject-wrapper
+           #:pyobject-wrapper-type
+           #:pyobject-wrapper-eq
+           #:pyobject-wrapper-eq*
            #:define-lispifier
 
            #:*pythonizers*
@@ -53,8 +53,8 @@
            #:defpyfun
            #:defpymodule
            #:*defpymodule-silent-p*
-           #:*print-python-object*
-           #:*print-python-object-identity*
+           #:*print-pyobject*
+           #:*print-pyobject-wrapper-identity*
            #:export-function
 
            #:+py-empty-tuple+

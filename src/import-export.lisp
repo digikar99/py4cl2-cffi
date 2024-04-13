@@ -40,16 +40,16 @@
            (python-may-be-error))))
   t)
 
-(defun pymethod-list (python-object &key (as-vector nil))
+(defun pymethod-list (pyobject &key (as-vector nil))
   (import-module "inspect")
   (let ((method-vector (mapcar #'first
                                (pycall "tuple"
                                        (pycall "inspect.getmembers"
-                                               python-object
+                                               pyobject
                                                (pyvalue "callable"))))))
     (if as-vector method-vector (coerce method-vector 'list))))
 
-(defun pyslot-list (python-object &key (as-vector nil))
+(defun pyslot-list (pyobject &key (as-vector nil))
   (import-module "inspect")
   (raw-pyexec "
 def _py4cl_non_callable(ele):
@@ -59,7 +59,7 @@ def _py4cl_non_callable(ele):
           (mapcar #'first
                   (pycall "tuple"
                           (pycall "inspect.getmembers"
-                                  python-object
+                                  pyobject
                                   (pyvalue "_py4cl_non_callable"))))))
     (if as-vector slot-vector (coerce slot-vector 'list))))
 
@@ -221,7 +221,7 @@ Arguments:
                  ;; We maintain these semantics.
                  ;; The below form errors in the case of submodules and
                  ;; therefore returns NIL.
-                 (ignore-errors (python-object-eq
+                 (ignore-errors (pyobject-wrapper-eq
                                  (pycall "type" (pyvalue "pkgutil"))
                                  (pycall "type" (pyvalue submodule-fullname)))))
         (let ((*is-submodule* t))

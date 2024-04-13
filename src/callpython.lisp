@@ -136,8 +136,8 @@ python callable, which is then retrieved using PYVALUE*"
                   (with-remote-objects (raw-pyeval python-callable)))
                  (symbol
                   (pyvalue* (pythonize-symbol python-callable)))
-                 (python-object
-                  (python-object-pointer python-callable))
+                 (pyobject-wrapper
+                  (pyobject-wrapper-pointer python-callable))
                  (t
                   (pythonize python-callable)))))
     (if (null-pointer-p pyfun)

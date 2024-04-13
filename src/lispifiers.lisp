@@ -175,7 +175,7 @@
                        (zerop (pyforeign-funcall "PyTuple_Size" :pointer pyobject :int)))))
             (pyuntrack pyobject)
             (pyuntrack pyobject-type)
-            (make-tracked-python-object
+            (make-tracked-pyobject-wrapper
              :pointer pyobject
              :type (lispify (pyforeign-funcall "PyObject_Str"
                                                :pointer pyobject-type

@@ -231,7 +231,7 @@ will be executed by PYSTART.")
     (when (pygil-held-p)
       (setq *py-thread-state* (pyeval-save-thread))
       (when (pygil-held-p)
-        (warn "Python GIL was not released from the main thread. This means on implementations (like SBCL) that call lisp object finalizers from a separate thread may never get a chance to run, and thus python foreign objects associated with PYTHON-OBJECT
+        (warn "Python GIL was not released from the main thread. This means on implementations (like SBCL) that call lisp object finalizers from a separate thread may never get a chance to run, and thus python foreign objects associated with PYOBJECT-WRAPPER
 can lead to memory leak.")))
     (import-module "sys")
     (import-module "traceback")
@@ -529,9 +529,9 @@ Use PYVALUE* if you want to refer to names containing full-stops."
 
 (defun pyvalue* (python-value-or-variable)
   "Get the non-lispified value associated with PYTHON-VALUE-OR-VARIABLE"
-  (declare (type (or python-object string) python-value-or-variable)
+  (declare (type (or pyobject-wrapper string) python-value-or-variable)
            (optimize speed))
-  (if (python-object-p python-value-or-variable)
+  (if (pyobject-wrapper-p python-value-or-variable)
       python-value-or-variable
       (let (value)
         (do-subseq-until (name python-value-or-variable #\. :test #'char=)
@@ -541,10 +541,10 @@ Use PYVALUE* if you want to refer to names containing full-stops."
         value)))
 
 (defun (setf pyvalue*) (new-value python-value-or-variable)
-  (declare (type (or python-object string) python-value-or-variable)
+  (declare (type (or pyobject-wrapper string) python-value-or-variable)
            (type foreign-pointer new-value))
   (python-start-if-not-alive)
-  (if (python-object-p python-value-or-variable)
+  (if (pyobject-wrapper-p python-value-or-variable)
       python-value-or-variable
       (let (value previous-value previous-name)
         (do-subseq-until (name python-value-or-variable #\. :test #'char=)
@@ -573,7 +573,7 @@ Example:
     \"/home/user/miniconda3/lib/python3.10/lib-dynload\"
     \"/home/user/miniconda3/lib/python3.10/site-packages\")
 "
-  (declare (type (or python-object string) python-name-or-variable))
+  (declare (type (or pyobject-wrapper string) python-name-or-variable))
   (python-start-if-not-alive)
   (if *in-with-remote-objects-p*
       (pyvalue* python-name-or-variable)

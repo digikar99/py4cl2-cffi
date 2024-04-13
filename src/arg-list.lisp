@@ -69,7 +69,7 @@
   (declare (optimize debug))
   (import-module "inspect")
   (%get-arg-list (intern (foreign-funcall "PyTypeObject_Name"
-                                          :pointer (python-object-pointer
+                                          :pointer (pyobject-wrapper-pointer
                                                     (pycall "type" (pyvalue fullname)))
                                           :string)
                          :keyword)
@@ -99,7 +99,7 @@
     (() (apply #'pycall ,fullname args))))
 
 (define-condition default-arg-list-necessary (condition) ())
-(define-condition default-is-python-object (default-arg-list-necessary) ())
+(define-condition default-is-pyobject-wrapper (default-arg-list-necessary) ())
 (define-condition both-positional-and-keyword-rest (default-arg-list-necessary) ())
 
 ;; https://stackoverflow.com/questions/2677185/how-can-i-read-a-functions-signature-including-default-argument-values
@@ -108,8 +108,8 @@
            (if (and (stringp object) (string= object "()"))
                nil
                (coerce object 'list))))
-    
-    (handler-case      
+
+    (handler-case
         (let* ((parameters
                  ;; (pycall "tuple"
                  ;;         (chain* `("inspect.signature" ,(pyvalue fullname))
@@ -146,14 +146,14 @@
                (parameter-empty-p  (let ((inspect.empty
                                            (pyvalue* "inspect._empty")))
                                      (mapcar (lambda (d)
-                                               (and (python-object-p d)
+                                               (and (pyobject-wrapper-p d)
                                                     (pointer-eq inspect.empty
-                                                                (python-object-pointer d))))
+                                                                (pyobject-wrapper-pointer d))))
                                              parameter-defaults)))
                rest keyword-rest)
-          
+
           (iter
-            
+
             (initially
 
              (setq parameters         (ensure-tuple->list parameters)
@@ -161,13 +161,13 @@
                    parameter-names    (ensure-tuple->list parameter-names)
                    parameter-defaults (ensure-tuple->list parameter-defaults)
                    parameter-empty-p  (ensure-tuple->list parameter-empty-p))
-             
+
              (loop :for default :in parameter-defaults
                    :for empty-p :in parameter-empty-p
                    ;; Needs that True translates to T; False translates to NIL
-                   :if (and (typep default 'python-object)
+                   :if (and (typep default 'pyobject-wrapper)
                             (not empty-p))
-                     :do (signal 'default-is-python-object)))
+                     :do (signal 'default-is-pyobject-wrapper)))
             
             (for kind      in parameter-kinds)
             (for name      in parameter-names)
