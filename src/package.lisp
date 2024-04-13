@@ -4,6 +4,7 @@
                 #:%shared-library-from-ldflag)
   (:export #:*internal-features*
 
+           #:*pygc-threshold*
            #:with-pygc
            #:enable-pygc
            #:disable-pygc

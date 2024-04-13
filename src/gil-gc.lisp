@@ -167,6 +167,8 @@ This avoids inadvertent calls to DecRef during recursions.")
 ;; FIXME: Do we leak this into the python-object finalizers?
 (defvar *pygc-enabled* t
   "If NIL, expects PYGC to be called manually by the user.")
+(defvar *pygc-threshold* 1000
+  "Number of references in *PYTHON-NEW-REFERENCES* after which PYGC manipulates reference counts.")
 
 (defmacro enable-pygc ()
   `(eval-when (:compile-toplevel :load-toplevel :execute)
@@ -194,6 +196,7 @@ This avoids inadvertent calls to DecRef during recursions.")
       ;;       :do (let ((ptr (make-pointer addr)))
       ;;             (format t "~%At ~A with refcnt ~A:~% ~A"
       ;;                     ptr count (lispify ptr))))
+      (when (< (hash-table-count ht) *pygc-threshold*) (return-from pygc))
       (with-python-gil/no-errors
         (with-hash-table-iterator (ht-iter ht)
           (loop :do (multiple-value-bind (validp addr count) (ht-iter)
