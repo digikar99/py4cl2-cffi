@@ -46,7 +46,29 @@
              `(funcall/single-threaded
                ,fn
                ,@required
-               ,@(mapcar #'first optional)))))))
+               ,@(mapcar #'first optional))))))
+  (defun sanitize-lambda-list (lambda-list)
+    (let ((sanitized nil))
+      (loop :for item :in lambda-list
+            :with state := :required
+            :do (cond ((member item lambda-list-keywords)
+                       (setq state item)
+                       (push item sanitized))
+                      (t
+                       (push
+                        (ecase state
+                          (:required item)
+                          (&optional item)
+                          (&key
+                           (optima:ematch item
+                             ((list* _ _)
+                              item)
+                             (_ (if (keywordp item)
+                                    (gensym (string item))
+                                    item))))
+                          (&rest item))
+                        sanitized))))
+      (nreverse sanitized))))
 
 (macrolet
     ((def (single-threaded-sym)
@@ -61,7 +83,8 @@
                     (not (eq single-threaded-sym multi-threaded-sym)))
            ;; FIXME: Handle keyword args
            `(,(let ((lambda-list
-                      (swank/backend:arglist multi-threaded-sym)))
+                      (sanitize-lambda-list
+                       (swank/backend:arglist multi-threaded-sym))))
                 `(,(if macrop 'defmacro 'defun)
                   ,single-threaded-sym ,lambda-list
                   ,(call-form-from-fn-and-ll
@@ -74,7 +97,8 @@
                     lambda-list)))
              ,(when (fboundp `(setf ,multi-threaded-sym))
                 (let ((lambda-list
-                        (swank/backend:arglist `(setf ,multi-threaded-sym))))
+                        (sanitize-lambda-list
+                         (swank/backend:arglist `(setf ,multi-threaded-sym)))))
                   `(,(if macrop 'defmacro 'defun)
                     (setf ,single-threaded-sym) ,lambda-list
                     ,(call-form-from-fn-and-ll
