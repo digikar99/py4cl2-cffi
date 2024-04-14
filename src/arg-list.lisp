@@ -64,6 +64,8 @@
 ;;; args '(1 2 3)
 ;;; kwargs '(:a a :b b)
 
+(defvar *arg-list-fun* 'get-arg-list)
+
 (defun get-arg-list (fullname lisp-package)
   "Returns a list of two lists: PARAMETER-LIST and PASS-LIST"
   (declare (optimize debug))

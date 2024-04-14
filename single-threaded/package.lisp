@@ -66,7 +66,11 @@
                 #:*py-thread-state*
                 #:*setattr-ptr*
 
-                #:python-output-thread
+                #:get-arg-list
+                #:*arg-list-fun*
+                #:lispify-name
+
+                #:pyobject-wrapper-pointer
                 #:pyforeign-funcall
                 #:with-python-gil
                 #:mkfifo

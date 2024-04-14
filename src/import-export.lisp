@@ -170,7 +170,7 @@ Arguments:
          (fun-doc (pyslot-value (pyvalue fullname) "__doc__"))
          (fun-symbol (intern lisp-fun-name lisp-package)))
     (destructuring-bind (parameter-list pass-list)
-        (get-arg-list fullname (find-package lisp-package))
+        (funcall *arg-list-fun* fullname (find-package lisp-package))
       (let ((common-code
               `(progn
                  (defun ,fun-symbol (,@parameter-list)
