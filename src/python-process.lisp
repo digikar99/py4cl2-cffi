@@ -183,7 +183,8 @@ execution of THUNK as a string."
                  (open *py-output-stream-pipe*
                        :direction :input
                        #+ccl :sharing #+ccl :lock))
-           (read-output-with-sync *py-output-sync-struct* *standard-output*))))
+           (read-output-with-sync *py-output-sync-struct* *standard-output*))
+         :name "py4cl2-cffi-output-thread"))
   (when (and *py-error-output-reader-thread*
              (bt:thread-alive-p *py-error-output-reader-thread*))
     (bt:destroy-thread *py-error-output-reader-thread*))
@@ -194,7 +195,8 @@ execution of THUNK as a string."
                  (open *py-error-output-stream-pipe*
                        :direction :input
                        #+ccl :sharing #+ccl :lock))
-           (read-output-with-sync *py-error-sync-struct* *error-output*)))))
+           (read-output-with-sync *py-error-sync-struct* *error-output*))
+         :name "py4cl2-cffi-error-output-thread")))
 
 (defmacro with-python-output (&body forms-decl)
   "Gets the output of the python program executed in FORMS-DECL in the form a string."
@@ -212,81 +214,82 @@ execution of THUNK as a string."
   "A list of strings each of which should be python code. All the code
 will be executed by PYSTART.")
 
+
+(defun %pystart ()
+
+  (when (probe-file *py-output-stream-pipe*)
+    (delete-file *py-output-stream-pipe*))
+  (mkfifo *py-output-stream-pipe*)
+  (when (probe-file *py-error-output-stream-pipe*)
+    (delete-file *py-error-output-stream-pipe*))
+  (mkfifo *py-error-output-stream-pipe*)
+
+  (load-python-and-libraries)
+  (foreign-funcall "Py_Initialize")
+  (when (pygil-held-p)
+    (setq *py-thread-state* (pyeval-save-thread))
+    (when (pygil-held-p)
+      (warn "Python GIL was not released from the main thread. This means on implementations (like SBCL) that call lisp object finalizers from a separate thread may never get a chance to run, and thus python foreign objects associated with PYOBJECT-WRAPPER
+can lead to memory leak.")))
+  (import-module "sys")
+  (import-module "traceback")
+  (when *numpy-installed-p*
+    (float-features:with-float-traps-masked (:overflow :invalid)
+      (ignore-some-conditions (floating-point-overflow floating-point-invalid-operation)
+        (handler-case
+            (import-module "numpy")
+          (error (e)
+            (warn (format nil "Could not import numpy: ~S~%" e))))
+        (pushnew :typed-arrays *internal-features*)
+        (when (member :typed-arrays *internal-features*)
+          (setq *numpy-c-api-pointer*
+                (with-python-gil (foreign-funcall "import_numpy" :pointer)))))))
+  (import-module "fractions")
+  (raw-pyexec "from fractions import Fraction")
+
+  (python-output-thread)
+  (raw-pyexec (format nil "sys.stdout = open('~A', 'w')"
+                      *py-output-stream-pipe*))
+  (raw-pyexec (format nil "sys.stderr = open('~A', 'w')"
+                      *py-error-output-stream-pipe*))
+
+  (dolist (mod '("__main__" "builtins" "sys"))
+    (setf (py-module-pointer mod)
+          (pyforeign-funcall "PyImport_AddModule" :string mod :pointer)))
+  (setq *py-global-dict*
+        (pyforeign-funcall "PyModule_GetDict" :pointer (py-module-pointer "__main__") :pointer))
+  (setq *py-builtins-dict*
+        (pyforeign-funcall "PyModule_GetDict" :pointer (py-module-pointer "builtins") :pointer))
+
+  (setf *lisp-callback-fn-ptr* (callback lisp-callback-fn)
+        *getattr-ptr* (callback getattr-fn)
+        *setattr-ptr* (callback setattr-fn))
+  (raw-pyexec #.(format nil "import ctypes
+py4cl_utils = ctypes.cdll.LoadLibrary(\"~A\")
+" (namestring *utils-shared-object-path*)))
+  (raw-pyexec (read-file-into-string
+               (asdf:component-pathname
+                (asdf:find-component (asdf:find-system "py4cl2-cffi") "py4cl.py"))))
+  (raw-pyexec "import decimal; Decimal = decimal.Decimal")
+  (setq +py-empty-tuple-pointer+ (pycall* "tuple"))
+  (setq +py-empty-tuple+ (pycall "tuple"))
+  (setq +py-none-pointer+ (pyvalue* "None"))
+  (setq +py-none+ (pyvalue "None"))
+  (cond ((and *numpy-installed-p*
+              (not (member :arrays *internal-features*)))
+         (push :arrays *internal-features*))
+        ((and (not *numpy-installed-p*)
+              (member :arrays *internal-features*))
+         (removef *internal-features* :arrays)))
+  (mapc #'raw-pyexec *additional-init-codes*))
+
 (defun pystart ()
 
   (when (eq *python-state* :initialized)
     (return-from pystart))
 
   (let ((*python-state* :initializing))
-
-    ;; We are using a let, because if something fails, we want
-    ;; *PYTHON-STATE* to be whatever it was before.
-
-    (when (probe-file *py-output-stream-pipe*)
-      (delete-file *py-output-stream-pipe*))
-    (mkfifo *py-output-stream-pipe*)
-    (when (probe-file *py-error-output-stream-pipe*)
-      (delete-file *py-error-output-stream-pipe*))
-    (mkfifo *py-error-output-stream-pipe*)
-
-    (load-python-and-libraries)
-    (foreign-funcall "Py_Initialize")
-    (when (pygil-held-p)
-      (setq *py-thread-state* (pyeval-save-thread))
-      (when (pygil-held-p)
-        (warn "Python GIL was not released from the main thread. This means on implementations (like SBCL) that call lisp object finalizers from a separate thread may never get a chance to run, and thus python foreign objects associated with PYOBJECT-WRAPPER
-can lead to memory leak.")))
-    (import-module "traceback")
-    (import-module "sys")
-    (when *numpy-installed-p*
-      (float-features:with-float-traps-masked (:overflow :invalid)
-        (ignore-some-conditions (floating-point-overflow floating-point-invalid-operation)
-          (handler-case
-              (import-module "numpy")
-            (error (e)
-              (warn (format nil "Could not import numpy: ~S~%" e))))
-          (pushnew :typed-arrays *internal-features*)
-          (when (member :typed-arrays *internal-features*)
-            (setq *numpy-c-api-pointer*
-                  (with-python-gil (foreign-funcall "import_numpy" :pointer)))))))
-    (import-module "fractions")
-    (raw-pyexec "from fractions import Fraction")
-
-    (python-output-thread)
-    (raw-pyexec (format nil "sys.stdout = open('~A', 'w')"
-                        *py-output-stream-pipe*))
-    (raw-pyexec (format nil "sys.stderr = open('~A', 'w')"
-                        *py-error-output-stream-pipe*))
-
-    (dolist (mod '("__main__" "builtins" "sys"))
-      (setf (py-module-pointer mod)
-            (pyforeign-funcall "PyImport_AddModule" :string mod :pointer)))
-    (setq *py-global-dict*
-          (pyforeign-funcall "PyModule_GetDict" :pointer (py-module-pointer "__main__") :pointer))
-    (setq *py-builtins-dict*
-          (pyforeign-funcall "PyModule_GetDict" :pointer (py-module-pointer "builtins") :pointer))
-
-    (setf *lisp-callback-fn-ptr* (callback lisp-callback-fn)
-          *getattr-ptr* (callback getattr-fn)
-          *setattr-ptr* (callback setattr-fn))
-    (raw-pyexec #.(format nil "import ctypes
-py4cl_utils = ctypes.cdll.LoadLibrary(\"~A\")
-" (namestring *utils-shared-object-path*)))
-    (raw-pyexec (read-file-into-string
-                 (asdf:component-pathname
-                  (asdf:find-component (asdf:find-system "py4cl2-cffi") "py4cl.py"))))
-    (raw-pyexec "import decimal; Decimal = decimal.Decimal")
-    (setq +py-empty-tuple-pointer+ (pycall* "tuple"))
-    (setq +py-empty-tuple+ (pycall "tuple"))
-    (setq +py-none-pointer+ (pyvalue* "None"))
-    (setq +py-none+ (pyvalue "None"))
-    (cond ((and *numpy-installed-p*
-                (not (member :arrays *internal-features*)))
-           (push :arrays *internal-features*))
-          ((and (not *numpy-installed-p*)
-                (member :arrays *internal-features*))
-           (removef *internal-features* :arrays)))
-    (mapc #'raw-pyexec *additional-init-codes*))
+    (%pystart))
   (setq *python-state* :initialized)
   t)
 

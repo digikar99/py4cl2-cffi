@@ -9,7 +9,10 @@ LOAD-FORM is used if the pyobject-wrapper is dumped into a compiled lisp file."
 (defun make-tracked-pyobject-wrapper (pointer)
   (let* ((pyobject-wrapper (make-pyobject-wrapper :pointer pointer)))
     (unless (null-pointer-p pointer)
-      (tg:finalize pyobject-wrapper (finalization-lambda (pointer-address pointer))))
+      ;; Because this is a freshly created pyobject-wrapper,
+      ;; it cannot have any other additional finalizers.
+      (tg:finalize pyobject-wrapper
+                   (finalization-lambda (pointer-address pointer))))
     pyobject-wrapper))
 
 (defun finalization-lambda (address)

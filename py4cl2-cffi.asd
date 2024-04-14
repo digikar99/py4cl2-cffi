@@ -61,3 +61,8 @@
                  (format *error-output*
                          "If you have already set up the tests, then something is wrong,
 as asdf was unable to find \"py4cl2-cffi-tests\".")))))
+
+(defsystem "py4cl2-cffi/single-threaded"
+  :depends-on ("py4cl2-cffi")
+  :pathname #p"src/"
+  :components ((:file "single-threaded")))
