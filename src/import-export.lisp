@@ -10,12 +10,12 @@
 
 (in-package :py4cl2-cffi)
 
-(defun import-function (name from &key (as nil asp))
+(defun import-function (name from &key (as nil))
   (declare (type string name))
   (python-start-if-not-alive)
   (pyforeign-funcall "PyImport_ImportModule" :string from :pointer)
   (python-may-be-error)
-  (cond (asp
+  (cond (as
          (check-type as string)
          (raw-py #\x (format nil "from ~A import ~A as ~A" from name as))
          (python-may-be-error))
@@ -24,12 +24,12 @@
          (python-may-be-error)))
   t)
 
-(defun import-module (name &key (as nil asp))
+(defun import-module (name &key (as nil))
   (declare (type string name))
   (python-start-if-not-alive)
   (let ((module-ptr (pyforeign-funcall "PyImport_ImportModule" :string name :pointer)))
     (python-may-be-error)
-    (cond (asp
+    (cond (as
            (check-type as string)
            (raw-py #\x (format nil "import ~A as ~A" name as))
            (setf (py-module-pointer as) module-ptr)

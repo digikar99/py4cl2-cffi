@@ -75,57 +75,58 @@
          (bt:wait-on-semaphore *pymain-thread-result-semaphore*)
          (pymain-result))))
 
+(eval-when (:compile-toplevel)
+  (defun call-form-from-fn-and-ll (fn lambda-list)
+    (multiple-value-bind
+          (required optional rest keywords)
+        (parse-ordinary-lambda-list lambda-list)
+      (cond (rest
+             `(apply/single-threaded
+               ,fn
+               ,@required
+               ,@(mapcar #'first optional)
+               ,rest))
+            (keywords
+             `(funcall/single-threaded
+               ,fn
+               ,@required
+               ,@(mapcar #'first optional)
+               ,@(loop :for ((key name) init suppliedp) :in keywords
+                       :nconcing (list (make-keyword key) name))))
+            (t
+             `(funcall/single-threaded
+               ,fn
+               ,@required
+               ,@(mapcar #'first optional)))))))
+
 (macrolet ((def (single-threaded-sym)
              (let* ((multi-threaded-sym
                       (find-symbol (symbol-name single-threaded-sym)
                                    :py4cl2-cffi))
-                    (all-args (gensym "ARGS")))
+                    (args (gensym "ARGS")))
                (when (and (not (member single-threaded-sym
                                        ;; Blacklisted symbols
                                        '(pystart mkfifo raw-py)))
                           (fboundp multi-threaded-sym)
                           (not (macro-function multi-threaded-sym)))
                  ;; FIXME: Handle keyword args
-                 `(,(let ((args (swank/backend:arglist multi-threaded-sym)))
-                      `(defun ,single-threaded-sym ,args
-                         ,(multiple-value-bind
-                                (required optional rest keyword other-keys)
-                              (parse-ordinary-lambda-list args)
-                            (if rest
-                                `(apply/single-threaded
-                                  (lambda (&rest ,all-args)
-                                    (float-features:with-float-traps-masked t
-                                      (apply #',multi-threaded-sym ,all-args)))
-                                  ,@required
-                                  ,@(mapcar #'first optional)
-                                  ,rest)
-                                `(funcall/single-threaded
-                                  (lambda (&rest ,all-args)
-                                    (float-features:with-float-traps-masked t
-                                      (apply #',multi-threaded-sym ,all-args)))
-                                  ,@required
-                                  ,@(mapcar #'first optional))))))
+                 `(,(let ((lambda-list
+                            (swank/backend:arglist multi-threaded-sym)))
+                      `(defun ,single-threaded-sym ,lambda-list
+                         ,(call-form-from-fn-and-ll
+                           `(lambda (&rest ,args)
+                              (float-features:with-float-traps-masked t
+                                (apply #',multi-threaded-sym ,args)))
+                           lambda-list)))
                    ,(when (fboundp `(setf ,multi-threaded-sym))
-                      (let ((args (swank/backend:arglist
-                                   `(setf ,multi-threaded-sym))))
-                        `(defun (setf ,single-threaded-sym) ,args
-                           ,(multiple-value-bind
-                                  (required optional rest keyword other-keys)
-                                (parse-ordinary-lambda-list args)
-                              (if rest
-                                  `(apply/single-threaded
-                                    (lambda (&rest ,all-args)
-                                      (float-features:with-float-traps-masked t
-                                        (apply #',multi-threaded-sym ,all-args)))
-                                    ,@required
-                                    ,@(mapcar #'first optional)
-                                    ,rest)
-                                  `(funcall/single-threaded
-                                    (lambda (&rest ,all-args)
-                                      (float-features:with-float-traps-masked t
-                                        (apply #',multi-threaded-sym ,all-args)))
-                                    ,@required
-                                    ,@(mapcar #'first optional)))))))))))
+                      (let ((lambda-list
+                              (swank/backend:arglist `(setf ,multi-threaded-sym))))
+                        `(defun (setf ,single-threaded-sym) ,lambda-list
+                           ,(call-form-from-fn-and-ll
+                             `(lambda (&rest ,args)
+                                (float-features:with-float-traps-masked t
+                                  (apply #'(setf ,multi-threaded-sym) ,args)))
+                             lambda-list))))))))
 
            (def-all (&environment env)
              (let ((all nil))
