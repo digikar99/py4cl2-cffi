@@ -67,6 +67,7 @@ as asdf was unable to find \"py4cl2-cffi-tests\".")))))
   :pathname #p"single-threaded/"
   :serial t
   :components ((:file "package")
+               (:file "main-thread")
                (:file "single-threaded-wrappers")
                (:file "pystart")
                (:file "defpyfun")))
