@@ -48,6 +48,7 @@
                 #:+py-none+
                 #:+py-none-pointer+)
   (:import-from :py4cl2-cffi
+                #:thread-global-let
                 #:%pystart
 
                 #:*python-state*

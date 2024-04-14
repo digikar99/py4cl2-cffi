@@ -68,6 +68,5 @@ as asdf was unable to find \"py4cl2-cffi-tests\".")))))
   :serial t
   :components ((:file "package")
                (:file "single-threaded-wrappers")
-               (:file "raw-py")
                (:file "pystart")
                (:file "defpyfun")))

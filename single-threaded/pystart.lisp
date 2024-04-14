@@ -12,7 +12,7 @@ Please restart your lisp and call PY4CL2-CFFI/SINGLE-THREADED:PYSTART
   (when (eq *python-state* :initialized)
     (return-from pystart))
 
-  (let ((*python-state* :initializing))
+  (thread-global-let ((*python-state* :initializing))
 
     (setq *pymain-thread*
           (bt:make-thread
