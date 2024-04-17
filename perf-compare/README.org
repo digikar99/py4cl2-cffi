@@ -1,0 +1,199 @@
+
+
+
+* Performance Comparison
+:PROPERTIES:
+:TOC:      :include siblings :depth 1 :ignore this
+:CUSTOM_ID: performance-comparison
+:END:
+
+All the below code/scripts are run on an i7-8750H locked to 0.8GHz. Except for burgled-batteries3, all the others use python3.10. Julia version is 1.10. SBCL version is 2.3.11.
+
+Burgled-batteries3 uses SBCL 1.5.4 and python3.6m. 
+
+:CONTENTS:
+- [[#run-pypy][run-py.py]]
+- [[#run-bblisp][run-bb.lisp]]
+- [[#run-pycalljl][run-pycall.jl]]
+- [[#run-py4cl2-cffi][run-py4cl2-cffi]]
+- [[#run-py4cl][run-py4cl]]
+- [[#summary][Summary]]
+:END:
+
+* run-py.py
+:PROPERTIES:
+:CUSTOM_ID: run-pypy
+:END:
+
+#+begin_src sh
+python run-py.py
+#+end_src
+
+#+begin_src
+Evaluating performance of pystr_i through 1000000 calls...
+Calls per second:  1576057.6666891782 
+
+Evaluating performance of pycall_str through 100000 calls...
+Calls per second:  1074461.2959969486
+#+end_src
+
+* run-bb.lisp
+:PROPERTIES:
+:CUSTOM_ID: run-bblisp
+:END:
+
+Install burgled-batteries3 by following the instructions [[https://github.com/digikar99/burgled-batteries3#installation][here]]. The burgled-batteries3 repository must be somewhere quicklisp can find. Usually, this is ~/path/to/quicklisp/local-projects/~.
+
+Finally, activate the burgled-batteries3 environment and run
+
+#+begin_src sh
+sbcl --no-userinit --load /path/to/quicklisp/setup.lisp --script run-bb.lisp
+#+end_src
+
+#+begin_src
+This is SBCL 1.5.4, an implementation of ANSI Common Lisp.
+More information about SBCL is available at <http://www.sbcl.org/>.
+
+SBCL is free software, provided as is, with absolutely no warranty.
+It is mostly in the public domain; some portions are provided under
+BSD-style licenses.  See the CREDITS and COPYING files in the
+distribution for more information.
+
+
+Evaluating (DEFPYFUN "str" (OBJECT))
+
+Evaluating performance of
+  (LAMBDA (X) (DECLARE (OPTIMIZE SPEED)) (STR X))
+on the basis of 100000 runs...
+Calls per second: 9282.466
+
+Evaluating performance of
+  (LAMBDA (X) (DECLARE (OPTIMIZE SPEED)) (STR* X))
+on the basis of 100000 runs...
+Calls per second: 16339.869
+#+end_src
+
+* run-pycall.jl
+:PROPERTIES:
+:CUSTOM_ID: run-pycalljl
+:END:
+
+Install julia from [[https://julialang.org/downloads/][here]].
+
+Install PyCall.jl using its REPL:
+
+#+begin_src julia
+using Pkg
+Pkg.add("PyCall")
+#+end_src
+
+Finally, run the run-pycall.jl script
+
+#+begin_src sh
+/path/to/julia run-pycall.jl
+#+end_src
+
+#+begin_src
+Evaluating performance of pystr_i through 100000 calls...
+Calls per second: 239483.74837415223
+
+Evaluating performance of pycall_str through 10000 calls...
+Calls per second: 20160.842444870534
+#+end_src
+
+* run-py4cl2-cffi
+:PROPERTIES:
+:CUSTOM_ID: run-py4cl2-cffi
+:END:
+
+Make sure python3-config is accessible in the environment. 
+
+The py4cl2-cffi repository must be somewhere quicklisp can find. Usually, this is ~/path/to/quicklisp/local-projects/~.
+
+#+begin_src sh
+sbcl --no-userinit --load /path/to/quicklisp/setup.lisp --eval '(ql:quickload "py4cl2-cffi")'
+#+end_src
+
+Finally, run the run-py4cl2-cffi.lisp script
+
+#+begin_src sh
+sbcl --no-userinit --load /path/to/quicklisp/setup.lisp --script run-py4cl2-cffi.lisp
+#+end_src
+
+#+begin_src
+This is SBCL 2.3.11, an implementation of ANSI Common Lisp.
+More information about SBCL is available at <http://www.sbcl.org/>.
+
+SBCL is free software, provided as is, with absolutely no warranty.
+It is mostly in the public domain; some portions are provided under
+BSD-style licenses.  See the CREDITS and COPYING files in the
+distribution for more information.
+
+Evaluating performance of
+  (LAMBDA (X) (DECLARE (OPTIMIZE SPEED)) (PYSTR X))
+on the basis of 100000 runs...
+Calls per second: 210080.5
+
+Evaluating performance of
+  (LAMBDA (X) (DECLARE (OPTIMIZE SPEED)) (PYCALL "str" X))
+on the basis of 100000 runs...
+Calls per second: 55555.367
+#+end_src
+
+* run-py4cl
+:PROPERTIES:
+:CUSTOM_ID: run-py4cl
+:END:
+
+Make sure python3-config is accessible in the environment. 
+
+The py4cl repository must be somewhere quicklisp can find. Usually, this is ~/path/to/quicklisp/local-projects/~.
+
+#+begin_src sh
+sbcl --no-userinit --load /path/to/quicklisp/setup.lisp --eval '(ql:quickload "py4cl")'
+#+end_src
+
+Finally, run the run-py4cl2-cffi.lisp script
+
+#+begin_src sh
+sbcl --no-userinit --load /path/to/quicklisp/setup.lisp --script run-py4cl.lisp
+#+end_src
+
+#+begin_src
+This is SBCL 2.3.11, an implementation of ANSI Common Lisp.
+More information about SBCL is available at <http://www.sbcl.org/>.
+
+SBCL is free software, provided as is, with absolutely no warranty.
+It is mostly in the public domain; some portions are provided under
+BSD-style licenses.  See the CREDITS and COPYING files in the
+distribution for more information.
+
+Evaluating performance of
+  (LAMBDA (X) (DECLARE (OPTIMIZE SPEED)) (PYTHON-CALL "str" X))
+on the basis of 10000 runs...
+Calls per second: 3576.2117
+
+Evaluating performance of
+  (LAMBDA (X)
+    (DECLARE (OPTIMIZE SPEED))
+    (REMOTE-OBJECTS
+      (PYTHON-CALL "str" X)))
+on the basis of 10000 runs...
+Calls per second: 3857.6765
+#+end_src
+
+* Summary
+:PROPERTIES:
+:CUSTOM_ID: summary
+:END:
+
+Table summarizing number of calls per second that the particular library can reach by either using ~PyObject_Call~ or ~PyObject_Str~. Blank column indicates either that no such facility is available, or I could not find how to use it. 
+
+| Library \ How      | PyObject_Call | PyObject_Str |
+| <l>                |           <r> |          <r> |
+|--------------------+---------------+--------------|
+| Python             |       1000000 |      1600000 |
+| burgled-batteries3 |         16500 |            - |
+| PyCall.jl          |         20000 |       240000 |
+| py4cl2-cffi        |         55000 |       210000 |
+| py4cl              |          4000 |            - |

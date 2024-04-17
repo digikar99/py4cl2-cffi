@@ -60,10 +60,10 @@ In addition, `py4cl2-cffi/config` also exports the following useful symbols:
 - [x] numpy arrays to non-CL arrays
 - [x] arbitrary module import
 - [x] numpy floats
-- [ ] optimization: [PyCall.jl](https://github.com/JuliaPy/PyCall.jl) is just about 2x slower than native CPython, while we are 10-20x as slow!
+- [ ] optimization ~~[PyCall.jl](https://github.com/JuliaPy/PyCall.jl) is just about 2x slower than native CPython, while we are 10-20x as slow!~~ (See [./perf-compare/README.org](./perf-compare/README.org).)
 - [ ] unloading python libraries to allow reloading python without restarting lisp (?)
 - [ ] playing nice with dumping a lisp image
-- [ ] single threaded mode: some python libraries (including matplotlib) hate multithreaded environments
+- [x] single threaded mode: some python libraries (including matplotlib) hate multithreaded environments
 
 ... and much more ...
 
