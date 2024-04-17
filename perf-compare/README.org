@@ -12,17 +12,17 @@ All the below code/scripts are run on an i7-8750H locked to 0.8GHz. Except for b
 Burgled-batteries3 uses SBCL 1.5.4 and python3.6m. 
 
 :CONTENTS:
-- [[#run-pypy][run-py.py]]
-- [[#run-bblisp][run-bb.lisp]]
-- [[#run-pycalljl][run-pycall.jl]]
+- [[#run-py][run-py]]
+- [[#run-bb][run-bb]]
+- [[#run-pycall][run-pycall]]
 - [[#run-py4cl2-cffi][run-py4cl2-cffi]]
 - [[#run-py4cl][run-py4cl]]
 - [[#summary][Summary]]
 :END:
 
-* run-py.py
+* run-py
 :PROPERTIES:
-:CUSTOM_ID: run-pypy
+:CUSTOM_ID: run-py
 :END:
 
 #+begin_src sh
@@ -37,9 +37,9 @@ Evaluating performance of pycall_str through 100000 calls...
 Calls per second:  1074461.2959969486
 #+end_src
 
-* run-bb.lisp
+* run-bb
 :PROPERTIES:
-:CUSTOM_ID: run-bblisp
+:CUSTOM_ID: run-bb
 :END:
 
 Install burgled-batteries3 by following the instructions [[https://github.com/digikar99/burgled-batteries3#installation][here]]. The burgled-batteries3 repository must be somewhere quicklisp can find. Usually, this is ~/path/to/quicklisp/local-projects/~.
@@ -73,9 +73,9 @@ on the basis of 100000 runs...
 Calls per second: 16339.869
 #+end_src
 
-* run-pycall.jl
+* run-pycall
 :PROPERTIES:
-:CUSTOM_ID: run-pycalljl
+:CUSTOM_ID: run-pycall
 :END:
 
 Install julia from [[https://julialang.org/downloads/][here]].
@@ -140,6 +140,24 @@ on the basis of 100000 runs...
 Calls per second: 55555.367
 #+end_src
 
+Or on CCL:
+
+#+begin_src sh
+ccl --no-init --load ~/quicklisp/setup.lisp --load run-py4cl2-cffi.lisp --eval '(quit)'
+#+end_src
+
+#+begin_src
+Evaluating performance of
+  (LAMBDA (X) (DECLARE (OPTIMIZE SPEED)) (PYSTR X))
+on the basis of 100000 runs...
+Calls per second: 72329.695
+
+Evaluating performance of
+  (LAMBDA (X) (DECLARE (OPTIMIZE SPEED)) (PYCALL "str" X))
+on the basis of 100000 runs...
+Calls per second: 16083.091
+#+end_src
+
 * run-py4cl
 :PROPERTIES:
 :CUSTOM_ID: run-py4cl
@@ -182,6 +200,24 @@ on the basis of 10000 runs...
 Calls per second: 3857.6765
 #+end_src
 
+Or on CCL:
+
+#+begin_src sh
+ccl --no-init --load ~/quicklisp/setup.lisp --load run-py4cl.lisp --eval '(quit)'
+#+end_src
+
+#+begin_src
+Evaluating performance of
+  (LAMBDA (X) (DECLARE (OPTIMIZE SPEED)) (PYTHON-CALL "str" X))
+on the basis of 10000 runs...
+Calls per second: 1917.8184
+
+Evaluating performance of
+  (LAMBDA (X) (DECLARE (OPTIMIZE SPEED)) (REMOTE-OBJECTS (PYTHON-CALL "str" X)))
+on the basis of 10000 runs...
+Calls per second: 1626.3612
+#+end_src
+
 * Summary
 :PROPERTIES:
 :CUSTOM_ID: summary
@@ -195,5 +231,7 @@ Table summarizing number of calls per second that the particular library can rea
 | Python             |       1000000 |      1600000 |
 | burgled-batteries3 |         16500 |            - |
 | PyCall.jl          |        320000 |       500000 |
-| py4cl2-cffi        |         55000 |       210000 |
-| py4cl              |          4000 |            - |
+| py4cl2-cffi (SBCL) |         55000 |       210000 |
+| py4cl2-cffi (CCL)  |         16000 |        72000 |
+| py4cl (SBCL)       |          4000 |            - |
+| py4cl (CCL)        |          2000 |            - |
