@@ -194,6 +194,6 @@ Table summarizing number of calls per second that the particular library can rea
 |--------------------+---------------+--------------|
 | Python             |       1000000 |      1600000 |
 | burgled-batteries3 |         16500 |            - |
-| PyCall.jl          |         20000 |       240000 |
+| PyCall.jl          |        320000 |       500000 |
 | py4cl2-cffi        |         55000 |       210000 |
 | py4cl              |          4000 |            - |

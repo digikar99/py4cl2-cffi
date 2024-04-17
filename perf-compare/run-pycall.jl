@@ -19,13 +19,13 @@ function pystr_i(i)
 end
 
 function pycall_str(i)
-    return py"str"(PyObject(i))
+    return pycall(pybuiltin("str"), String, i)
 end
 
 calls_per_second(1, pystr_i)
-print("Evaluating performance of pystr_i through 100000 calls...\n")
-print("Calls per second: ", calls_per_second(100000, pystr_i), "\n\n")
+print("Evaluating performance of pystr_i through 1000000 calls...\n")
+print("Calls per second: ", calls_per_second(1000000, pystr_i), "\n\n")
 
 calls_per_second(1, pycall_str)
-print("Evaluating performance of pycall_str through 10000 calls...\n")
-print("Calls per second: ", calls_per_second(10000, pycall_str), "\n")
+print("Evaluating performance of pycall_str through 1000000 calls...\n")
+print("Calls per second: ", calls_per_second(1000000, pycall_str), "\n")
