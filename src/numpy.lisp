@@ -46,7 +46,8 @@
                 ((cl:simple-array * (*)) (return array))
                 (cl:simple-array (return #+sbcl (sb-ext:array-storage-vector array)
                                          #+ccl (ccl::%array-header-data-and-offset array)
-                                         #-(or sbcl ccl)
+                                         #+ecl array
+                                         #-(or sbcl ccl ecl)
                                          (error "Don't know how to obtain ARRAY-STORAGE on ~S"
                                                 (lisp-implementation-type))))
                 (t (setq array (cl:array-displacement array)))))))
