@@ -64,6 +64,7 @@ as asdf was unable to find \"py4cl2-cffi-tests\".")))))
 
 (defsystem "py4cl2-cffi/single-threaded"
   :depends-on ("py4cl2-cffi")
+  :description "Certain libraries like matplotlib do not behave well in multithreaded environments. This system defines a package which contains shadowed symbols from py4cl2-cffi. These shadowed versions call python from a single main thread that is also responsible for importing all the libraries."
   :pathname #p"single-threaded/"
   :serial t
   :components ((:file "package")
