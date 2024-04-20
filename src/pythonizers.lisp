@@ -62,37 +62,38 @@ the same lisp objects which are EQ to each other. Returns NIL in all other cases
 
 (defmethod print-object ((o pyobject-wrapper) s)
   (with-pygc
-    (let* ((pointer (pyobject-wrapper-pointer o))
-           (type (let ((may-be-type (pyforeign-funcall "PyObject_Type"
-                                                       :pointer pointer
-                                                       :pointer)))
-                   (ensure-non-null-pointer may-be-type)
-                   (lispify
-                    (pyforeign-funcall "PyObject_Str"
-                                       :pointer may-be-type
-                                       :pointer)))))
-      (if *print-pyobject-wrapper-identity*
-          (print-unreadable-object (o s :type t :identity t)
+    (float-features:with-float-traps-masked t
+      (let* ((pointer (pyobject-wrapper-pointer o))
+             (type (let ((may-be-type (pyforeign-funcall "PyObject_Type"
+                                                         :pointer pointer
+                                                         :pointer)))
+                     (ensure-non-null-pointer may-be-type)
+                     (lispify
+                      (pyforeign-funcall "PyObject_Str"
+                                         :pointer may-be-type
+                                         :pointer)))))
+        (if *print-pyobject-wrapper-identity*
+            (print-unreadable-object (o s :type t :identity t)
+              (if *print-pyobject*
+                  (progn
+                    (format s ":type ~A~%" type)
+                    (pprint-logical-block (s nil :per-line-prefix "  ")
+                      (format s (if (string= "<class 'str'>" type)
+                                    "\"~A\""
+                                    "~A")
+                              (lispify (pyforeign-funcall "PyObject_Str"
+                                                          :pointer pointer
+                                                          :pointer))))
+                    (terpri s))
+                  (format s ":POINTER ~A :TYPE ~A" pointer type)))
             (if *print-pyobject*
-                (progn
-                  (format s ":type ~A~%" type)
-                  (pprint-logical-block (s nil :per-line-prefix "  ")
-                    (format s (if (string= "<class 'str'>" type)
-                                  "\"~A\""
-                                  "~A")
-                            (lispify (pyforeign-funcall "PyObject_Str"
-                                                        :pointer pointer
-                                                        :pointer))))
-                  (terpri s))
-                (format s ":POINTER ~A :TYPE ~A" pointer type)))
-          (if *print-pyobject*
-              (format s (if (string= "<class 'str'>" type)
-                            "\"~A\""
-                            "~A")
-                      (lispify (pyforeign-funcall "PyObject_Str"
-                                                  :pointer pointer
-                                                  :pointer)))
-              (format s ":POINTER ~A :TYPE ~A" pointer type))))))
+                (format s (if (string= "<class 'str'>" type)
+                              "\"~A\""
+                              "~A")
+                        (lispify (pyforeign-funcall "PyObject_Str"
+                                                    :pointer pointer
+                                                    :pointer)))
+                (format s ":POINTER ~A :TYPE ~A" pointer type)))))))
 
 (defmethod make-load-form ((o pyobject-wrapper) &optional env)
   (with-slots (pointer load-form) o
