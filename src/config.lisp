@@ -54,7 +54,10 @@ of the utility shared object/library that bridges the python C-API with lisp."
           *python-includes*))
 
 (defvar *python-ignore-ldflags*
-  '("-lpthread" "-ldl" "-lutil" "-lanl" "-lm")
+  ;; python3-config of older versions of python (such as python3.6) includes
+  ;; librt in --ldflags, but apparantly, older SBCL (SBCL 1.5.4) versions fail
+  ;; to load it, and librt itself seems unnecessary.
+  '("-lpthread" "-ldl" "-lutil" "-lanl" "-lm" "-lrt")
   "A list of ldflags that will be ignored during the compilation of
 the utility shared object/library.")
 
