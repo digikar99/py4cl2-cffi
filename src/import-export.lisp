@@ -196,6 +196,14 @@ Arguments:
 (defvar *is-submodule* nil
   "Used for coordinating import statements from defpymodule while calling recursively")
 
+(defun py-empty-tuple-p (object)
+  (declare (optimize speed))
+  (and (typep object 'pyobject-wrapper)
+       (pyobject-wrapper-eq* object +py-empty-tuple+)))
+
+(deftype py-empty-tuple ()
+  `(satisfies py-empty-tuple-p))
+
 ;;; packages in python are collection of modules; module is a single python file
 ;;; In fact, all packages are modules; but all modules are not packages.
 (defun defpysubmodules (pymodule-name lisp-package continue-ignoring-errors)
@@ -205,12 +213,12 @@ Arguments:
                       (let ((modname (pyslot-value elt "name"))
                             (ispkg   (pyslot-value elt "ispkg")))
                         (list modname ispkg)))
-                    (pycall "tuple"
-                            (pycall "pkgutil.iter_modules"
-                                    (pyslot-value (pyvalue pymodule-name) "__path__")))))))
-    (when (and (stringp submodules)
-               (string= "()" submodules))
-      (setq submodules nil))
+                    (with-lispifiers ((py-empty-tuple
+                                       (lambda (o) (declare (ignore o)) nil)))
+                      (pycall "tuple"
+                              (pycall "pkgutil.iter_modules"
+                                      (pyslot-value (pyvalue pymodule-name)
+                                                    "__path__"))))))))
     (iter (for (submodule has-submodules) in submodules)
       (for submodule-fullname = (concatenate 'string
                                              pymodule-name "." submodule))
