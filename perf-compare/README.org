@@ -225,13 +225,14 @@ Calls per second: 1626.3612
 
 Table summarizing number of calls per second that the particular library can reach by either using ~PyObject_Call~ or ~PyObject_Str~. Blank column indicates either that no such facility is available, or I could not find how to use it. 
 
-| Library \ How      | PyObject_Call | PyObject_Str |
-| <l>                |           <r> |          <r> |
-|--------------------+---------------+--------------|
-| Python             |       1000000 |      1600000 |
-| burgled-batteries3 |         16500 |            - |
-| PyCall.jl          |        320000 |       500000 |
-| py4cl2-cffi (SBCL) |         55000 |       210000 |
-| py4cl2-cffi (CCL)  |         16000 |        72000 |
-| py4cl (SBCL)       |          4000 |            - |
-| py4cl (CCL)        |          2000 |            - |
+| Library \ How             | PyObject_Call | PyObject_Str |
+| <l>                       |           <r> |          <r> |
+|---------------------------+---------------+--------------|
+| Python                    |  (x1) 1000000 | (x1) 1600000 |
+| burgled-batteries3        |  (x61)  16500 |            - |
+| PyCall.jl                 |  (x3)  320000 | (x3)  500000 |
+| py4cl2-cffi (SBCL 2.3.11) |  (x20)  50000 | (x6)  265000 |
+| py4cl2-cffi (SBCL 1.5.4)  |  (x22)  45000 | (x6)  260000 |
+| py4cl2-cffi (CCL)         |  (x62)  16000 | (x22)  72000 |
+| py4cl (SBCL)              |  (x250)  4000 |            - |
+| py4cl (CCL)               |  (x500)  2000 |            - |

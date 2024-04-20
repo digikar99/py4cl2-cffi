@@ -38,13 +38,13 @@
 (pystart)
 
 (print-and-eval-perf
- 100000
+ 1000000
  (lambda (x)
    (declare (optimize speed))
    (pystr x)))
 
 (print-and-eval-perf
- 100000
+ 1000000
  (lambda (x)
    (declare (optimize speed))
    (pycall "str" x)))
