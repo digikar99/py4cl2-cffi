@@ -63,7 +63,7 @@
   (let* ((numpy-installed-p-file
            (asdf:component-pathname
             (asdf:find-component
-             "py4cl2-cffi" "numpy-installed-p.txt"))))
+             "py4cl2-cffi" "numpy-installed-p"))))
     (multiple-value-bind (numpy-installed-p-old error)
           (ignore-errors
            (with-standard-io-syntax
