@@ -26,6 +26,7 @@
 (defun pyeval-restore-thread (thread-state)
   (foreign-funcall "PyEval_RestoreThread" :pointer thread-state))
 
+(declaim (type foreign-pointer *gil*))
 (defvar *gil*)
 
 (defmacro with-python-gil (&body body)
@@ -167,6 +168,7 @@ This avoids inadvertent calls to DecRef during recursions.")
 ;; FIXME: Do we leak this into the python-object finalizers?
 (defvar *pygc-enabled* t
   "If NIL, expects PYGC to be called manually by the user.")
+(declaim (type positive-fixnum *pygc-threshold*))
 (defvar *pygc-threshold* 1000
   "Number of references in *PYTHON-NEW-REFERENCES* after which PYGC manipulates reference counts.")
 
@@ -253,7 +255,7 @@ of PYTHON-OBJECT structure instance in lisp."
             (addr (pointer-address pyobject-pointer)))
         (unless (gethash addr ht)
           (setf (gethash addr ht) 0))
-        (incf (gethash addr ht)))))
+        (incf (the fixnum (gethash addr ht))))))
   pyobject-pointer)
 
 

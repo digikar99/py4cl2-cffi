@@ -3,6 +3,6 @@ Python,1000000,1600000
 PyCall.jl,320000,500000
 burgled-battteries3,16500,
 py4cl (SBCL),4000,
-py4cl2-cffi (SBCL 2.3.11),50000,265000
-py4cl2-cffi (SBCL 1.5.4),45000,260000
+py4cl2-cffi (SBCL 2.3.11),55000,300000
+py4cl2-cffi (SBCL 1.5.4),45000,290000
 py4cl2-cffi (CCL),16000,72000

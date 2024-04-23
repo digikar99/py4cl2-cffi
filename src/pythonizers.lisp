@@ -48,14 +48,6 @@ a New Reference"
 (defvar *print-pyobject-wrapper-identity* t
   "If non-NIL, print's the lisp type and identity of the pyobject-wrapper.")
 
-(defun pyobject-wrapper-eq (o1 o2)
-  "Returns T if O1 and O2 are both PYOBJECT-WRAPPER with the same pointer, or
-the same lisp objects which are EQ to each other. Returns NIL in all other cases."
-  (or (eq o1 o2)
-      (and (typep o1 'pyobject-wrapper)
-           (typep o2 'pyobject-wrapper)
-           (pyobject-wrapper-eq* o1 o2))))
-
 (declaim (inline pyobject-wrapper-eq*))
 (defun pyobject-wrapper-eq* (o1 o2)
   "Like PYOBJECT-WRAPPER-EQ but assumes that O1 and O2 are PYOBJECT-WRAPPER each."
@@ -63,6 +55,14 @@ the same lisp objects which are EQ to each other. Returns NIL in all other cases
            (optimize speed))
   (pointer-eq (pyobject-wrapper-pointer o1)
               (pyobject-wrapper-pointer o2)))
+
+(defun pyobject-wrapper-eq (o1 o2)
+  "Returns T if O1 and O2 are both PYOBJECT-WRAPPER with the same pointer, or
+the same lisp objects which are EQ to each other. Returns NIL in all other cases."
+  (or (eq o1 o2)
+      (and (typep o1 'pyobject-wrapper)
+           (typep o2 'pyobject-wrapper)
+           (pyobject-wrapper-eq* o1 o2))))
 
 (defmethod print-object ((o pyobject-wrapper) s)
   (with-pygc

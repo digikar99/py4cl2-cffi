@@ -150,24 +150,32 @@
   (let* ((pyobject-type (pyforeign-funcall "PyObject_Type"
                                            :pointer pyobject
                                            :pointer))
-         (pytype-name (if (null-pointer-p pyobject-type)
-                          nil
-                          (foreign-string-to-lisp
-                           (pyforeign-funcall "PyTypeObject_Name"
-                                              :pointer pyobject-type
-                                              :pointer))))
+         (pytype-name-foreign (if (null-pointer-p pyobject-type)
+                                  nil
+                                  (pyforeign-funcall "PyTypeObject_Name"
+                                                     :pointer pyobject-type
+                                                     :pointer)))
+         (pytype-name (when pytype-name-foreign
+                        (foreign-string-to-lisp pytype-name-foreign)))
          ;; FIXME: What about names in modules?
          (lispifier (gethash pytype-name *py-type-lispifier-table*)))
     ;; (print (list pyobject pyobject-type pytype-name))
     (customize
      (cond ((null-pointer-p pyobject-type)
             nil)
-           ((locally (declare (type string pytype-name))
-              (or (string= pytype-name "NoneType")
+           ((locally (declare (type simple-base-string pytype-name))
+              (or (zerop (foreign-funcall "strcmp"
+                                          :pointer pytype-name-foreign
+                                          :string "NoneType"
+                                          :int))
                   (null lispifier)
-                  (and (string= pytype-name "tuple")
+                  (and (zerop (foreign-funcall "strcmp"
+                                          :pointer pytype-name-foreign
+                                          :string "tuple"
+                                          :int))
                        (not (boundp '+py-empty-tuple+))
-                       (zerop (pyforeign-funcall "PyTuple_Size" :pointer pyobject :int)))))
+                       (zerop (pyforeign-funcall "PyTuple_Size"
+                                                 :pointer pyobject :int)))))
             (pyuntrack pyobject)
             (pyuntrack pyobject-type)
             (make-tracked-pyobject-wrapper pyobject))
