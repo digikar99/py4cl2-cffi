@@ -93,7 +93,7 @@ jobs:
         cd ~/
         ls -l
         ls "$EXOTIC_DIR"
-        nproc
+        sysctl -n hw.logicalcpu
         pwd
         python3 --version
         /"$EXOTIC_DIR_PYTHON" --version
