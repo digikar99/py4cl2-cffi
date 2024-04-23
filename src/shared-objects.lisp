@@ -46,21 +46,26 @@
   (let* ((numpy-installed-p-file
            (asdf:component-pathname
             (asdf:find-component
-             "py4cl2-cffi" "numpy-installed-p")))
-         (numpy-installed-p-old
-           (read-file-into-string numpy-installed-p-file))
-         (numpy-installed-p (zerop (nth-value 2
-                                              (uiop:run-program
-                                               "python3 -c 'import numpy'"
-                                               :ignore-error-status t))))
-         (numpy-installed-p-new
-           (format nil "CL:~A" numpy-installed-p)))
-    (when (string/= numpy-installed-p-old
-                    numpy-installed-p-new)
-      (write-string-into-file numpy-installed-p-new numpy-installed-p-file
-                              :if-exists :supersede
-                              :if-does-not-exist :create))
-    (setq *numpy-installed-p* numpy-installed-p)))
+             "py4cl2-cffi" "numpy-installed-p.txt"))))
+    (multiple-value-bind (numpy-installed-p-old error)
+          (ignore-errors
+           (with-standard-io-syntax
+             (read-file-into-string numpy-installed-p-file)))
+      (let* ((numpy-installed-p (zerop (nth-value 2
+                                                  (uiop:run-program
+                                                   "python3 -c 'import numpy'"
+                                                   :ignore-error-status t))))
+             (numpy-installed-p-new
+               (with-standard-io-syntax
+                 (write-to-string `(quote ,numpy-installed-p)))))
+        (when (or error
+                  (string/= numpy-installed-p-old
+                            numpy-installed-p-new))
+          (with-standard-io-syntax
+            (write-string-into-file numpy-installed-p-new numpy-installed-p-file
+                                    :if-exists :supersede
+                                    :if-does-not-exist :create)))
+        (setq *numpy-installed-p* numpy-installed-p)))))
 
 (defun load-python-and-libraries ()
   (labels ((ensure-directory-name (namestring)
@@ -85,8 +90,9 @@
                              ((starts-with-subseq "-l" flag :test #'char=)
                               (push (%shared-library-from-ldflag flag)
                                     libraries)))
-                   :finally (return (values (nreverse libraries)
-                                            (nreverse search-paths))))))
+                   :finally
+                      (return (values (nreverse libraries)
+                                      (nreverse search-paths))))))
     (multiple-value-bind (libraries search-paths)
         (libraries-and-search-paths *python-ldflags*)
       (mapc (lambda (library)
