@@ -1,5 +1,7 @@
 (in-package :py4cl2-cffi)
 
+
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
 
   (defvar *utils-source-file-path*
@@ -67,6 +69,7 @@
                                     :if-does-not-exist :create)))
         (setq *numpy-installed-p* numpy-installed-p)))))
 
+(defvar *python-libraries-loaded-p* nil)
 (defun load-python-and-libraries ()
   (labels ((ensure-directory-name (namestring)
              (if (ends-with-subseq "/" namestring :test #'char=)

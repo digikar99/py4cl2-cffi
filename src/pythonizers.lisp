@@ -1,5 +1,8 @@
 (in-package :py4cl2-cffi)
 
+(defvar *pyobject-translation-mode* :lisp)
+(declaim (type (member :foreign-pointer :wrapper :lisp)
+               *pyobject-translation-mode*))
 (defstruct pyobject-wrapper
   "A wrapper around a pointer to a python object.
 LOAD-FORM is used if the pyobject-wrapper is dumped into a compiled lisp file."
@@ -53,6 +56,7 @@ the same lisp objects which are EQ to each other. Returns NIL in all other cases
            (typep o2 'pyobject-wrapper)
            (pyobject-wrapper-eq* o1 o2))))
 
+(declaim (inline pyobject-wrapper-eq*))
 (defun pyobject-wrapper-eq* (o1 o2)
   "Like PYOBJECT-WRAPPER-EQ but assumes that O1 and O2 are PYOBJECT-WRAPPER each."
   (declare (type pyobject-wrapper o1 o2)
@@ -95,7 +99,13 @@ the same lisp objects which are EQ to each other. Returns NIL in all other cases
                                                     :pointer)))
                 (format s ":POINTER ~A :TYPE ~A" pointer type)))))))
 
+(defvar +py-empty-tuple+)
+(defvar +py-empty-tuple-pointer+)
+(defvar +py-none+)
+(defvar +py-none-pointer+)
+
 (defmethod make-load-form ((o pyobject-wrapper) &optional env)
+  (declare (ignore env))
   (with-slots (pointer load-form) o
     (cond ((eq pointer +py-empty-tuple-pointer+)
            `(pycall "tuple"))

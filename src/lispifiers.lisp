@@ -2,11 +2,6 @@
 
 (defvar *py-type-lispifier-table* (make-hash-table :test #'equal))
 
-(defvar +py-empty-tuple+)
-(defvar +py-empty-tuple-pointer+)
-(defvar +py-none+)
-(defvar +py-none-pointer+)
-
 (defmacro define-lispifier (name (pyobject-var) &body body)
   (declare (type string name))
   `(setf (gethash ,name *py-type-lispifier-table*)

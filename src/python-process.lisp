@@ -3,12 +3,6 @@
 ;; Basic Reference: https://www.linuxjournal.com/article/8497
 ;; Multithreading reference: https://www.linuxjournal.com/article/3641
 
-(defvar *python-libraries-loaded-p* nil)
-
-(declaim (type (member :foreign-pointer :wrapper :lisp)
-               *pyobject-translation-mode*))
-(defvar *pyobject-translation-mode* :lisp)
-
 (defvar *python-state* :uninitialized)
 (declaim (type (member :uninitialized :initialized :initializing) *python-state*))
 
@@ -283,6 +277,8 @@ py4cl_utils = ctypes.cdll.LoadLibrary(\"~A\")
          (removef *internal-features* :arrays)))
   (mapc #'raw-pyexec *additional-init-codes*))
 
+(defvar *disable-pystop* nil)
+
 (defun pystart ()
 
   (when (eq *python-state* :initialized)
@@ -354,12 +350,6 @@ from inside PYTHON-MAY-BE-ERROR does not lead to an infinite recursion.")
                         (error 'pyerror
                                :format-control "A python error occurred:~%  ~A"
                                :format-arguments (list value-str)))))))))))))
-
-(defmacro with-python-exceptions (&body body)
-  (with-gensyms (may-be-exception-type)
-    `(progn
-       (python-may-be-error)
-       (locally ,@body))))
 
 (defun raw-py (cmd-char &rest code-strings)
   "CMD-CHAR should be #\e for eval and #\x for exec.

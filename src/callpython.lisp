@@ -33,10 +33,9 @@ with-remote-objects, evaluates the last result and returns not just a handle."
 
 (defun %pycall-return-value (return-value)
   (declare (optimize speed))
-  (with-python-exceptions
-    (if (typep return-value 'foreign-pointer)
-        (lispify return-value)
-        return-value)))
+  (if (typep return-value 'foreign-pointer)
+      (lispify return-value)
+      return-value))
 
 ;; %PYCALL and %PYCALL* take a pointer to callable as the argument.
 ;; %PYCALL* and PYCALL* return a pointer to the return value
@@ -228,7 +227,7 @@ python callable, which is then retrieved using PYVALUE*"
                   (may-be-slice (first indices))
                   (pycall* "tuple"
                            (loop :for index :in indices
-                                 :collect (may-be-slice indices))))
+                                 :collect (may-be-slice index))))
               new-value)))
 
 (defun %chain* (link &optional initial-value)

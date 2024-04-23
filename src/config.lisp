@@ -22,26 +22,33 @@
 (defvar *python-compile-command*
   (concatenate
    'string
-   ;; The first ~A corresponds to the *python-includes* defined below.
-   ;; The second ~A corresponds to the numpy include files discovered
-   ;;   in shared-objects.lisp
    "gcc ~A -I'~A' -c -Wall -Werror -fpic py4cl-utils.c && "
-   "gcc -shared -o libpy4cl-utils.so py4cl-utils.o"))
+   "gcc -shared -o libpy4cl-utils.so py4cl-utils.o")
+  "The first ~A corresponds to the *python-includes* defined below.
+The second ~A corresponds to the numpy include files discovered
+  in shared-objects.lisp
+")
 
-(defun return-value-as-list (cmd)
-  (remove ""
-          (uiop:split-string
-           (string-trim '(#\newline)
-                        (uiop:run-program cmd
-                                          :output :string
-                                          :error-output *error-output*)))
-          :test #'string=))
 
-(let ((python-version-string (second (return-value-as-list "python3 --version"))))
-  (if (uiop:version< python-version-string "3.8.0")
-      (defvar *python-ldflags* (return-value-as-list "python3-config --ldflags"))
-      (defvar *python-ldflags*
-        (return-value-as-list "python3-config --embed --ldflags"))))
+(eval-when (:compile-toplevel :load-toplevel :execute)
+
+  (defun return-value-as-list (cmd)
+    (remove ""
+            (uiop:split-string
+             (string-trim '(#\newline)
+                          (uiop:run-program cmd
+                                            :output :string
+                                            :error-output *error-output*)))
+            :test #'string=))
+
+  (let ((python-version-string
+          (second (return-value-as-list "python3 --version"))))
+    (if (uiop:version< python-version-string "3.8.0")
+        (defvar *python-ldflags*
+          (return-value-as-list "python3-config --ldflags"))
+        (defvar *python-ldflags*
+          (return-value-as-list "python3-config --embed --ldflags")))))
+
 
 (defvar *python-includes*
   (return-value-as-list "python3-config --includes"))

@@ -113,6 +113,7 @@ If the readtable case is :INVERT, it inverts the case of the name and returns it
 
 (defmethod %get-arg-list ((callable-type (eql :|numpy.ufunc|))
                           fullname lisp-package)
+  (declare (ignore callable-type))
   (let* ((n (pyslot-value (pyvalue fullname) "nin"))
          (arg-list-without-keys
            (iter (for ch in-string "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
@@ -125,11 +126,13 @@ If the readtable case is :INVERT, it inverts the case of the name and returns it
 
 (defmethod %get-arg-list ((callable-type (eql :|builtin_function_or_method|))
                           fullname lisp-package)
+  (declare (ignore callable-type lisp-package))
   `((&rest args)
     (() (apply #'pycall ,fullname args))))
 
 (defmethod %get-arg-list ((callable-type (eql :|type|))
                           fullname lisp-package)
+  (declare (ignore callable-type lisp-package))
   `((&rest args)
     (() (apply #'pycall ,fullname args))))
 
@@ -139,6 +142,7 @@ If the readtable case is :INVERT, it inverts the case of the name and returns it
 
 ;; https://stackoverflow.com/questions/2677185/how-can-i-read-a-functions-signature-including-default-argument-values
 (defmethod %get-arg-list (callable-type fullname lisp-package)
+  (declare (ignore callable-type))
   (flet ((ensure-tuple->list (object)
            (if (and (stringp object) (string= object "()"))
                nil
