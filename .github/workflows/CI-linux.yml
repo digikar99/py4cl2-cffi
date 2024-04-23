@@ -9,12 +9,7 @@ jobs:
     strategy:
       matrix:
         lisp: [sbcl, ccl, ecl]
-        os: [ubuntu-22.04, macos-14]
-        exclude:
-          - lisp: ccl
-            os: macos-14
-          - lisp: ecl
-            os: macos-14
+        os: [ubuntu-22.04]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 8
 
@@ -49,7 +44,7 @@ jobs:
 
     - name: Install python modules
       run: | # need to use sudo
-        python -m ensurepip --upgrade
+        sudo apt install python3-pip
         pip3 install numpy
         pip3 install networkx
         pip3 install matplotlib
