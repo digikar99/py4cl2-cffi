@@ -98,6 +98,11 @@ jobs:
         python3 --version
         /"$EXOTIC_DIR_PYTHON" --version
 
+    - name: Test numpy
+      run: |
+        source ./py4cl2-cffi/bin/activate
+        python3 -c 'import numpy; print(numpy.__path__[0])'
+
     - name: Compile Tests
       run: |
         source ./py4cl2-cffi/bin/activate
