@@ -27,20 +27,53 @@
     (destructuring-bind (word . rem-chars) (collect-first-word char-list)
       (cons word (break-into-words rem-chars)))))
 
+(defun upper-case-string-p (string)
+  (declare (optimize speed))
+  (every (lambda (char)
+           (or (not (alpha-char-p char))
+               (upper-case-p char)))
+         string))
+
+(defun lower-case-string-p (string)
+  (declare (optimize speed))
+  (every (lambda (char)
+           (or (not (alpha-char-p char))
+               (lower-case-p char)))
+         string))
+
 (declaim (ftype (function (string) string) lispify-name))
 (defun lispify-name (name)
-  "Converts NAME to a lisp-like name. Specifically:
+  "Converts NAME to a lisp-like name if the readtable case
+is :UPCASE or :DOWNCASE. Specifically:
   1. Replaces underscores with hyphens.
-  2. CamelCase is converted to CAMEL-CASE"
+  2. CamelCase is converted to CAMEL-CASE
+
+If the readtable case is :PRESERVE it returns the name as it is.
+
+If the readtable case is :INVERT, it inverts the case of the name and returns it."
   (let* ((words (mapcar (lambda (word)
                           (coerce word 'string))
                         (remove-if #'null
                                    (break-into-words (coerce name 'list)))))
          (prefinal-string (string-upcase (format nil "~{~A~^-~}" words))))
-    (remove-if (lambda (ch)
-                 (char= ch #\_))
-               prefinal-string
-               :end (1- (length prefinal-string)))))
+    (ecase (readtable-case *readtable*)
+      ((:upcase :downcase)
+       (remove-if (lambda (ch)
+                    (char= ch #\_))
+                  prefinal-string
+                  :end (1- (length prefinal-string))))
+      (:preserve
+       name)
+      (:invert
+       ;; What is mixed stays mixed.
+       ;; All uppercase becomes lowercase
+       ;; All lowercase becomes uppercase
+       (cond ((upper-case-string-p name)
+              (string-downcase name))
+             ((lower-case-string-p name)
+              (string-upcase name))
+             (t
+              name))))))
 
 (defun get-unique-symbol (symbol-name package-name)
   (declare (type string symbol-name))
