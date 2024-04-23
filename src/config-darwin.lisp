@@ -35,6 +35,15 @@ print(f'(:base-exec-prefix \\\"{sys.base_exec_prefix}\\\"' +
           py4cl2-cffi/config:*python-compile-command*
           (concatenate
            'string
+           "gcc ~A -c -Wall -Werror -fpic py4cl-utils.c && "
+           (format
+            nil
+            "gcc -L'~A/lib' -shared -o libpy4cl-utils.so py4cl-utils.o -lpython~A"
+            path python-version))
+
+          py4cl2-cffi/config:*python-numpy-compile-command*
+          (concatenate
+           'string
            "gcc ~A -I'~A' -c -Wall -Werror -fpic py4cl-utils.c && "
            (format
             nil
