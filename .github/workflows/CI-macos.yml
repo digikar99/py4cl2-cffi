@@ -104,6 +104,9 @@ jobs:
         source ./py4cl2-cffi/bin/activate
         python3 -c 'import numpy; print(numpy.__version__, numpy.__path__[0])'
 
+    - name: Setup upterm session
+      uses: lhotari/action-upterm@v1
+
     - name: Compile Tests
       run: |
         source ./py4cl2-cffi/bin/activate
