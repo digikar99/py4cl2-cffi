@@ -14,6 +14,11 @@
      (asdf:component-pathname (asdf:find-system "py4cl2-cffi"))
      #p"libpy4cl-utils.so"))
 
+  (defvar *numpy-utils-shared-object-path*
+    (merge-pathnames
+     (asdf:component-pathname (asdf:find-system "py4cl2-cffi"))
+     #p"libpy4cl-numpy-utils.so"))
+
   (defvar *numpy-installed-p*)
 
   (defun compile-base-utils-shared-object ()
@@ -112,6 +117,8 @@
               (load-foreign-library library :search-path search-paths))
             libraries))
     (load-foreign-library *utils-shared-object-path*)
+    (when *numpy-installed-p*
+      (load-foreign-library *numpy-utils-shared-object-path*))
     (setq *python-libraries-loaded-p* t)))
 
 #+cmucl
