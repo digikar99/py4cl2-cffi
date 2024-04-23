@@ -49,7 +49,7 @@ jobs:
 
     - name: Install python modules
       run: | # need to use sudo
-        sudo apt install python3-pip
+        python -m ensurepip --upgrade
         pip3 install numpy
         pip3 install networkx
         pip3 install matplotlib
