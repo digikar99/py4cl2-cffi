@@ -35,6 +35,7 @@
                (:file "package")
                (:file "lisp-utils")
                (:static-file "py4cl-utils.c")
+               (:static-file "py4cl-numpy-utils.c")
                (:file "shared-objects")
                (:static-file "numpy-installed-p.txt")
                (:static-file "libpy4cl-utils.so")

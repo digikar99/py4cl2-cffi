@@ -4,6 +4,7 @@
            #:*python-ignore-ldflags*
            #:*python-includes*
            #:*python-compile-command*
+           #:*python-numpy-compile-command*
            #:print-configuration
            #:shared-library-from-ldflag))
 
@@ -22,9 +23,17 @@
 (defvar *python-compile-command*
   (concatenate
    'string
-   "gcc ~A -I'~A' -c -Wall -Werror -fpic py4cl-utils.c && "
+   "gcc ~A -c -Wall -Werror -fpic py4cl-utils.c && "
    "gcc -shared -o libpy4cl-utils.so py4cl-utils.o")
-  "The first ~A corresponds to the *python-includes* defined below.
+  "~A corresponds to the *python-includes*
+")
+
+(defvar *python-numpy-compile-command*
+  (concatenate
+   'string
+   "gcc ~A -I'~A' -c -Wall -Werror -fpic py4cl-numpy-utils.c && "
+   "gcc -shared -o libpy4cl-numpy-utils.so py4cl-numpy-utils.o")
+  "The first~A corresponds to the *python-includes*
 The second ~A corresponds to the numpy include files discovered
   in shared-objects.lisp
 ")

@@ -16,7 +16,19 @@
 
   (defvar *numpy-installed-p*)
 
-  (defun compile-utils-shared-object ()
+  (defun compile-base-utils-shared-object ()
+    (uiop:with-current-directory
+        ((asdf:component-pathname (asdf:find-system "py4cl2-cffi")))
+      (let* ((program-string
+               (format nil
+                       *python-compile-command*
+                       (format nil "~{~a~^ ~}" *python-includes*))))
+        (format t "~&~A~%" program-string)
+        (uiop:run-program program-string
+                          :error-output *error-output*
+                          :output *standard-output*))))
+
+  (defun may-be-compile-numpy-utils-shared-object ()
     (uiop:with-current-directory ((asdf:component-pathname (asdf:find-system "py4cl2-cffi")))
       (multiple-value-bind (numpy-path error-output error-status)
           (uiop:run-program
@@ -27,22 +39,20 @@
                  (zerop error-status))
                (program-string
                  (format nil
-                         *python-compile-command*
+                         *python-numpy-compile-command*
                          (format nil "~{~a~^ ~}" *python-includes*)
-                         (if numpy-installed-p
-                             (format nil "~A/core/include/"
-                                     (string-trim (list #\newline) numpy-path))
-                             (namestring
-                              (asdf:component-pathname
-                               (asdf:find-system "py4cl2-cffi")))))))
+                         (format nil "~A/core/include/"
+                                 (string-trim (list #\newline) numpy-path)))))
           (setq *numpy-installed-p* numpy-installed-p)
-          (format t "~&~A~%" program-string)
-          (uiop:run-program program-string
-                            :error-output *error-output*
-                            :output *standard-output*))))))
+          (when numpy-installed-p
+            (format t "~&~A~%" program-string)
+            (uiop:run-program program-string
+                              :error-output *error-output*
+                              :output *standard-output*)))))))
 
 (eval-when (:compile-toplevel)
-  (compile-utils-shared-object))
+  (compile-base-utils-shared-object)
+  (may-be-compile-numpy-utils-shared-object))
 
 (eval-when (:compile-toplevel :load-toplevel)
   (let* ((numpy-installed-p-file
