@@ -4,12 +4,18 @@ jobs:
 
   test:
 
-    name: ${{ matrix.lisp }}
+    name: ${{ matrix.lisp }}, ${{ matrix.os }}
 
     strategy:
       matrix:
         lisp: [sbcl, ccl, ecl]
-    runs-on: ubuntu-22.04
+        os: [ubuntu-22.04, macos-14]
+        exclude:
+          - lisp: ccl
+            os: macos-14
+          - lisp: ecl
+            os: macos-14
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 8
 
     continue-on-error: true
@@ -28,6 +34,7 @@ jobs:
     - name: Download implementation
       env:
         LISP: ${{ matrix.lisp }}
+        OS: ${{ matrix.os }}
       run: |
         pwd
         ls -l
