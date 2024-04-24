@@ -33,6 +33,7 @@ jobs:
       run: |
         pwd
         ls -l
+        export IGNORE_BACKTRACE=1
         bash <(curl -s https://raw.githubusercontent.com/digikar99/lisp-travis-lite/master/run.sh)
 
     - name: Test without numpy

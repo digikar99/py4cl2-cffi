@@ -7,5 +7,6 @@
 (print (ql:where-is-system "py4cl2-cffi"))
 (ql:quickload "trivial-backtrace")
 (format t "~%TRIVIAL-BACKTRACE loaded.~%")
+(force-output)
 (ql:quickload "py4cl2-cffi-tests")
 (uiop:quit 0)
