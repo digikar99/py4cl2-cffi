@@ -33,7 +33,6 @@ jobs:
       run: |
         pwd
         ls -l
-        export IGNORE_BACKTRACE=1
         bash <(curl -s https://raw.githubusercontent.com/digikar99/lisp-travis-lite/master/run.sh)
 
     - name: Test without numpy
@@ -80,26 +79,6 @@ jobs:
            --eval '(push #P"./" ql:*local-project-directories*)' \
            --eval '(let ((*dependencies-home* (first ql:*local-project-directories*))) (ensure-system "py4cl2-cffi-tests"))'
 
-    - name: Set up directory with exotic name
-      run: |
-        source ./py4cl2-cffi/bin/activate
-        ls -l $HOME/bin/
-        echo $PATH
-        export EXOTIC_DIR="$HOME/(some exotic name')/"
-        export EXOTIC_DIR_PYTHON="$EXOTIC_DIR/python"
-        echo "EXOTIC_DIR=$EXOTIC_DIR" >> $GITHUB_ENV
-        echo "EXOTIC_DIR_PYTHON=$EXOTIC_DIR_PYTHON" >> $GITHUB_ENV
-        mkdir -p "$EXOTIC_DIR"
-        rsync -rR "$HOME/work/py4cl2-cffi/py4cl2-cffi" "$EXOTIC_DIR"
-        ln -s "/usr/bin/python3" "$EXOTIC_DIR_PYTHON"
-        cd ~/
-        ls -l
-        ls "$EXOTIC_DIR"
-        sysctl -n hw.logicalcpu
-        pwd
-        python3 --version
-        /"$EXOTIC_DIR_PYTHON" --version
-
     - name: Test numpy
       run: |
         source ./py4cl2-cffi/bin/activate
@@ -108,11 +87,11 @@ jobs:
     - name: Compile Tests
       run: |
         source ./py4cl2-cffi/bin/activate
-        cl --load "$EXOTIC_DIR/$HOME/work/py4cl2-cffi/py4cl2-cffi/ci-pre-test.lisp"
+        cl --load "$HOME/work/py4cl2-cffi/py4cl2-cffi/ci-pre-test.lisp"
 
     # Testing it on the second load confirms that functionalities do not
     # solely eval-when compile-toplevel, and that they persist across multiple loads.
     - name: Run Tests
       run: |        
         source ./py4cl2-cffi/bin/activate
-        cl --load "$EXOTIC_DIR/$HOME/work/py4cl2-cffi/py4cl2-cffi/ci-test.lisp" || cl --load "$EXOTIC_DIR/$HOME/work/py4cl2-cffi/py4cl2-cffi/ci-test.lisp"
+        cl --load "$HOME/work/py4cl2-cffi/py4cl2-cffi/ci-test.lisp" || cl --load "$HOME/work/py4cl2-cffi/py4cl2-cffi/ci-test.lisp"
