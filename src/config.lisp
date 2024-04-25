@@ -5,6 +5,8 @@
            #:*python-includes*
            #:*python-compile-command*
            #:*python-numpy-compile-command*
+           #:*python-executable-path*
+           #:*python-site-packages-path*
            #:print-configuration
            #:shared-library-from-ldflag))
 
@@ -68,6 +70,21 @@ of the utility shared object/library that bridges the python C-API with lisp."
   (format t "Python ldflags: ~{~A~^ ~}~%Python includes: ~{~A~^ ~}~%"
           *python-ldflags*
           *python-includes*))
+
+(defvar *python-executable-path*
+  (first (return-value-as-list "which python"))
+  "The path to python executable. This will be used to set sys.path
+in cases (such as venv) when python3-config is not available.
+
+FIXME: We should actually use pyvenv.cfg to set sys.path.")
+
+(defvar *python-site-packages-path*
+  (first
+   (return-value-as-list
+    (format nil "find '~A' -name 'site-packages'"
+            (namestring
+             (uiop:pathname-parent-directory-pathname
+              *python-executable-path*))))))
 
 (defvar *python-ignore-ldflags*
   ;; python3-config of older versions of python (such as python3.6) includes

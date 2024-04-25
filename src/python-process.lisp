@@ -226,6 +226,9 @@ will be executed by PYSTART.")
       (warn "Python GIL was not released from the main thread. This means on implementations (like SBCL) that call lisp object finalizers from a separate thread may never get a chance to run, and thus python foreign objects associated with PYOBJECT-WRAPPER
 can lead to memory leak.")))
   (import-module "sys")
+  (when *python-site-packages-path*
+    (raw-pyexec (format nil "sys.path.append('~A')"
+                        *python-site-packages-path*)))
   (import-module "traceback")
   (when *numpy-installed-p*
     (float-features:with-float-traps-masked (:overflow :invalid)
