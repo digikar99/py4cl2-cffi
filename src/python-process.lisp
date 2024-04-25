@@ -228,6 +228,7 @@ can lead to memory leak.")))
   (import-module "sys")
   (when *python-site-packages-path*
     (print *python-site-packages-path*)
+    (print (find #\newline *python-site-packages-path* :test #'char=))
     (terpri)
     (force-output)
     (raw-pyexec (format nil "sys.path.append('~A')"
