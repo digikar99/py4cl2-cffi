@@ -49,7 +49,8 @@ The second ~A corresponds to the numpy include files discovered
              (string-trim '(#\newline)
                           (uiop:run-program cmd
                                             :output :string
-                                            :error-output *error-output*)))
+                                            :error-output *error-output*))
+             :separator '(#\newline #\tab #\space))
             :test #'string=))
 
   (let ((python-version-string
