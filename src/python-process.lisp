@@ -227,6 +227,9 @@ will be executed by PYSTART.")
 can lead to memory leak.")))
   (import-module "sys")
   (when *python-site-packages-path*
+    (print *python-site-packages-path*)
+    (terpri)
+    (force-output)
     (raw-pyexec (format nil "sys.path.append('~A')"
                         *python-site-packages-path*)))
   (import-module "traceback")
