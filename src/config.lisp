@@ -45,12 +45,14 @@ The second ~A corresponds to the numpy include files discovered
 
   (defun return-value-as-list (cmd)
     (remove ""
-            (uiop:split-string
-             (string-trim '(#\newline)
-                          (uiop:run-program cmd
-                                            :output :string
-                                            :error-output *error-output*))
-             :separator '(#\newline #\tab #\space))
+            (mapcar (lambda (value)
+                      (string-trim '(#\newline) value))
+                    (print
+                     (uiop:split-string
+                      (uiop:run-program cmd
+                                        :output :string
+                                        :error-output *error-output*)
+                      :separator '(#\newline #\tab #\space))))
             :test #'string=))
 
   (let ((python-version-string
