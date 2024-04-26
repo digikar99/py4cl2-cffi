@@ -228,8 +228,8 @@ can lead to memory leak.")))
   (import-module "sys")
   (etypecase *python-site-packages-path*
     (list
-     (raw-pyexec (format nil "sys.path += ~A"
-                         (py-repr *python-site-packages-path*))))
+     (raw-pyexec (format nil "sys.path += [~{\"~A\"~^, ~}]"
+                         *python-site-packages-path*)))
     (string
      (raw-pyexec (format nil "sys.path.append('~A')"
                          *python-site-packages-path*))))
