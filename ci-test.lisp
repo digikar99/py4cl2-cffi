@@ -1,5 +1,5 @@
 (in-package :cl-user)
-(push :travis *features*)
+(push :ci *features*)
 (push (print (pathname (uiop:getenv "EXOTIC_DIR")))
       ql:*local-project-directories*)
 (push #P"~/" ql:*local-project-directories*)
