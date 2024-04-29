@@ -99,18 +99,16 @@ the utility shared object/library.")
 (defun %shared-library-from-ldflag (ldflag)
   "Given a ldflag, for example, \"-lpython3.10\", return the shared library name
 corresponding to it. In this case, on linux, it will return libpython3.10.so"
-  (shared-library-from-ldflag ldflag
-                              (intern (string-upcase (software-type))
-                                      :keyword)))
+  (shared-library-from-ldflag ldflag (uiop:operating-system)))
 
-(defgeneric shared-library-from-ldflag (ldflag software-type)
-  (:documentation "This is a generic function which takes in two arguments. The first argument is an ldflag (like `-lpython3.10`) and the second argument is the `(software-type)` as a keyword to be used for specialization on the users systems. Each method should return the shared library name associated with that ldflag and software type. For example, when `(intern (string-upcase (software-type)) :keyword)` is `:linux`, the relevant method should return `python3.10.so`"))
+(defgeneric shared-library-from-ldflag (ldflag operating-system)
+  (:documentation "This is a generic function which takes in two arguments. The first argument is an ldflag (like `-lpython3.10`) and the second argument is the `(uiop:operating-system)` as a keyword to be used for specialization on the users systems. Each method should return the shared library name associated with that ldflag and software type. For example, when `(uiop:operating-system)` is `:linux`, the relevant method should return `python3.10.so`"))
 
-(defmethod shared-library-from-ldflag (ldflag (software-type (eql :linux)))
+(defmethod shared-library-from-ldflag (ldflag (operating-system (eql :linux)))
   (format nil "lib~A.so" (subseq ldflag 2)))
 
-(defmethod shared-library-from-ldflag (ldflag (software-type (eql :darwin)))
+(defmethod shared-library-from-ldflag (ldflag (operating-system (eql :macosx)))
   (format nil "lib~A.dylib" (subseq ldflag 2)))
 
-(defmethod shared-library-from-ldflag (ldflag (software-type (eql :windows)))
+(defmethod shared-library-from-ldflag (ldflag (operating-system (eql :win)))
   (format nil "lib~A.dll" (subseq ldflag 2)))
