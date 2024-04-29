@@ -235,8 +235,9 @@ can lead to memory leak.")))
                          *python-site-packages-path*))))
   (import-module "traceback")
   (when *numpy-installed-p*
-    (float-features:with-float-traps-masked (:overflow :invalid)
-      (ignore-some-conditions (floating-point-overflow floating-point-invalid-operation)
+    (float-features:with-float-traps-masked t
+      (ignore-some-conditions
+          (floating-point-overflow floating-point-invalid-operation)
         (handler-case
             (import-module "numpy")
           (error (e)
