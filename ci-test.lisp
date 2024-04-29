@@ -1,7 +1,5 @@
 (in-package :cl-user)
 (push :ci *features*)
-(push (print (pathname (uiop:getenv "EXOTIC_DIR")))
-      ql:*local-project-directories*)
 (push #P"~/" ql:*local-project-directories*)
 (ql:quickload "py4cl2-cffi-tests")
 (py4cl2-cffi/config:print-configuration)
