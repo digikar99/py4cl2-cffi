@@ -9,7 +9,7 @@ jobs:
     strategy:
       matrix:
         lisp: [sbcl]
-        os: [macos-13, macos-14]
+        os: [macos-14]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 3
 
@@ -30,8 +30,6 @@ jobs:
       env:
         LISP: ${{ matrix.lisp }}
         OS: ${{ matrix.os }}
-        SBCL_DYNAMIC_SPACE_SIZE: 6144
-        IGNORE_BACKTRACE: 1
       run: |
         pwd
         ls -l
