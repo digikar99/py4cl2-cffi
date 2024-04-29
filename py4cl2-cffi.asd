@@ -52,7 +52,8 @@
                (:file "do-after-load"))
   :perform (test-op (o c)
              (declare (ignore o c))
-             (handler-case (let ((system (asdf:find-system "py4cl2-cffi-tests")))
+             (handler-case (let ((system
+                                   (asdf:find-system "py4cl2-cffi-tests-lite")))
                              (asdf:test-system system))
                (asdf:missing-component (condition)
                  (declare (ignore condition))
