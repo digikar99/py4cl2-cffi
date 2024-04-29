@@ -47,7 +47,7 @@ print(f'(:base-exec-prefix \\\"{sys.base_exec_prefix}\\\"' +
            "gcc ~A -I'~A' -c -Wall -Werror -fpic py4cl-numpy-utils.c && "
            (format
             nil
-            "gcc -L'~A/lib' -shared -o libpy4cl-numpy-utils.so py4cl-numpy-utils.o -lpython~A"
+            "gcc -L'~A/lib' -framework CoreFoundation -shared -o libpy4cl-numpy-utils.so py4cl-numpy-utils.o -lpython~A"
             path python-version)))))
 
 
