@@ -30,6 +30,7 @@ jobs:
       env:
         LISP: ${{ matrix.lisp }}
         OS: ${{ matrix.os }}
+        SBCL_DYNAMIC_SPACE_SIZE: 6144
       run: |
         pwd
         ls -l
