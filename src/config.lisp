@@ -83,10 +83,7 @@ FIXME: We should actually use pyvenv.cfg to set sys.path.")
 
 (defvar *python-site-packages-path*
   (return-value-as-list
-   (format nil "find '~A' -name 'site-packages'"
-           (namestring
-            (uiop:pathname-parent-directory-pathname
-             *python-executable-path*)))))
+   "python -c 'import sys; print(\"\\n\".join(sys.path))'"))
 
 (defvar *python-ignore-ldflags*
   ;; python3-config of older versions of python (such as python3.6) includes
