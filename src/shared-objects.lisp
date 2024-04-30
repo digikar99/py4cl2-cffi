@@ -48,7 +48,6 @@
                          (format nil "~{~a~^ ~}" *python-includes*)
                          (format nil "~A/core/include/"
                                  (string-trim (list #\newline) numpy-path)))))
-          (setq *numpy-installed-p* numpy-installed-p)
           (when numpy-installed-p
             (format t "~&~A~%" program-string)
             (uiop:run-program program-string
@@ -56,14 +55,13 @@
                               :output *standard-output*)))))))
 
 (eval-when (:compile-toplevel)
-  (compile-base-utils-shared-object)
-  (may-be-compile-numpy-utils-shared-object))
+  (compile-base-utils-shared-object))
 
 (eval-when (:compile-toplevel :load-toplevel)
   (let* ((numpy-installed-p-file
            (asdf:component-pathname
             (asdf:find-component
-             "py4cl2-cffi" "numpy-installed-p"))))
+             "py4cl2-cffi" "numpy-installed-p.txt"))))
     (multiple-value-bind (numpy-installed-p-old error)
           (ignore-errors
            (with-standard-io-syntax
@@ -74,15 +72,16 @@
                                                    :ignore-error-status t))))
              (numpy-installed-p-new
                (with-standard-io-syntax
-                 (write-to-string `(quote ,numpy-installed-p)))))
+                 (write-to-string numpy-installed-p))))
+        (setq *numpy-installed-p* numpy-installed-p)
         (when (or error
                   (string/= numpy-installed-p-old
                             numpy-installed-p-new))
           (with-standard-io-syntax
             (write-string-into-file numpy-installed-p-new numpy-installed-p-file
                                     :if-exists :supersede
-                                    :if-does-not-exist :create)))
-        (setq *numpy-installed-p* numpy-installed-p)))))
+                                    :if-does-not-exist :create))
+          (may-be-compile-numpy-utils-shared-object))))))
 
 (defvar *python-libraries-loaded-p* nil)
 (defun load-python-and-libraries ()

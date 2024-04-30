@@ -35,7 +35,7 @@
                (:file "lisp-utils")
                (:static-file "py4cl-utils.c")
                (:static-file "py4cl-numpy-utils.c")
-               (:file "numpy-installed-p")
+               (:static-file "numpy-installed-p.txt")
                (:file "shared-objects")
                (:file "gil-gc")
                (:file "numpy")
