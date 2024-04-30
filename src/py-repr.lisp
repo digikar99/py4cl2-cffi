@@ -7,16 +7,19 @@
   (cond ((float-features:float-nan-p float)
          (etypecase float
            (single-float "numpy.float32('nan')")
-           (double-float "numpy.float64('nan')")))
+           (double-float "numpy.float64('nan')")
+           (long-float "numpy.longdouble('nan')")))
         ((float-features:float-infinity-p float)
          (cond ((< 0 float)
                 (etypecase float
                   (single-float "numpy.float32('inf')")
-                  (double-float "numpy.float64('inf')")))
+                  (double-float "numpy.float64('inf')")
+                  (long-float "numpy.longdouble('inf')")))
                ((> 0 float)
                 (etypecase float
                   (single-float "-numpy.float32('inf')")
-                  (double-float "-numpy.float64('inf')")))))
+                  (double-float "-numpy.float64('inf')")
+                  (long-float "-numpy.longdouble('inf')")))))
         (t
          (etypecase float
            (single-float (format nil "numpy.float32(~A)" float))
@@ -24,6 +27,12 @@
                                  (let* ((repr (write-to-string float))
                                         (dpos (or (position #\d repr)
                                                   (position #\D repr))))
+                                   (when dpos (setf (char repr dpos) #\e))
+                                   repr)))
+           (long-float (format nil "numpy.longdouble(~A)"
+                                 (let* ((repr (write-to-string float))
+                                        (dpos (or (position #\l repr)
+                                                  (position #\L repr))))
                                    (when dpos (setf (char repr dpos) #\e))
                                    repr)))))))
 
