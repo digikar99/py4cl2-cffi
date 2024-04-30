@@ -43,9 +43,9 @@ jobs:
     # We avoid caching the apt and python modules; need to deal with recursive dependencies
 
     - name: Install python modules
-      run: | # need to use sudo
+      run: |
         brew install python@3.12
-        python3 -m ensurepip --upgrade
+        python -m ensurepip --upgrade
         python3 -m venv ./py4cl2-cffi/
         source ./py4cl2-cffi/bin/activate
         pip3 install numpy
