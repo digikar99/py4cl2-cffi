@@ -45,7 +45,7 @@ jobs:
     - name: Install python modules
       run: | # need to use sudo
         brew install python@3.12
-        python -m ensurepip --upgrade
+        python3 -m ensurepip --upgrade
         python3 -m venv ./py4cl2-cffi/
         source ./py4cl2-cffi/bin/activate
         brew install numpy
