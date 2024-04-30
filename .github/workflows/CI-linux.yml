@@ -45,7 +45,6 @@ jobs:
     - name: Install python modules
       run: | # need to use sudo
         sudo apt install python3-pip
-        python3 -m ensurepip --upgrade
         python3 -m venv ./py4cl2-cffi/
         source ./py4cl2-cffi/bin/activate
         pip3 install numpy
