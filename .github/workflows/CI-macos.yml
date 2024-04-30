@@ -48,7 +48,7 @@ jobs:
         python3 -m ensurepip --upgrade
         python3 -m venv ./py4cl2-cffi/
         source ./py4cl2-cffi/bin/activate
-        brew install numpy
+        pip3 install numpy
         pip3 install networkx
         pip3 install matplotlib
 
