@@ -34,7 +34,8 @@
                           :output *standard-output*))))
 
   (defun may-be-compile-numpy-utils-shared-object ()
-    (uiop:with-current-directory ((asdf:component-pathname (asdf:find-system "py4cl2-cffi")))
+    (uiop:with-current-directory
+        ((asdf:component-pathname (asdf:find-system "py4cl2-cffi")))
       (multiple-value-bind (numpy-path error-output error-status)
           (uiop:run-program
            "cd ~/; python3 -c 'import numpy; print(numpy.__path__[0])'"
@@ -81,6 +82,8 @@
             (write-string-into-file numpy-installed-p-new numpy-installed-p-file
                                     :if-exists :supersede
                                     :if-does-not-exist :create))
+          ;; If numpy changed, then probably, our entire environment changed.
+          (compile-base-utils-shared-object)
           (may-be-compile-numpy-utils-shared-object))))))
 
 (defvar *python-libraries-loaded-p* nil)
