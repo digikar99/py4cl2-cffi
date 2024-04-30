@@ -74,7 +74,7 @@
                                                    :ignore-error-status t))))
              (numpy-installed-p-new
                (with-standard-io-syntax
-                 (write-to-string `(quote ,numpy-installed-p)))))
+                 (write-to-string numpy-installed-p))))
         (when (or error
                   (string/= numpy-installed-p-old
                             numpy-installed-p-new))
