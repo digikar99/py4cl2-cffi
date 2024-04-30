@@ -43,17 +43,17 @@ const char* PyArray_element_type_from_array(PyArrayObject* arr){
   PyArray_Descr* descr = PyArray_DESCR(arr);
   int typenum = descr->type_num;
   switch(typenum){
-  case NPY_FLOAT32: return "CL:SINGLE-FLOAT";
-  case NPY_FLOAT64: return "CL:DOUBLE-FLOAT";
-  case NPY_INT64: return "(CL:SIGNED-BYTE 64)";
-  case NPY_INT32: return "(CL:SIGNED-BYTE 32)";
-  case NPY_INT16: return "(CL:SIGNED-BYTE 16)";
-  case NPY_INT8:  return "(CL:SIGNED-BYTE 08)";
-  case NPY_UINT64: return "(CL:UNSIGNED-BYTE 64)";
-  case NPY_UINT32: return "(CL:UNSIGNED-BYTE 32)";
-  case NPY_UINT16: return "(CL:UNSIGNED-BYTE 16)";
-  case NPY_UINT8:  return "(CL:UNSIGNED-BYTE 08)";
-  case NPY_OBJECT: return "CL:T";
+  case NPY_FLOAT32: return "cl:single-float";
+  case NPY_FLOAT64: return "cl:double-float";
+  case NPY_INT64: return "(cl:signed-byte 64)";
+  case NPY_INT32: return "(cl:signed-byte 32)";
+  case NPY_INT16: return "(cl:signed-byte 16)";
+  case NPY_INT8:  return "(cl:signed-byte 08)";
+  case NPY_UINT64: return "(cl:unsigned-byte 64)";
+  case NPY_UINT32: return "(cl:unsigned-byte 32)";
+  case NPY_UINT16: return "(cl:unsigned-byte 16)";
+  case NPY_UINT8:  return "(cl:unsigned-byte 08)";
+  case NPY_OBJECT: return "cl:t";
   default: return "";
   }
 };

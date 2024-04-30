@@ -58,6 +58,7 @@ If the readtable case is :INVERT, it inverts the case of the name and returns it
          (prefinal-string (string-upcase (format nil "~{~A~^-~}" words))))
     (ecase (readtable-case *readtable*)
       ((:upcase :downcase)
+       ;; FIXME: This may not work correctly with :downcase
        (remove-if (lambda (ch)
                     (char= ch #\_))
                   prefinal-string
