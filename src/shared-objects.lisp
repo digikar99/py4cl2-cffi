@@ -12,12 +12,12 @@
   (defvar *utils-shared-object-path*
     (merge-pathnames
      (asdf:component-pathname (asdf:find-system "py4cl2-cffi"))
-     #p"libpy4cl-utils.so"))
+     (pathname (%shared-library-from-ldflag "-lpy4cl-utils"))))
 
   (defvar *numpy-utils-shared-object-path*
     (merge-pathnames
      (asdf:component-pathname (asdf:find-system "py4cl2-cffi"))
-     #p"libpy4cl-numpy-utils.so"))
+     (pathname (%shared-library-from-ldflag "-lpy4cl-numpy-utils"))))
 
   (defvar *numpy-installed-p*)
 
