@@ -29,7 +29,7 @@
                                                   (position #\D repr))))
                                    (when dpos (setf (char repr dpos) #\e))
                                    repr)))
-           (long-float (format nil "numpy.longdouble(~A)"
+           (long-float (format nil "numpy.longdouble(\"~A\")"
                                  (let* ((repr (write-to-string float))
                                         (dpos (or (position #\l repr)
                                                   (position #\L repr))))
