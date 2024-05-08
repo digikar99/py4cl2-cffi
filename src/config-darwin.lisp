@@ -11,7 +11,7 @@
   "The path to the Python install or where the virtual environment originates."
   (read-from-string
    (with-output-to-string (stream)
-     (uiop:run-program "python -c \"
+     (uiop:run-program "python3 -c \"
 import sys
 print(f'(:base-exec-prefix \\\"{sys.base_exec_prefix}\\\"' +
       f' :exec-prefix \\\"{sys.exec_prefix}\\\")')\""
