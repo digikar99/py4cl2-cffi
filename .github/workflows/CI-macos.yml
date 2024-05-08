@@ -9,7 +9,7 @@ jobs:
     strategy:
       matrix:
         lisp: [sbcl]
-        os: [macos-14, macos-13]
+        os: [macos-13]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 3
 

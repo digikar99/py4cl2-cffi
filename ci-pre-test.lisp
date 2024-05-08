@@ -3,7 +3,7 @@
 ;;                       :replace t
 ;;                       :prompt nil)
 (push :ci *features*)
-(push #P"~/" ql:*local-project-directories*)
+(push #P"./" ql:*local-project-directories*)
 (print (ql:where-is-system "py4cl2-cffi"))
 (force-output)
 (defmacro print-and-call (form)

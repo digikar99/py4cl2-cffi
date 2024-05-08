@@ -3,7 +3,7 @@
 (when (eq :linux (uiop:operating-system))
   (push (print (pathname (uiop:getenv "EXOTIC_DIR")))
         ql:*local-project-directories*))
-(push #P"~/" ql:*local-project-directories*)
+(push #P"./" ql:*local-project-directories*)
 (ql:quickload "py4cl2-cffi-tests")
 (py4cl2-cffi/config:print-configuration)
 (let ((report (py4cl2-cffi-tests:run)))
