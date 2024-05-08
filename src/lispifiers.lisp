@@ -129,6 +129,12 @@
   (def "numpy.int16"  :int16)
   (def "numpy.int8"   :int8))
 
+#+ecl
+(define-lispifier "numpy.longdouble" (o)
+  (let ((o (ffi:make-pointer (pointer-address (inc-pointer o 16))
+                             :long-double)))
+    (ffi:deref-pointer o :long-double)))
+
 (defun array-element-type-num-bytes (array)
   (eswitch ((array-element-type array) :test #'type=)
     ('single-float 4)
