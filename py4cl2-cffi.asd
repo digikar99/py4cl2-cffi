@@ -70,6 +70,7 @@ as asdf was unable to find \"py4cl2-cffi-tests\".")))))
   :serial t
   :components ((:file "package")
                (:file "main-thread")
+               (:file "wrapper-core")
                (:file "single-threaded-wrappers")
                (:file "pystart")
                (:file "import-export")))
