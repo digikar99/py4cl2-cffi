@@ -3,6 +3,7 @@
 ;;                       :replace t
 ;;                       :prompt nil)
 (push :ci *features*)
+(print *features*)
 (push #P"./" ql:*local-project-directories*)
 (print (ql:where-is-system "py4cl2-cffi"))
 (force-output)
