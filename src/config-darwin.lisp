@@ -21,7 +21,7 @@ print(f'(:base-exec-prefix \\\"{sys.base_exec_prefix}\\\"' +
 (defun configure ()
   (let* ((ps (python-system))
          (prefix (getf ps :base-exec-prefix))
-         (path (format nil "~A/" prefix))
+         (path (format nil "~A" prefix))
          (search-path (getf ps :exec-prefix))
          (python-version (ppcre:register-groups-bind (version)
                              ("^.+\/(.+)?$" prefix :sharedp t)
@@ -38,8 +38,8 @@ print(f'(:base-exec-prefix \\\"{sys.base_exec_prefix}\\\"' +
            "gcc ~A -c -Wall -Werror -fpic py4cl-utils.c && "
            (format
             nil
-            "gcc -L'~A/lib-dynload' -framework CoreFoundation -dynamiclib -o libpy4cl-utils.dylib py4cl-utils.o -lpython~A"
-            path python-version))
+            "gcc -L'~A/lib-dynload' -L'~A/lib' -framework CoreFoundation -dynamiclib -o libpy4cl-utils.dylib py4cl-utils.o -lpython~A"
+            path path python-version))
 
           py4cl2-cffi/config:*python-numpy-compile-command*
           (concatenate
@@ -47,8 +47,8 @@ print(f'(:base-exec-prefix \\\"{sys.base_exec_prefix}\\\"' +
            "gcc ~A -I'~A' -c -Wall -Werror -fpic py4cl-numpy-utils.c && "
            (format
             nil
-            "gcc -L'~A/lib-dynload' -framework CoreFoundation -dynamiclib -o libpy4cl-numpy-utils.dylib py4cl-numpy-utils.o -lpython~A"
-            path python-version)))))
+            "gcc -L'~A/lib-dynload' -L'~A/lib' -framework CoreFoundation -dynamiclib -o libpy4cl-numpy-utils.dylib py4cl-numpy-utils.o -lpython~A"
+            path path python-version)))))
 
 
 
