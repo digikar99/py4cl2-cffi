@@ -38,7 +38,7 @@ jobs:
     - name: Test without numpy
       run: |
         ls
-        cl --eval '(push #P"./" ql:*local-project-directories*)' --eval '(ql:quickload "py4cl2-cffi")' --eval '(assert (= 5 (py4cl2-cffi:pyeval 5)))' --eval '(print py4cl2-cffi:*internal-features*)'
+        cl --eval '(push #P"./" ql:*local-project-directories*)' --eval '(ql:quickload "py4cl2-cffi")' --eval '(print cl:*features*)' --eval '(assert (= 5 (py4cl2-cffi:pyeval 5)))' --eval '(print py4cl2-cffi:*internal-features*)'
 
     # We avoid caching the apt and python modules; need to deal with recursive dependencies
 
