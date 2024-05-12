@@ -4,42 +4,48 @@
   (:documentation "Configures macOS operating systems.")
   (:use #:cl
         #:cl-ppcre
-        :py4cl2-cffi/config))
+        #:py4cl2-cffi/config)
+  (:import-from #:py4cl2-cffi/config
+                #:return-value-as-list))
 (in-package #:py4cl2-cffi/config-darwin)
 
 (defun python-system ()
   "The path to the Python install or where the virtual environment originates."
-  (read-from-string
-   (with-output-to-string (stream)
-     (uiop:run-program "python -c \"
+  (values-list (return-value-as-list "python3 -c \"
 import sys
-print(f'(:base-exec-prefix \\\"{sys.base_exec_prefix}\\\"' +
-      f' :exec-prefix \\\"{sys.exec_prefix}\\\")')\""
-                       :output stream)
-     stream)))
+print(sys.base_exec_prefix)
+print(sys.exec_prefix)\"")))
 
 (defun configure ()
-  (let* ((ps (python-system))
-         (prefix (getf ps :base-exec-prefix))
-         (path (format nil "~A/" prefix))
-         (search-path (getf ps :exec-prefix))
-         (python-version (ppcre:register-groups-bind (version)
-                             ("^.+\/(.+)?$" prefix :sharedp t)
-                           version)))
-    (setq py4cl2-cffi/config:*python-ldflags*
-          (list (format nil "-L'~A' -L'lib/~A' -l'~A'"
-                        (make-pathname :name search-path)
-                        path
-                        (format nil "python~A" python-version)))
+  (multiple-value-bind (base-exec-prefix exec-prefix)
+      (python-system)
+    (let* ((python-version (ppcre:register-groups-bind (version)
+                               ("^.+\/(.+)?$" base-exec-prefix :sharedp t)
+                             version)))
+      (setq py4cl2-cffi/config:*python-ldflags*
+            (list (format nil "-L'~A' -L'lib/~A' -l'~A'"
+                          exec-prefix
+                          base-exec-prefix
+                          (format nil "python~A" python-version)))
 
-          py4cl2-cffi/config:*python-compile-command*
-          (concatenate
-           'string
-           "gcc ~A -I'~A' -c -Wall -Werror -fpic py4cl-utils.c && "
-           (format
-            nil
-            "gcc -L'~A/lib' -shared -o libpy4cl-utils.so py4cl-utils.o -lpython~A"
-            path python-version)))))
+            py4cl2-cffi/config:*python-compile-command*
+            (concatenate
+             'string
+             "gcc ~A -c -Wall -Werror -fpic py4cl-utils.c && "
+             (format
+              nil
+              "gcc -L'~A/lib-dynload' -L'~A/lib' -framework CoreFoundation -dynamiclib -o libpy4cl-utils.dylib py4cl-utils.o -lpython~A"
+              base-exec-prefix base-exec-prefix python-version))
+
+            py4cl2-cffi/config:*python-numpy-compile-command*
+            (concatenate
+             'string
+             "gcc ~A -I'~A' -c -Wall -Werror -fpic py4cl-numpy-utils.c && "
+             (format
+              nil
+              "gcc -L'~A/lib-dynload' -L'~A/lib' -framework CoreFoundation -dynamiclib -o libpy4cl-numpy-utils.dylib py4cl-numpy-utils.o -lpython~A"
+              base-exec-prefix base-exec-prefix python-version))))))
+
 
 
 ;; One possibility is we avoid checking (software-type) or (uiop:operating-system)
