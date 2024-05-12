@@ -22,12 +22,16 @@
                "uiop"
                "alexandria"
                "trivial-garbage"
+               "trivial-features"
                "optima"
                "iterate"
                "float-features"
                "parse-number"
                "py4cl2-cffi/config"
-               (:feature :darwin "py4cl2-cffi/config-darwin")
+               ;; Certain systems like Allegro CL 11 on M* Mac do not seem to
+               ;; load config-darwin with the :darwin feature. We rely on
+               ;; TRIVIAL-FEATURES to add the :macosx feature.
+               (:feature :macosx "py4cl2-cffi/config-darwin")
                "swank")
   :serial t
   :components ((:static-file "py4cl.py")
