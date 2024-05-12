@@ -61,3 +61,7 @@
                       :format-arguments ,format-arguments)
               `(error 'pyerror))
          ,pointer)))
+
+(defun condition-backtrace (condition)
+  (with-output-to-string (s)
+    (uiop:print-condition-backtrace condition :stream s)))

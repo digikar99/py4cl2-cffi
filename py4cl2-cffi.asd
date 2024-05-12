@@ -28,7 +28,6 @@
                "parse-number"
                "py4cl2-cffi/config"
                (:feature :darwin "py4cl2-cffi/config-darwin")
-               "trivial-backtrace"
                "swank")
   :serial t
   :components ((:static-file "py4cl.py")

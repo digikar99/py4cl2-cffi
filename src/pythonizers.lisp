@@ -212,7 +212,9 @@ takes place."))
     (error (c)
       (pyforeign-funcall "PyErr_SetString"
                          :pointer (pytype "Exception")
-                         :string (format nil "An error occured during lisp callback.~%~%~A~%" (trivial-backtrace:print-backtrace c :output nil)))
+                         :string
+                         (format nil "An error occured during lisp callback.~%~%~A~%"
+                                 (condition-backtrace c)))
       (null-pointer))))
 
 (defcvar ("setattr_ptr" *setattr-ptr*) :pointer)
@@ -222,7 +224,9 @@ takes place."))
     (error (c)
       (pyforeign-funcall "PyErr_SetString"
                          :pointer (pytype "Exception")
-                         :string (format nil "An error occured during lisp callback.~%~%~A~%" (trivial-backtrace:print-backtrace c :output nil)))))
+                         :string
+                         (format nil "An error occured during lisp callback.~%~%~A~%"
+                                 (condition-backtrace c)))))
   (null-pointer))
 
 (defcvar ("lisp_callback_fn_ptr" *lisp-callback-fn-ptr*) :pointer)
@@ -250,7 +254,9 @@ takes place."))
         (error (c)
           (pyforeign-funcall "PyErr_SetString"
                              :pointer (pytype "Exception")
-                             :string (format nil "An error occured during lisp callback.~%~%~A~%" (trivial-backtrace:print-backtrace c :output nil)))
+                             :string
+                             (format nil "An error occured during lisp callback.~%~%~A~%"
+                                     (condition-backtrace c)))
           (pythonize 0))))))
 
 (defmethod pythonize ((o function))
