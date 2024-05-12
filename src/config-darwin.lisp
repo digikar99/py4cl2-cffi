@@ -41,5 +41,15 @@ print(f'(:base-exec-prefix \\\"{sys.base_exec_prefix}\\\"' +
             "gcc -L'~A/lib' -shared -o libpy4cl-utils.so py4cl-utils.o -lpython~A"
             path python-version)))))
 
-(if (equal "Darwin" (software-type))
-    (configure))
+
+;; One possibility is we avoid checking (software-type) or (uiop:operating-system)
+;;   On non-M1, (software-type) is "Darwin".
+;;   On M1, is it "64-bit Apple macOS 12.0 (Apple Silicon)”
+;; However, quicklisp will try to load all the systems.
+;; So, not being able to load this system on non-mac
+;; will remove py4cl2-cffi from quicklisp.
+
+;; (software-type) is not portable.
+;; (uiop:operating-system) seems reasonably portable.
+(when (eq :macosx (uiop:operating-system))
+  (configure))
