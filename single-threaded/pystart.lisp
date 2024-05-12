@@ -26,7 +26,7 @@ Please restart your lisp and call PY4CL2-CFFI/SINGLE-THREADED:PYSTART
                  ;; (setf (pymain-result) (apply fun args))
                  (handler-case (setf (pymain-result) (apply fun args))
                    (error (c)
-                     (trivial-backtrace:print-backtrace c))))
+                     (condition-backtrace c))))
                (bt:signal-semaphore *pymain-thread-result-semaphore*)))
            :name "py4cl2-cffi-python-main-thread"))
 

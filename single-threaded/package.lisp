@@ -2,6 +2,8 @@
   (:use :cl :cffi :alexandria)
   (:reexport :py4cl2-cffi)
   (:import-from :py4cl2-cffi
+                #:condition-backtrace
+
                 #:*internal-features*
 
                 #:*pygc-threshold*
