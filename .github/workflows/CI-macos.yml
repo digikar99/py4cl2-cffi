@@ -8,15 +8,10 @@ jobs:
 
     strategy:
       matrix:
-        lisp: [sbcl, ccl, ecl]
-        os: [ubuntu-22.04, macos-14]
-        exclude:
-          - lisp: ccl
-            os: macos-14
-          - lisp: ecl
-            os: macos-14
+        lisp: [sbcl]
+        os: [macos-13, macos-14]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 8
+    timeout-minutes: 3
 
     continue-on-error: true
 
@@ -48,14 +43,18 @@ jobs:
     # We avoid caching the apt and python modules; need to deal with recursive dependencies
 
     - name: Install python modules
-      run: | # need to use sudo
-        sudo apt install python3-pip
+      run: |
+        brew install python@3.12
+        python -m ensurepip --upgrade
+        python3 -m venv ./py4cl2-cffi/
+        source ./py4cl2-cffi/bin/activate
         pip3 install numpy
         pip3 install networkx
         pip3 install matplotlib
 
     - name: Run python-config
       run: |
+        source ./py4cl2-cffi/bin/activate
         python3 --version
         python3-config --libs
         python3-config --includes
@@ -80,29 +79,19 @@ jobs:
            --eval '(push #P"./" ql:*local-project-directories*)' \
            --eval '(let ((*dependencies-home* (first ql:*local-project-directories*))) (ensure-system "py4cl2-cffi-tests"))'
 
-    - name: Set up directory with exotic name
+    - name: Test numpy
       run: |
-        ls -l $HOME/bin/
-        echo $PATH
-        export EXOTIC_DIR="$HOME/(some exotic name')/"
-        export EXOTIC_DIR_PYTHON="$EXOTIC_DIR/python"
-        echo "EXOTIC_DIR=$EXOTIC_DIR" >> $GITHUB_ENV
-        echo "EXOTIC_DIR_PYTHON=$EXOTIC_DIR_PYTHON" >> $GITHUB_ENV
-        mkdir -p "$EXOTIC_DIR"
-        rsync -rR "$HOME/work/py4cl2-cffi/py4cl2-cffi" "$EXOTIC_DIR"
-        ln -s "/usr/bin/python3" "$EXOTIC_DIR_PYTHON"
-        cd ~/
-        ls -l
-        ls "$EXOTIC_DIR"
-        nproc
-        pwd
-        python3 --version
-        /"$EXOTIC_DIR_PYTHON" --version
+        source ./py4cl2-cffi/bin/activate
+        python3 -c 'import numpy; print(numpy.__version__, numpy.__path__[0])'
 
     - name: Compile Tests
-      run: cl --load "$EXOTIC_DIR/$HOME/work/py4cl2-cffi/py4cl2-cffi/ci-pre-test.lisp"
+      run: |
+        source ./py4cl2-cffi/bin/activate
+        cl --load "$HOME/work/py4cl2-cffi/py4cl2-cffi/ci-pre-test.lisp"
 
     # Testing it on the second load confirms that functionalities do not
     # solely eval-when compile-toplevel, and that they persist across multiple loads.
     - name: Run Tests
-      run: cl --load "$EXOTIC_DIR/$HOME/work/py4cl2-cffi/py4cl2-cffi/ci-test.lisp" || cl --load "$EXOTIC_DIR/$HOME/work/py4cl2-cffi/py4cl2-cffi/ci-test.lisp"
+      run: |        
+        source ./py4cl2-cffi/bin/activate
+        cl --load "$HOME/work/py4cl2-cffi/py4cl2-cffi/ci-test.lisp" || cl --load "$HOME/work/py4cl2-cffi/py4cl2-cffi/ci-test.lisp"

@@ -3,7 +3,7 @@
 ;;                       :replace t
 ;;                       :prompt nil)
 (push :travis *features*)
-(push #P"~/" ql:*local-project-directories*)
+(push #P"./" ql:*local-project-directories*)
 (print (ql:where-is-system "py4cl2-cffi"))
 (ql:quickload "py4cl2-cffi-tests")
 (uiop:quit 0)
