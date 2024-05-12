@@ -78,14 +78,14 @@ of the utility shared object/library that bridges the python C-API with lisp."
           *python-executable-path*))
 
 (defvar *python-executable-path*
-  (first (return-value-as-list "which python"))
+  (first (return-value-as-list "which python3"))
   "The path to python executable. This will be used to set sys.path.
 This is useful in cases such as venv when python3-config does not lead
 to expected paths.")
 
 (defvar *python-site-packages-path*
   (return-value-as-list
-   "python -c 'import sys; print(\"\\n\".join(sys.path))'"))
+   "python3 -c 'import sys; print(\"\\n\".join(sys.path))'"))
 
 (defvar *python-ignore-ldflags*
   ;; python3-config of older versions of python (such as python3.6) includes
