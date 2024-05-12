@@ -382,7 +382,24 @@ takes place."))
             into python-name
             result-type string)
           ;; Use keywords as if to indicate keyword python argument name
-          (finally (return python-name))))))
+          (finally
+           (return
+             (ecase (readtable-case *readtable*)
+               ((:upcase :downcase)
+                ;; FIXME: This may not work correctly with :downcase
+                python-name)
+               ((:perserve)
+                symbol-name)
+               ((:invert)
+                ;; What is mixed stays mixed.
+                ;; All uppercase becomes lowercase
+                ;; All lowercase becomes uppercase
+                (cond ((upper-case-string-p symbol-name)
+                       (string-downcase symbol-name))
+                      ((lower-case-string-p symbol-name)
+                       (string-upcase symbol-name))
+                      (t
+                       symbol-name))))))))))
 
 (defmethod pythonize ((o symbol))
   (if (null o)
