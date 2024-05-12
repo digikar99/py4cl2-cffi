@@ -76,10 +76,11 @@
   (let* ((dims     (pyslot-value o "shape"))
          (element-type (let* ((*read-eval* nil)
                               (*package* (find-package :cl)))
-                         (read-from-string
-                          (foreign-string-to-lisp
-                           (pyforeign-funcall "PyArray_element_type_from_array"
-                                              :pointer o :pointer)))))
+                         (with-standard-io-syntax
+                           (read-from-string
+                            (foreign-string-to-lisp
+                             (pyforeign-funcall "PyArray_element_type_from_array"
+                                                :pointer o :pointer))))))
          (from-vec  (pyforeign-funcall "PyArray_Data" :pointer o :pointer))
          (array     (make-array dims :element-type element-type))
          (num-bytes (* (array-element-type-num-bytes array)
