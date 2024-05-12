@@ -12,12 +12,30 @@
   (defvar *utils-shared-object-path*
     (merge-pathnames
      (asdf:component-pathname (asdf:find-system "py4cl2-cffi"))
-     #p"libpy4cl-utils.so"))
+     (pathname (%shared-library-from-ldflag "-lpy4cl-utils"))))
+
+  (defvar *numpy-utils-shared-object-path*
+    (merge-pathnames
+     (asdf:component-pathname (asdf:find-system "py4cl2-cffi"))
+     (pathname (%shared-library-from-ldflag "-lpy4cl-numpy-utils"))))
 
   (defvar *numpy-installed-p*)
 
-  (defun compile-utils-shared-object ()
-    (uiop:with-current-directory ((asdf:component-pathname (asdf:find-system "py4cl2-cffi")))
+  (defun compile-base-utils-shared-object ()
+    (uiop:with-current-directory
+        ((asdf:component-pathname (asdf:find-system "py4cl2-cffi")))
+      (let* ((program-string
+               (format nil
+                       *python-compile-command*
+                       (format nil "~{~a~^ ~}" *python-includes*))))
+        (format t "~&~A~%" program-string)
+        (uiop:run-program program-string
+                          :error-output *error-output*
+                          :output *standard-output*))))
+
+  (defun may-be-compile-numpy-utils-shared-object ()
+    (uiop:with-current-directory
+        ((asdf:component-pathname (asdf:find-system "py4cl2-cffi")))
       (multiple-value-bind (numpy-path error-output error-status)
           (uiop:run-program
            "cd ~/; python3 -c 'import numpy; print(numpy.__path__[0])'"
@@ -27,22 +45,18 @@
                  (zerop error-status))
                (program-string
                  (format nil
-                         *python-compile-command*
+                         *python-numpy-compile-command*
                          (format nil "~{~a~^ ~}" *python-includes*)
-                         (if numpy-installed-p
-                             (format nil "~A/core/include/"
-                                     (string-trim (list #\newline) numpy-path))
-                             (namestring
-                              (asdf:component-pathname
-                               (asdf:find-system "py4cl2-cffi")))))))
-          (setq *numpy-installed-p* numpy-installed-p)
-          (format t "~&~A~%" program-string)
-          (uiop:run-program program-string
-                            :error-output *error-output*
-                            :output *standard-output*))))))
+                         (format nil "~A/core/include/"
+                                 (string-trim (list #\newline) numpy-path)))))
+          (when numpy-installed-p
+            (format t "~&~A~%" program-string)
+            (uiop:run-program program-string
+                              :error-output *error-output*
+                              :output *standard-output*)))))))
 
 (eval-when (:compile-toplevel)
-  (compile-utils-shared-object))
+  (compile-base-utils-shared-object))
 
 (eval-when (:compile-toplevel :load-toplevel)
   (let* ((numpy-installed-p-file
@@ -59,15 +73,18 @@
                                                    :ignore-error-status t))))
              (numpy-installed-p-new
                (with-standard-io-syntax
-                 (write-to-string `(quote ,numpy-installed-p)))))
+                 (write-to-string numpy-installed-p))))
+        (setq *numpy-installed-p* numpy-installed-p)
         (when (or error
                   (string/= numpy-installed-p-old
                             numpy-installed-p-new))
           (with-standard-io-syntax
             (write-string-into-file numpy-installed-p-new numpy-installed-p-file
                                     :if-exists :supersede
-                                    :if-does-not-exist :create)))
-        (setq *numpy-installed-p* numpy-installed-p)))))
+                                    :if-does-not-exist :create))
+          ;; If numpy changed, then probably, our entire environment changed.
+          (compile-base-utils-shared-object)
+          (may-be-compile-numpy-utils-shared-object))))))
 
 (defvar *python-libraries-loaded-p* nil)
 (defun load-python-and-libraries ()
@@ -102,6 +119,8 @@
               (load-foreign-library library :search-path search-paths))
             libraries))
     (load-foreign-library *utils-shared-object-path*)
+    (when *numpy-installed-p*
+      (load-foreign-library *numpy-utils-shared-object-path*))
     (setq *python-libraries-loaded-p* t)))
 
 #+cmucl
