@@ -129,19 +129,15 @@ See the documentation for PYGC to understand when reference deletion
 takes place."))
 
 (defmethod pythonize (lisp-object)
-  (pycall* "_py4cl_UnknownLispObject" (object-handle lisp-object)))
+  (declare (optimize speed))
+  (if (typep lisp-object 'foreign-pointer)
+      lisp-object
+      (pycall* "_py4cl_UnknownLispObject" (object-handle lisp-object))))
 
 (deftype c-long ()
   (let ((num-bits (* 8 (cffi:foreign-type-size :long))))
     `(signed-byte ,num-bits)))
 
-(defmethod pythonize ((o #+sbcl sb-sys:system-area-pointer
-                         #+ccl  ccl:macptr
-                         #+ecl  si:foreign-data
-                         #+lispworks fli::pointer
-                         #-(or sbcl ccl ecl lispworks)
-                         foreign-pointer))
-  o)
 (defmethod pythonize ((o pyobject-wrapper)) (pyobject-wrapper-pointer o))
 
 (defmethod pythonize ((o integer))
