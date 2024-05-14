@@ -34,8 +34,8 @@ print(sys.exec_prefix)\"")))
              "gcc ~A -c -Wall -Werror -fpic py4cl-utils.c && "
              (format
               nil
-              "gcc -L'~A/lib-dynload' -L'~A/lib' -framework CoreFoundation -dynamiclib -o libpy4cl-utils.dylib py4cl-utils.o -lpython~A"
-              base-exec-prefix base-exec-prefix python-version))
+              "gcc -L'~A/lib' -framework CoreFoundation -dynamiclib -o libpy4cl-utils.dylib py4cl-utils.o -lpython~A"
+              base-exec-prefix python-version))
 
             py4cl2-cffi/config:*python-numpy-compile-command*
             (concatenate
@@ -43,8 +43,8 @@ print(sys.exec_prefix)\"")))
              "gcc ~A -I'~A' -c -Wall -Werror -fpic py4cl-numpy-utils.c && "
              (format
               nil
-              "gcc -L'~A/lib-dynload' -L'~A/lib' -framework CoreFoundation -dynamiclib -o libpy4cl-numpy-utils.dylib py4cl-numpy-utils.o -lpython~A"
-              base-exec-prefix base-exec-prefix python-version))))))
+              "gcc -L'~A/lib' -framework CoreFoundation -dynamiclib -o libpy4cl-numpy-utils.dylib py4cl-numpy-utils.o -lpython~A"
+              base-exec-prefix python-version))))))
 
 
 
