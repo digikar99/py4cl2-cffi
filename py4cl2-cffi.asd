@@ -16,6 +16,10 @@
   :author "Shubhamkar Ayare <shubhamayare@yahoo.co.in>"
   :license "MIT"
   :version "0.3.0" ; beta
+  ;; Certain systems like Allegro CL 11 on M* Mac do not seem to
+  ;; load config-darwin with the :darwin feature. We rely on
+  ;; TRIVIAL-FEATURES to add the :macosx feature.
+  :defsystem-depends-on ("trivial-features")
   :depends-on ("bordeaux-threads"
                "cffi"
                "cl-ppcre"
@@ -28,9 +32,6 @@
                "float-features"
                "parse-number"
                "py4cl2-cffi/config"
-               ;; Certain systems like Allegro CL 11 on M* Mac do not seem to
-               ;; load config-darwin with the :darwin feature. We rely on
-               ;; TRIVIAL-FEATURES to add the :macosx feature.
                (:feature :darwin "py4cl2-cffi/config-darwin")
                "swank")
   :serial t
