@@ -72,13 +72,6 @@ jobs:
         pwd
         ls -l
 
-    - name: Download Test Dependencies
-      run: >
-        cl --eval '(ql:quickload "download-dependencies")' \
-           --eval '(in-package :download-dependencies)' \
-           --eval '(push #P"./" ql:*local-project-directories*)' \
-           --eval '(let ((*dependencies-home* (first ql:*local-project-directories*))) (ensure-system "py4cl2-cffi-tests"))'
-
     - name: Set up directory with exotic name
       run: |
         ls -l $HOME/bin/

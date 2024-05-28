@@ -76,13 +76,6 @@ jobs:
         pwd
         ls -l
 
-    - name: Download Test Dependencies
-      run: >
-        cl --eval '(ql:quickload "download-dependencies")' \
-           --eval '(in-package :download-dependencies)' \
-           --eval '(push #P"./" ql:*local-project-directories*)' \
-           --eval '(let ((*dependencies-home* (first ql:*local-project-directories*))) (ensure-system "py4cl2-cffi-tests"))'
-
     - name: Test numpy
       run: |
         source ./py4cl2-cffi/bin/activate
