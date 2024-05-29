@@ -208,7 +208,7 @@ Arguments:
 
 ;;; packages in python are collection of modules; module is a single python file
 ;;; In fact, all packages are modules; but all modules are not packages.
-(defun defpysubmodules (pymodule-name lisp-package continue-ignoring-errors)
+(defun defpysubmodules (pymodule-name lisp-package continue-ignoring-errors cache-p)
   (let ((submodules
           (when (pycall "hasattr" (pyvalue pymodule-name) "__path__")
             (mapcar (lambda (elt)
@@ -242,7 +242,7 @@ Arguments:
               (macroexpand-1
                `(defpymodule ,submodule-fullname
                     ,has-submodules
-                    :cache ,*defpymodule-cache*
+                    :cache ,cache-p
                     :lisp-package ,(concatenate 'string lisp-package "."
                                                 (lispify-name submodule))
                     :continue-ignoring-errors ,continue-ignoring-errors))))))))
@@ -331,7 +331,8 @@ Arguments:
                     reload
                     safety
                     continue-ignoring-errors
-                    silent)
+                    silent
+		    t)
                 `(progn
                    ,package-exists-p-form
                    ,(when recompile-on-change
@@ -352,12 +353,14 @@ Arguments:
                           ',reload
                           ',safety
                           ',continue-ignoring-errors
-                          ',silent))))))))  ; (defpymodule "torch" t) is one test case
+                          ',silent
+			  nil))))))))  ; (defpymodule "torch" t) is one test case
 
 
 (defun defpymodule* (pymodule-name import-submodules
                      lisp-package lisp-package-supplied-p
-                     reload safety continue-ignoring-errors silent)
+                     reload safety continue-ignoring-errors silent
+		     cache-p)
   "
 Returns multiple values:
 - a DEFVAR form to capture the existence of package before ensuring it
@@ -438,7 +441,8 @@ Returns multiple values:
                     ,@(if import-submodules
                           (defpysubmodules package-in-python
                             lisp-package
-                            continue-ignoring-errors))
+                            continue-ignoring-errors
+			    cache-p))
                     ,@(iter (for fun-name in fun-names)
                         (for fun-symbol in fun-symbols)
                         (collect
