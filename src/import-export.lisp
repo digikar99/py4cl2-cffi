@@ -300,18 +300,22 @@ Example:
 
 Arguments:
 
-  PYMODULE-NAME: name of the module in python, before importing
-  IMPORT-SUBMODULES: leave nil for purposes of speed, if you won't use the
+- PYMODULE-NAME: name of the module in python, before importing
+- IMPORT-SUBMODULES: leave nil for purposes of speed, if you won't use the
     submodules
 
-  CACHE: if non-NIL, produces the DEFPACKAGE and DEFUN forms at macroexpansion time
-    to speed-up future reloads of the system
-  LISP-PACKAGE: lisp package, in which to intern (and export) the callables
-  RECOMPILE-ON-CHANGE: the name of the ASDF system to recompile if the python version of
+- CONTINUE-IGNORING-ERRORS: This is set to non-NIL for convenience.
+    Set to NIL while debugging. When this is NIL, all kinds of errors
+    will be signalled instead of being suppressed silently.
+
+-  CACHE: if non-NIL, produces the DEFPACKAGE and DEFUN forms at macroexpansion time to speed-up future reloads of the system
+- LISP-PACKAGE: lisp package, in which to intern (and export) the callables
+- RECOMPILE-ON-CHANGE: the name of the ASDF system to recompile if the python version of
     PYMODULE-NAME changes; this only has effect if CACHE is non-NIL
-  RELOAD: redefine the LISP-PACKAGE if T
-  SAFETY: value of safety to pass to defpyfun; see defpyfun
-  SILENT: prints \"status\" lines when NIL"
+- RELOAD: redefine the LISP-PACKAGE if T
+- SAFETY: value of safety to pass to defpyfun; see defpyfun
+- SILENT: prints \"status\" lines when NIL
+"
   (let ((*defpymodule-cache* cache))
     (if cache
         (handler-bind ((pyerror (lambda (e)
