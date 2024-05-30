@@ -224,16 +224,19 @@ Arguments:
     (iter (for (submodule has-submodules) in submodules)
       (for submodule-fullname = (concatenate 'string
                                              pymodule-name "." submodule))
-      (when (and (char/= #\_ (aref submodule 0)) ; avoid private modules / packages
-                 ;; pkgutil is of type module
-                 ;; import matplotlib does not import matplotlib.pyplot
-                 ;; https://stackoverflow.com/questions/14812342/matplotlib-has-no-attribute-pyplot
-                 ;; We maintain these semantics.
-                 ;; The below form errors in the case of submodules and
-                 ;; therefore returns NIL.
-                 (ignore-errors (pyobject-wrapper-eq
-                                 (pycall "type" (pyvalue "pkgutil"))
-                                 (pycall "type" (pyvalue submodule-fullname)))))
+      ;; The AND clauses in WHEN below correspond to:
+      ;; 1. Avoid private modules / packages
+      ;; 2. The above processing using pkgutil.iter_modules above returns *all*
+      ;;    the possible submodules of PYMODULE-NAME. However, consider this behavior -
+      ;;        Some of these submodules may not actually be imported while
+      ;;        importing PYMODULE-NAME. For example, the above processing for
+      ;;        "matplotlib" outputs "pyplot" as a submodule of matplotlib.
+      ;;        However, "import matplotlib" does not import "pyplot".
+      ;;        See https://stackoverflow.com/questions/14812342/matplotlib-has-no-attribute-pyplot
+      ;;    We want to preserve this behavior. That is why, we first check if PYMODULE-NAME
+      ;;    actually has SUBMODULE as an attribute. If not, we do not process this any further.
+      (when (and (char/= #\_ (aref submodule 0))
+                 (pycall "hasattr" (pyvalue pymodule-name) submodule))
         (let ((*is-submodule* t))
           (collect
               (macroexpand-1
