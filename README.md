@@ -137,11 +137,11 @@ Tested only on Ubuntu 20.04 (CI) and Ubuntu 18.04 (personal machine). Porting to
 
 # Caveats
 
-Unlike `py4cl` and `py4cl2`, `py4cl2-cffi` can only use one python version in a running lisp image. In addition, while the author has been successful in running the [py4cl2-cffi-tests](https://github.com/digikar99/py4cl2-cffi-tests) without segmentation faults, the project is still in beta stage, so be prepared to run into segmentation faults.
+Unlike `py4cl` and `py4cl2`, `py4cl2-cffi` can only use one python version in a running lisp image. In addition, while the author has been successful in running the [py4cl2-cffi-tests](https://github.com/digikar99/py4cl2-cffi-tests) without segmentation faults, the project is still in beta stage, so be prepared to run into segmentation faults especially while importing and using python modules.
 
 The project is being tested on
 
-- CCL, ECL for Linux on Github Actions.
+- SBCL, CCL, ECL for Linux on Github Actions.
 - SBCL for MacOS / amd64
 - SBCL for MacOS / arm64 (M* macs)
 
@@ -241,8 +241,8 @@ At the heart of py4cl2-cffi are [pyvalue](#pyvalue) and [pycall](#pycall). This 
 ```lisp
 (pyvalue "sys")
 ;=> #<PYOBJECT-WRAPPER :type <class 'module'>
-;    <module 'sys' (built-in)>
-;   {1004AAA1C3}>
+;     <module 'sys' (built-in)>
+;    {1004AAA1C3}>
 ```
 
 An attempt will be made to convert the return values to lisp objects.
@@ -286,7 +286,7 @@ But it can also be
 - a string, which on passing to [raw-pyeval](#raw-pyeval) returns a python callable
 - or, any object that can be [pythonize](#pythonize)-d to a python callable.
 
-Like [pyvalue](#pyvalue), `pycall` too will attempt to convert the return value to a lisp object. But if that is not possible, it will return a `pyobject-wrapper`-instance.
+Like [pyvalue](#pyvalue), `pycall` too will attempt to convert the return value to a lisp object. But if that is not possible, it will return a [pyobject-wrapper](#pyobject-wrapper)-instance.
 
 Python modules can be imported using the lightweight [import-module](#import-module). The values from the module can then be accessed using pyvalue, and callables can be called using pycall.
 
@@ -365,8 +365,6 @@ PYTHON-LISP-USER> (pycall "foo" (lambda (d e &rest args &key a b &allow-other-ke
                           8 9 :a 2 :b 3 :d 5)
 (8 9 "d" 5 "b" 3 "a" 2)
 ```
-
-<img margin="auto" width="75%" src="./plt-example.png"></img>
 
 ## Numpy
 
