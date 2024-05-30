@@ -249,14 +249,20 @@ Arguments:
 
 (declaim (ftype (function (string string)) pymodule-import-string))
 (defun pymodule-import-string (pymodule-name lisp-package)
+  "Returns two values:
+- The first value is the import form
+- The second value is the name of the package in python itself"
   (let ((package-in-python (pycall "str" (%pythonize (intern lisp-package)))))
-    (values
-     (cond (*is-submodule* nil)
-           (*lisp-package-supplied-p*
-            `(import-module ,pymodule-name
-                            :as ,package-in-python))
-           (t `(import-module ,pymodule-name)))
-     package-in-python)))
+    (cond (*is-submodule*
+           (values nil pymodule-name))
+          (*lisp-package-supplied-p*
+           (values
+            `(import-module ,pymodule-name :as ,package-in-python)
+            package-in-python))
+          (t
+           (values
+            `(import-module ,pymodule-name)
+            package-in-python)))))
 
 (defun function-reload-string (&key pymodule-name lisp-package fun-name as)
   (if *called-from-defpymodule*
