@@ -208,7 +208,9 @@ Arguments:
 
 ;;; packages in python are collection of modules; module is a single python file
 ;;; In fact, all packages are modules; but all modules are not packages.
-(defun defpysubmodules (pymodule-name lisp-package continue-ignoring-errors cache-p)
+(defun defpysubmodules
+    (pymodule-name lisp-package reload safety continue-ignoring-errors
+     silent cache-p)
   (let ((submodules
           (when (pycall "hasattr" (pyvalue pymodule-name) "__path__")
             (mapcar (lambda (elt)
@@ -238,14 +240,18 @@ Arguments:
       (when (and (char/= #\_ (aref submodule 0))
                  (pycall "hasattr" (pyvalue pymodule-name) submodule))
         (let ((*is-submodule* t))
-          (collect
-              (macroexpand-1
-               `(defpymodule ,submodule-fullname
-                    ,has-submodules
-                    :cache ,cache-p
-                    :lisp-package ,(concatenate 'string lisp-package "."
-                                                (lispify-name submodule))
-                    :continue-ignoring-errors ,continue-ignoring-errors))))))))
+          (appending
+           (multiple-value-list
+            (defpymodule* submodule-fullname
+              has-submodules
+              (concatenate 'string lisp-package "."
+                           (lispify-name submodule))
+              t
+              reload
+              safety
+              continue-ignoring-errors
+              silent
+              cache-p))))))))
 
 (declaim (ftype (function (string string)) pymodule-import-string))
 (defun pymodule-import-string (pymodule-name lisp-package)
@@ -424,7 +430,8 @@ Returns multiple values:
                                     fun-names))
                (package-exists-p (gensym "PACKAGE-EXISTS-P"))
                (fun-symbol-names (mapcar #'symbol-name fun-symbols)))
-          (values `(defvar ,package-exists-p (find-package ,lisp-package))
+          (values `(eval-when (:compile-toplevel :load-toplevel :execute)
+                     (defvar ,package-exists-p (find-package ,lisp-package)))
                   ;; We need the package to even read the next form!
                   ;; But we can only know if or not the package exists beforehand
                   ;; before creating it! After creating it, it definitely exists!
@@ -441,7 +448,10 @@ Returns multiple values:
                     ,@(if import-submodules
                           (defpysubmodules package-in-python
                             lisp-package
+                            reload
+                            safety
                             continue-ignoring-errors
+                            silent
 			    cache-p))
                     ,@(iter (for fun-name in fun-names)
                         (for fun-symbol in fun-symbols)
