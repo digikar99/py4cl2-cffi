@@ -111,9 +111,6 @@ def _py4cl_non_callable(ele):
   "String pyexec-ed at the start of a DEFPYFUN when SAFETY is T.")
 (defvar-doc *lisp-package-supplied-p*
   "Internal variable used by PYMODULE-IMPORT-STRING to determine the import string.")
-(defvar-doc *defpymodule-cache*
-  "If non-NIL, DEFPYMODULE produces the expansion during macroexpansion time.
-  Use intended for DEFPYSUBMODULES.")
 
 (defmacro defpyfun (fun-name
                     &optional pymodule-name
@@ -322,51 +319,50 @@ Arguments:
 - SAFETY: value of safety to pass to defpyfun; see defpyfun
 - SILENT: prints \"status\" lines when NIL
 "
-  (let ((*defpymodule-cache* cache))
-    (if cache
-        (handler-bind ((pyerror (lambda (e)
-                                  (if continue-ignoring-errors
-                                      (invoke-restart 'continue-ignoring-errors)
-                                      e))))
-          (restart-case
-              (multiple-value-bind (package-exists-p-form ensure-package-form defpackage-form)
-                  (defpymodule* pymodule-name
-                    import-submodules
-                    lisp-package
-                    lisp-package-supplied-p
-                    reload
-                    safety
-                    continue-ignoring-errors
-                    silent
-		    t)
-                `(progn
-                   ,package-exists-p-form
-                   ,(when recompile-on-change
-                      `(unless (string= ,(pyeval pymodule-name ".__version__")
-                                        (pyeval ,pymodule-name ".__version__"))
-                         (asdf:compile-system ,recompile-on-change :force t :verbose nil)))
-                   (eval-when (:compile-toplevel :load-toplevel :execute)
-                     ,ensure-package-form)
-                   ,defpackage-form))
-            (continue-ignoring-errors nil)))
-        `(eval-when (:compile-toplevel :load-toplevel :execute)
-           (eval (cons 'progn
-                       (multiple-value-list
-                        (defpymodule* ',pymodule-name
-                          ',import-submodules
-                          ',lisp-package
-                          ',lisp-package-supplied-p
-                          ',reload
-                          ',safety
-                          ',continue-ignoring-errors
-                          ',silent
-			  nil))))))))  ; (defpymodule "torch" t) is one test case
+  (if cache
+      (handler-bind ((pyerror (lambda (e)
+                                (if continue-ignoring-errors
+                                    (invoke-restart 'continue-ignoring-errors)
+                                    e))))
+        (restart-case
+            (multiple-value-bind (package-exists-p-form ensure-package-form defpackage-form)
+                (defpymodule* pymodule-name
+                  import-submodules
+                  lisp-package
+                  lisp-package-supplied-p
+                  reload
+                  safety
+                  continue-ignoring-errors
+                  silent
+                  t)
+              `(progn
+                 ,package-exists-p-form
+                 ,(when recompile-on-change
+                    `(unless (string= ,(pyeval pymodule-name ".__version__")
+                                      (pyeval ,pymodule-name ".__version__"))
+                       (asdf:compile-system ,recompile-on-change :force t :verbose nil)))
+                 (eval-when (:compile-toplevel :load-toplevel :execute)
+                   ,ensure-package-form)
+                 ,defpackage-form))
+          (continue-ignoring-errors nil)))
+      `(eval-when (:compile-toplevel :load-toplevel :execute)
+         (eval (cons 'progn
+                     (multiple-value-list
+                      (defpymodule* ',pymodule-name
+                        ',import-submodules
+                        ',lisp-package
+                        ',lisp-package-supplied-p
+                        ',reload
+                        ',safety
+                        ',continue-ignoring-errors
+                        ',silent
+                        nil)))))))  ; (defpymodule "torch" t) is one test case
 
 
 (defun defpymodule* (pymodule-name import-submodules
                      lisp-package lisp-package-supplied-p
                      reload safety continue-ignoring-errors silent
-		     cache-p)
+                     cache-p)
   "
 Returns multiple values:
 - a DEFVAR form to capture the existence of package before ensuring it
@@ -452,7 +448,7 @@ Returns multiple values:
                             safety
                             continue-ignoring-errors
                             silent
-			    cache-p))
+                            cache-p))
                     ,@(iter (for fun-name in fun-names)
                         (for fun-symbol in fun-symbols)
                         (collect
