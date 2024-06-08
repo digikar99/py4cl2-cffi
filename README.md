@@ -598,7 +598,7 @@ Arguments:
 ### defpymodule
 
 ```lisp
-Macro: (defpymodule pymodule-name &optional (import-submodules NIL) &key
+Macro: (defpymodule pymodule-name &optional (submodules NIL) &key
         (cache t) (continue-ignoring-errors t)
         (lisp-package (lispify-name pymodule-name)) (reload t)
         (recompile-on-change NIL) (safety t) (silent *defpymodule-silent-p*))
@@ -620,8 +620,14 @@ Example:
 Arguments:
 
 - PYMODULE-NAME: name of the module in python, before importing
-- IMPORT-SUBMODULES: leave nil for purposes of speed, if you won't use the
-    submodules
+- SUBMODULES:
+    - can be NIL if no lisp packages corresponding to submodules are to be defined
+    - can be T to define lisp packages corresponding to non-hidden submodules
+    - can be :HIDDEN to define lisp packages corresponding to both
+      hidden as well as non-hidden submodules
+    - can be a LIST or nested alist of submodule names. Each element of the list
+      is either a string, or a nested alist mapping the submodule
+      name to its subsubmodule names in the same format as SUBMODULES
 
 - CONTINUE-IGNORING-ERRORS: This is set to non-NIL for convenience.
     Set to NIL while debugging. When this is NIL, any and all kinds of errors

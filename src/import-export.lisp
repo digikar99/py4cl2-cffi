@@ -33,7 +33,7 @@
            (check-type as string)
            (raw-py #\x (format nil "import ~A as ~A" name as))
            (setf (py-module-pointer as) module-ptr)
-           (python-may-be-error))
+          (python-may-be-error))
           (t
            (raw-py #\x (format nil "import ~A" name))
            (setf (py-module-pointer name) module-ptr)
@@ -206,21 +206,51 @@ Arguments:
 ;;; packages in python are collection of modules; module is a single python file
 ;;; In fact, all packages are modules; but all modules are not packages.
 (defun defpysubmodules
-    (pymodule-name lisp-package reload safety continue-ignoring-errors
-     silent cache-p)
+    (pymodule-name submodule-names lisp-package reload safety
+     continue-ignoring-errors silent cache-p)
+  (declare (optimize debug))
+  (if (null submodule-names) (return-from defpysubmodules nil))
   (let ((submodules
           (when (pycall "hasattr" (pyvalue pymodule-name) "__path__")
-            (mapcar (lambda (elt)
-                      (let ((modname (pyslot-value elt "name"))
-                            (ispkg   (pyslot-value elt "ispkg")))
-                        (list modname ispkg)))
-                    (with-lispifiers ((py-empty-tuple
-                                       (lambda (o) (declare (ignore o)) nil)))
-                      (pycall "tuple"
-                              (pycall "pkgutil.iter_modules"
-                                      (pyslot-value (pyvalue pymodule-name)
-                                                    "__path__"))))))))
-    (iter (for (submodule has-submodules) in submodules)
+            (remove-if
+             #'null
+             (mapcar (lambda (elt)
+                       (let ((modname (pyslot-value elt "name"))
+                             (ispkg   (pyslot-value elt "ispkg")))
+                         (etypecase submodule-names
+                           ((eql t)
+                            (if (and (char/= #\_ (aref modname 0))
+                                     (pycall "hasattr"
+                                             (pyvalue pymodule-name) modname))
+                                (cons modname ispkg)
+                                nil))
+                           ((eql :hidden)
+                            (cons modname
+                                  (if ispkg
+                                      :hidden
+                                      nil)))
+                           (list
+                            (loop :for sn :in submodule-names
+                                  :do (return
+                                        (etypecase sn
+                                          (string
+                                           (if (string= modname sn)
+                                               (cons modname ispkg)
+                                               nil))
+                                          (list
+                                           (assert (stringp (first sn)))
+                                           (if (string= modname
+                                                        (first sn))
+                                               (cons modname (rest sn))
+                                               nil)))))))))
+                     (with-lispifiers
+                         ((py-empty-tuple
+                           (lambda (o) (declare (ignore o)) nil)))
+                       (pycall "tuple"
+                               (pycall "pkgutil.iter_modules"
+                                       (pyslot-value (pyvalue pymodule-name)
+                                                     "__path__")))))))))
+    (iter (for (submodule . subsubmodules) in submodules)
       (for submodule-fullname = (concatenate 'string
                                              pymodule-name "." submodule))
       ;; The AND clauses in WHEN below correspond to:
@@ -234,21 +264,19 @@ Arguments:
       ;;        See https://stackoverflow.com/questions/14812342/matplotlib-has-no-attribute-pyplot
       ;;    We want to preserve this behavior. That is why, we first check if PYMODULE-NAME
       ;;    actually has SUBMODULE as an attribute. If not, we do not process this any further.
-      (when (and (char/= #\_ (aref submodule 0))
-                 (pycall "hasattr" (pyvalue pymodule-name) submodule))
-        (let ((*is-submodule* t))
-          (appending
-           (multiple-value-list
-            (defpymodule* submodule-fullname
-              has-submodules
-              (concatenate 'string lisp-package "."
-                           (lispify-name submodule))
-              t
-              reload
-              safety
-              continue-ignoring-errors
-              silent
-              cache-p))))))))
+      (let ((*is-submodule* t))
+        (appending
+         (multiple-value-list
+          (defpymodule* submodule-fullname
+            subsubmodules
+            (concatenate 'string lisp-package "."
+                         (lispify-name submodule))
+            t
+            reload
+            safety
+            continue-ignoring-errors
+            silent
+            cache-p)))))))
 
 (declaim (ftype (function (string string)) pymodule-import-string))
 (defun pymodule-import-string (pymodule-name lisp-package)
@@ -287,7 +315,7 @@ Arguments:
 ;;; the defpymodule forms is (much) quicker.
 
 (defmacro defpymodule (pymodule-name
-                       &optional (import-submodules nil)
+                       &optional (submodules nil)
                        &key (cache t)
                          (continue-ignoring-errors t)
                          (lisp-package (lispify-name pymodule-name) lisp-package-supplied-p)
@@ -304,8 +332,14 @@ Example:
 Arguments:
 
 - PYMODULE-NAME: name of the module in python, before importing
-- IMPORT-SUBMODULES: leave nil for purposes of speed, if you won't use the
-    submodules
+- SUBMODULES:
+    - can be NIL if no lisp packages corresponding to submodules are to be defined
+    - can be T to define lisp packages corresponding to non-hidden submodules
+    - can be :HIDDEN to define lisp packages corresponding to both
+      hidden as well as non-hidden submodules
+    - can be a LIST or nested alist of submodule names. Each element of the list
+      is either a string, or a nested alist mapping the submodule
+      name to its subsubmodule names in the same format as SUBMODULES
 
 - CONTINUE-IGNORING-ERRORS: This is set to non-NIL for convenience.
     Set to NIL while debugging. When this is NIL, all kinds of errors
@@ -327,7 +361,7 @@ Arguments:
         (restart-case
             (multiple-value-bind (package-exists-p-form ensure-package-form defpackage-form)
                 (defpymodule* pymodule-name
-                  import-submodules
+                  submodules
                   lisp-package
                   lisp-package-supplied-p
                   reload
@@ -349,7 +383,7 @@ Arguments:
          (eval (cons 'progn
                      (multiple-value-list
                       (defpymodule* ',pymodule-name
-                        ',import-submodules
+                        ',submodules
                         ',lisp-package
                         ',lisp-package-supplied-p
                         ',reload
@@ -359,7 +393,7 @@ Arguments:
                         nil)))))))  ; (defpymodule "torch" t) is one test case
 
 
-(defun defpymodule* (pymodule-name import-submodules
+(defun defpymodule* (pymodule-name submodule-names
                      lisp-package lisp-package-supplied-p
                      reload safety continue-ignoring-errors silent
                      cache-p)
@@ -441,14 +475,14 @@ Returns multiple values:
                     (defpackage ,lisp-package
                       (:use)
                       (:export ,@fun-symbol-names))
-                    ,@(if import-submodules
-                          (defpysubmodules package-in-python
-                            lisp-package
-                            reload
-                            safety
-                            continue-ignoring-errors
-                            silent
-                            cache-p))
+                    ,@(defpysubmodules package-in-python
+                        submodule-names
+                        lisp-package
+                        reload
+                        safety
+                        continue-ignoring-errors
+                        silent
+                        cache-p)
                     ,@(iter (for fun-name in fun-names)
                         (for fun-symbol in fun-symbols)
                         (collect
