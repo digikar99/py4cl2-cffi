@@ -57,6 +57,11 @@
 
 
 (define-pycapi-function (pyerr-occurred "PyErr_Occurred") :pointer)
+
+(declaim (inline pyerr-occurred/simple))
+(defun pyerr-occurred/simple ()
+  (foreign-funcall "PyErr_Occurred" :pointer))
+
 (define-pycapi-function (pyerr-fetch "PyErr_Fetch") :void
   (ptype :pointer)
   (pvalue :pointer)

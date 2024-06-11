@@ -309,6 +309,46 @@ py4cl_utils = ctypes.cdll.LoadLibrary(\"~A\")
                  condition
                (apply #'format stream format-control format-arguments)))))
 
+(defun python-error-fetch ()
+  "Fetches the python error, already assuming that it has occurred."
+  (with-pygc
+    (with-foreign-objects ((ptype  :pointer)
+                           (pvalue :pointer)
+                           (ptraceback :pointer))
+      (pyforeign-funcall "PyErr_Fetch"
+                         :pointer ptype
+                         :pointer pvalue
+                         :pointer ptraceback)
+      (let* ((type      (mem-aref ptype :pointer))
+             (value     (mem-aref pvalue :pointer))
+             (traceback (mem-aref ptraceback :pointer))
+             (value-str
+               (foreign-string-to-lisp
+                (pyforeign-funcall "PyUnicode_AsUTF8"
+                                   :pointer (pyforeign-funcall "PyObject_Str"
+                                                               :pointer value
+                                                               :pointer)
+                                   :pointer)))
+             (traceback-str
+               (let ((*pyobject-translation-mode* :lisp))
+                 (if (null-pointer-p traceback)
+                     (pycall "traceback.format_exception_only" type value)
+                     (pycall "traceback.format_exception" type value traceback)))))
+        (with-simple-restart (continue-ignoring-errors "")
+          (if traceback-str
+              (error 'pyerror
+                     :format-control "A python error occurred:~%  ~A~%~%~A"
+                     :format-arguments
+                     (list value-str
+                           (etypecase traceback-str
+                             (string traceback-str)
+                             (vector (apply #'uiop:strcat
+                                            (coerce traceback-str 'list)))
+                             (list (apply #'uiop:strcat traceback-str)))))
+              (error 'pyerror
+                     :format-control "A python error occurred:~%  ~A"
+                     :format-arguments (list value-str))))))))
+
 (defvar *already-retrieving-exceptions* nil
   "Set to non-NIL inside PYTHON-MAY-BE-ERROR so that calling PYFOREIGN-FUNCALL
 from inside PYTHON-MAY-BE-ERROR does not lead to an infinite recursion.")
@@ -316,50 +356,14 @@ from inside PYTHON-MAY-BE-ERROR does not lead to an infinite recursion.")
 ;;; the handling of an exception.
 
 (defun python-may-be-error ()
-  (declare (optimize debug))
+  (declare (optimize speed))
   (python-start-if-not-alive)
   (unless *already-retrieving-exceptions*
     (let ((*already-retrieving-exceptions* t))
       (with-python-gil
-        (let ((may-be-error-type (pyforeign-funcall "PyErr_Occurred" :pointer)))
+        (let ((may-be-error-type (pyerr-occurred/simple)))
           (unless (null-pointer-p may-be-error-type)
-            (with-pygc
-              (with-foreign-objects ((ptype  :pointer)
-                                     (pvalue :pointer)
-                                     (ptraceback :pointer))
-                (pyforeign-funcall "PyErr_Fetch"
-                                   :pointer ptype
-                                   :pointer pvalue
-                                   :pointer ptraceback)
-                (let* ((type      (mem-aref ptype :pointer))
-                       (value     (mem-aref pvalue :pointer))
-                       (traceback (mem-aref ptraceback :pointer))
-                       (value-str
-                         (foreign-string-to-lisp
-                          (pyforeign-funcall "PyUnicode_AsUTF8"
-                                             :pointer (pyforeign-funcall "PyObject_Str"
-                                                                         :pointer value
-                                                                         :pointer)
-                                             :pointer)))
-                       (traceback-str
-                         (let ((*pyobject-translation-mode* :lisp))
-                           (if (null-pointer-p traceback)
-                               (pycall "traceback.format_exception_only" type value)
-                               (pycall "traceback.format_exception" type value traceback)))))
-                  (with-simple-restart (continue-ignoring-errors "")
-                    (if traceback-str
-                        (error 'pyerror
-                               :format-control "A python error occurred:~%  ~A~%~%~A"
-                               :format-arguments
-                               (list value-str
-                                     (etypecase traceback-str
-                                       (string traceback-str)
-                                       (vector (apply #'uiop:strcat
-                                                      (coerce traceback-str 'list)))
-                                       (list (apply #'uiop:strcat traceback-str)))))
-                        (error 'pyerror
-                               :format-control "A python error occurred:~%  ~A"
-                               :format-arguments (list value-str)))))))))))))
+            (python-error-fetch)))))))
 
 (defun raw-py (cmd-char &rest code-strings)
   "CMD-CHAR should be #\e for eval and #\x for exec.
