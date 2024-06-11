@@ -194,6 +194,8 @@ Arguments:
 
 (defvar *is-submodule* nil
   "Used for coordinating import statements from defpymodule while calling recursively")
+(defvar *hidden-submodule* nil
+  "Used for coordinating import statements from defpymodule while calling recursively")
 
 (defun py-empty-tuple-p (object)
   (declare (optimize speed))
@@ -225,8 +227,6 @@ Arguments:
                                 (cons modname ispkg)
                                 nil))
                            ((eql :hidden)
-                            (import-module (format nil "~A.~A"
-                                                   pymodule-name modname))
                             (cons modname
                                   (if ispkg
                                       :hidden
@@ -266,9 +266,8 @@ Arguments:
       ;;        See https://stackoverflow.com/questions/14812342/matplotlib-has-no-attribute-pyplot
       ;;    We want to preserve this behavior. That is why, we first check if PYMODULE-NAME
       ;;    actually has SUBMODULE as an attribute. If not, we do not process this any further.
-      (let ((*is-submodule* t))
-        (collecting
-         `(import-module ,submodule-fullname))
+      (let ((*is-submodule* t)
+            (*hidden-submodule* (eq :hidden submodule-names)))
         (appending
          (multiple-value-list
           (defpymodule* submodule-fullname
@@ -288,7 +287,8 @@ Arguments:
 - The first value is the import form
 - The second value is the name of the package in python itself"
   (let ((package-in-python (pycall "str" (%pythonize (intern lisp-package)))))
-    (cond (*is-submodule*
+    (cond ((and *is-submodule*
+                (not *hidden-submodule*))
            (values nil pymodule-name))
           (*lisp-package-supplied-p*
            (values
