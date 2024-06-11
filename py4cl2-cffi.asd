@@ -42,6 +42,7 @@
                (:static-file "numpy-installed-p.txt")
                (:file "shared-objects")
                (:file "gil-gc")
+               (:file "pycapi-functions")
                (:file "numpy")
                (:file "features")
                (:file "pythonizers")
