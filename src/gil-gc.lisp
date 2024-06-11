@@ -10,15 +10,21 @@
       nil
       t))
 
+(declaim (type foreign-pointer *gil*))
+(defvar *gil*)
+(defvar *pygil-toplevel-p* t)
+
 (defun pygil-release (&optional (ptr (null-pointer))) ; default value seems 0 on linux
-  (if (pygil-held-p)
+  (if *pygil-toplevel-p*
       (progn
         (foreign-funcall "PyGILState_Release" :pointer ptr)
         t)
       nil))
 
 (defun pygil-ensure ()
-  (foreign-funcall "PyGILState_Ensure" :pointer))
+  (if *pygil-toplevel-p*
+      (foreign-funcall "PyGILState_Ensure" :pointer)
+      *gil*))
 
 (defvar *py-thread-state*)
 (defun pyeval-save-thread ()
@@ -26,33 +32,29 @@
 (defun pyeval-restore-thread (thread-state)
   (foreign-funcall "PyEval_RestoreThread" :pointer thread-state))
 
-(declaim (type foreign-pointer *gil*))
-(defvar *gil*)
-
 (defmacro with-python-gil (&body body)
   `(let* ((*gil* (pygil-ensure)))
      (unwind-protect
-          (unwind-protect (locally ,@body)
-            (python-may-be-error))
+          (let ((*pygil-toplevel-p* nil))
+            (unwind-protect (locally ,@body)
+              (python-may-be-error)))
        (pygil-release *gil*))))
 
 (defmacro with-python-gil/no-errors (&body body)
   `(let* ((*gil* (pygil-ensure)))
      (unwind-protect
-          (locally ,@body)
+          (let ((*pygil-toplevel-p* nil))
+            ,@body)
        (pygil-release *gil*))))
 
 (defmacro without-python-gil (&body body)
   (with-gensyms (count)
-    `(let ((,count (if (boundp '*gil*)
-                       (loop :while (pygil-held-p)
-                             :for ,count :from 0
-                             :do (pygil-release *gil*)
-                             :finally (return ,count))
-                       0)))
+    `(let ((*pygil-toplevel-p* t))
+       (when (boundp '*gil*)
+         (pygil-release *gil*))
        (unwind-protect (locally ,@body)
-         (loop :repeat ,count
-               :do (setq *gil* (pygil-ensure)))))))
+         (when (boundp '*gil*)
+           (setq *gil* (pygil-ensure)))))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (define-constant +python-function-reference-type-alist+
