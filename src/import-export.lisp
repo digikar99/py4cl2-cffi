@@ -212,6 +212,17 @@ Arguments:
      continue-ignoring-errors silent cache-p)
   (declare (optimize debug))
   (if (null submodule-names) (return-from defpysubmodules nil))
+  ;; The AND clauses in (EQL T) clause below correspond to:
+  ;; 1. Avoid private modules / packages
+  ;; 2. The above processing using pkgutil.iter_modules above returns *all*
+  ;;    the possible submodules of PYMODULE-NAME. However, consider this behavior -
+  ;;        Some of these submodules may not actually be imported while
+  ;;        importing PYMODULE-NAME. For example, the above processing for
+  ;;        "matplotlib" outputs "pyplot" as a submodule of matplotlib.
+  ;;        However, "import matplotlib" does not import "pyplot".
+  ;;        See https://stackoverflow.com/questions/14812342/matplotlib-has-no-attribute-pyplot
+  ;;    We want to preserve this behavior. That is why, we first check if PYMODULE-NAME
+  ;;    actually has SUBMODULE as an attribute. If not, we do not process this any further.
   (let ((submodules
           (when (pycall "hasattr" (pyvalue pymodule-name) "__path__")
             (remove-if
@@ -252,22 +263,12 @@ Arguments:
                                (pycall "pkgutil.iter_modules"
                                        (pyslot-value (pyvalue pymodule-name)
                                                      "__path__")))))))))
-    (iter (for (submodule . subsubmodules) in submodules)
-      (for submodule-fullname = (concatenate 'string
-                                             pymodule-name "." submodule))
-      ;; The AND clauses in WHEN below correspond to:
-      ;; 1. Avoid private modules / packages
-      ;; 2. The above processing using pkgutil.iter_modules above returns *all*
-      ;;    the possible submodules of PYMODULE-NAME. However, consider this behavior -
-      ;;        Some of these submodules may not actually be imported while
-      ;;        importing PYMODULE-NAME. For example, the above processing for
-      ;;        "matplotlib" outputs "pyplot" as a submodule of matplotlib.
-      ;;        However, "import matplotlib" does not import "pyplot".
-      ;;        See https://stackoverflow.com/questions/14812342/matplotlib-has-no-attribute-pyplot
-      ;;    We want to preserve this behavior. That is why, we first check if PYMODULE-NAME
-      ;;    actually has SUBMODULE as an attribute. If not, we do not process this any further.
-      (let ((*is-submodule* t)
-            (*hidden-submodule* (eq :hidden submodule-names)))
+
+    (let ((*is-submodule* t)
+          (*hidden-submodule* (eq :hidden submodule-names)))
+      (iter (for (submodule . subsubmodules) in submodules)
+        (for submodule-fullname = (concatenate 'string
+                                               pymodule-name "." submodule))
         (appending
          (multiple-value-list
           (defpymodule* submodule-fullname
