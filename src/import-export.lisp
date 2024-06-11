@@ -225,6 +225,8 @@ Arguments:
                                 (cons modname ispkg)
                                 nil))
                            ((eql :hidden)
+                            (import-module (format nil "~A.~A"
+                                                   pymodule-name modname))
                             (cons modname
                                   (if ispkg
                                       :hidden
@@ -265,6 +267,8 @@ Arguments:
       ;;    We want to preserve this behavior. That is why, we first check if PYMODULE-NAME
       ;;    actually has SUBMODULE as an attribute. If not, we do not process this any further.
       (let ((*is-submodule* t))
+        (collecting
+         `(import-module ,submodule-fullname))
         (appending
          (multiple-value-list
           (defpymodule* submodule-fullname
