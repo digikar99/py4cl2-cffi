@@ -5,6 +5,7 @@
   (:export #:*internal-features*
 
            #:+disable-pystop+
+           #:with-python-gil
            #:*pygc-threshold*
            #:with-pygc
            #:enable-pygc
