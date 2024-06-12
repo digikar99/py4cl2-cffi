@@ -34,6 +34,7 @@ See [this publication](https://zenodo.org/records/10997435) for the broad design
     - [Callbacks](#callbacks)
     - [Numpy](#numpy)
     - [Plotting](#plotting)
+    - [Optimization](#optimization)
 - [Developer Thoughts on Garbage Collection](#developer-thoughts-on-garbage-collection)
 - [API Reference](#api-reference)
     - [\*defpymodule-silent-p\*](#defpymodule-silent-p)
@@ -539,9 +540,24 @@ NIL
 By passing `:safety nil`, the `(import-module ...)` form can be avoided.
 
 ```lisp
+PYTHON-LISP-USER> (defpyfun "sin" "math" :lisp-fun-name "PYSIN"
+                    :safety nil)
+WARNING: redefining PYTHON-LISP-USER::PYSIN in DEFUN
+PYSIN
+PYTHON-LISP-USER> (time
+                   (loop for i below 10000
+                         do (pysin i)))
+Evaluation took:
+  0.060 seconds of real time
+  0.060613 seconds of total run time (0.060607 user, 0.000006 system)
+  101.67% CPU
+  133,806,218 processor cycles
+  2,424,544 bytes consed
 
 NIL
 ```
+
+Overall, these measures allow py4cl2-cffi to be within a factor of 5 of CPython. See [./perf-compare/](./perf-compare/).
 
 # Developer Thoughts on Garbage Collection
 
