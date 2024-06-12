@@ -7,9 +7,29 @@
        (defun ,lisp-name ,lambda-list
          (declare (optimize speed)
                   #+sbcl (sb-ext:muffle-conditions sb-ext:compiler-note))
-         (pyforeign-funcall ,cname ,@(apply #'append
-                                            (mapcar #'reverse args))
-                            ,return-type))
+         ,(with-gensyms (pygil-held-p return-value)
+            `(let* ((,return-value)
+                    (*gil* (pygil-ensure)))
+               (unwind-protect
+                    (let ((*pygil-toplevel-p* nil))
+                      (unwind-protect
+                           (setq ,return-value
+                                 (foreign-funcall ,cname
+                                                  ,@(apply #'append
+                                                           (mapcar #'reverse args))
+                                                  ,return-type))
+                        (python-may-be-error))
+                      ,(case (progn
+                               (assert (assoc cname +python-function-reference-type-alist+
+                                              :test #'string=))
+                               (first (assoc-value +python-function-reference-type-alist+
+                                                   cname
+                                                   :test #'string=)))
+                         (:new      `(pytrack ,return-value))
+                         (:stolen   `(foreign-funcall "Py_IncRef" :pointer ,return-value))
+                         (:borrowed `()))
+                      ,return-value)
+                 (pygil-release *gil*)))))
        (declaim (notinline ,lisp-name)))))
 
 (define-pycapi-function (pyobject-call "PyObject_Call") :pointer
