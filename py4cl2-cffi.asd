@@ -1,6 +1,7 @@
 (defsystem "py4cl2-cffi/config"
   :pathname #P"src/"
-  :depends-on ("uiop")
+  :depends-on ("uiop"
+               "alexandria")
   :serial t
   :components ((:file "config")))
 
