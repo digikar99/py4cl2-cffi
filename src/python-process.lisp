@@ -525,16 +525,19 @@ Use PYVALUE* if you want to refer to names containing full-stops."
 
 (defun pyvalue* (python-value-or-variable)
   "Get the non-lispified value associated with PYTHON-VALUE-OR-VARIABLE"
-  (declare (type (or pyobject-wrapper string) python-value-or-variable)
+  (declare (type (or foreign-pointer pyobject-wrapper string)
+                 python-value-or-variable)
            (optimize speed))
-  (if (pyobject-wrapper-p python-value-or-variable)
-      python-value-or-variable
-      (let (value)
-        (do-subseq-until (name python-value-or-variable #\. :test #'char=)
-          (setq value (if value
-                          (%pyslot-value value name)
-                          (%pyvalue name))))
-        value)))
+  (typecase python-value-or-variable
+    (foreign-pointer python-value-or-variable)
+    (pyobject-wrapper python-value-or-variable)
+    (t
+     (let (value)
+       (do-subseq-until (name python-value-or-variable #\. :test #'char=)
+         (setq value (if value
+                         (%pyslot-value value name)
+                         (%pyvalue name))))
+       value))))
 
 (defun (setf pyvalue*) (new-value python-value-or-variable)
   (declare (type (or pyobject-wrapper string) python-value-or-variable)
@@ -570,7 +573,8 @@ Example:
     \"/home/user/miniconda3/lib/python3.10/lib-dynload\"
     \"/home/user/miniconda3/lib/python3.10/site-packages\")
 "
-  (declare (type (or pyobject-wrapper string) python-name-or-variable))
+  (declare (type (or foreign-pointer pyobject-wrapper string)
+                 python-name-or-variable))
   (python-start-if-not-alive)
   (pyobject-pointer-translate (pyvalue* python-name-or-variable)))
 
