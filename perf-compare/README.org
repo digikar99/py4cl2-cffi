@@ -16,6 +16,7 @@ Burgled-batteries3 uses SBCL 1.5.4 and python3.6m.
 - [[#run-bb][run-bb]]
 - [[#run-pycall][run-pycall]]
 - [[#run-py4cl2-cffi][run-py4cl2-cffi]]
+- [[#run-py4cl2-cffi-no-gil][run-py4cl2-cffi-no-gil]]
 - [[#run-py4cl][run-py4cl]]
 - [[#summary][Summary]]
 :END:
@@ -121,7 +122,7 @@ sbcl --no-userinit --load /path/to/quicklisp/setup.lisp --script run-py4cl2-cffi
 #+end_src
 
 #+begin_src
-This is SBCL 2.3.11, an implementation of ANSI Common Lisp.
+This is SBCL 2.4.3, an implementation of ANSI Common Lisp.
 More information about SBCL is available at <http://www.sbcl.org/>.
 
 SBCL is free software, provided as is, with absolutely no warranty.
@@ -131,13 +132,13 @@ distribution for more information.
 
 Evaluating performance of
   (LAMBDA (X) (DECLARE (OPTIMIZE SPEED)) (PYSTR X))
-on the basis of 100000 runs...
-Calls per second: 210080.5
+on the basis of 1000000 runs...
+Calls per second: 390645.63
 
 Evaluating performance of
   (LAMBDA (X) (DECLARE (OPTIMIZE SPEED)) (PYCALL "str" X))
-on the basis of 100000 runs...
-Calls per second: 55555.367
+on the basis of 1000000 runs...
+Calls per second: 91112.33
 #+end_src
 
 Or on CCL:
@@ -156,6 +157,39 @@ Evaluating performance of
   (LAMBDA (X) (DECLARE (OPTIMIZE SPEED)) (PYCALL "str" X))
 on the basis of 100000 runs...
 Calls per second: 16083.091
+#+end_src
+
+* run-py4cl2-cffi-no-gil
+:PROPERTIES:
+:CUSTOM_ID: run-py4cl2-cffi-no-gil
+:END:
+
+A variant of run-py4cl2-cffi.lisp script comprises of holding the GIL before the task starts and leaving it only after the task is complete. This is in contrast to the usual approach of releasing the GIL as soon as possible.
+
+#+begin_src sh
+sbcl --no-userinit --load /path/to/quicklisp/setup.lisp --script run-py4cl2-cffi-no-gil.lisp
+#+end_src
+
+This gets us a fair boost in performance:
+
+#+begin_src
+This is SBCL 2.4.3, an implementation of ANSI Common Lisp.
+More information about SBCL is available at <http://www.sbcl.org/>.
+
+SBCL is free software, provided as is, with absolutely no warranty.
+It is mostly in the public domain; some portions are provided under
+BSD-style licenses.  See the CREDITS and COPYING files in the
+distribution for more information.
+
+Evaluating performance of
+  (LAMBDA (X) (DECLARE (OPTIMIZE SPEED)) (PYSTR X))
+on the basis of 1000000 runs...
+Calls per second: 429549.03
+
+Evaluating performance of
+  (LAMBDA (X) (DECLARE (OPTIMIZE SPEED)) (PYCALL "str" X))
+on the basis of 1000000 runs...
+Calls per second: 120947.06
 #+end_src
 
 * run-py4cl
@@ -225,14 +259,15 @@ Calls per second: 1626.3612
 
 Table summarizing number of calls per second that the particular library can reach by either using ~PyObject_Call~ or ~PyObject_Str~. Blank column indicates either that no such facility is available, or I could not find how to use it. 
 
-| Library \ How             | PyObject_Call | PyObject_Str |
-| <l>                       |           <r> |          <r> |
-|---------------------------+---------------+--------------|
-| Python                    |  (x1) 1000000 | (x1) 1600000 |
-| burgled-batteries3        |  (x61)  16500 |            - |
-| PyCall.jl                 |  (x3)  320000 | (x3)  500000 |
-| py4cl2-cffi (SBCL 2.3.11) |  (x18)  55000 | (x5)  300000 |
-| py4cl2-cffi (SBCL 1.5.4)  |  (x22)  45000 | (x5)  290000 |
-| py4cl2-cffi (CCL)         |  (x62)  16000 | (x22)  72000 |
-| py4cl (SBCL)              |  (x250)  4000 |            - |
-| py4cl (CCL)               |  (x500)  2000 |            - |
+| Library \ How                   | PyObject_Call | PyObject_Str |
+| <l>                             |           <r> |          <r> |
+|---------------------------------+---------------+--------------|
+| Python                          |  (x1) 1000000 | (x1) 1600000 |
+| burgled-batteries3              |  (x61)  16500 |            - |
+| PyCall.jl                       |  (x3)  320000 | (x3)  500000 |
+| py4cl2-cffi-no-gil (SBCL 2.4.3) |  (x8)  120000 | (x4)  430000 |
+| py4cl2-cffi (SBCL 2.4.3)        |  (x11)  91000 | (x4)  390000 |
+| py4cl2-cffi (SBCL 1.5.4)        |  (x22)  45000 | (x5)  290000 |
+| py4cl2-cffi (CCL)               |  (x42)  24000 | (x21)  76000 |
+| py4cl (SBCL)                    |  (x250)  4000 |            - |
+| py4cl (CCL)                     |  (x500)  2000 |            - |
