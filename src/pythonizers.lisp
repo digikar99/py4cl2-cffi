@@ -268,6 +268,7 @@ takes place."))
   (py-name nil :type string  :read-only t))
 (declaim (inline make-python-keyword))
 (deftype python-keyword () '(or %python-keyword keyword))
+(declaim (inline python-keyword-p))
 (defun python-keyword-p (object) (typep object 'python-keyword))
 
 (defmethod pythonize ((o %python-keyword)) (pythonize (py-name o)))

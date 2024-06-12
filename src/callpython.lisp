@@ -25,8 +25,10 @@ with-remote-objects, evaluates the last result and returns not just a handle."
 
   (defun pythonize-args (lisp-args)
     (declare (optimize speed)
-             (inline pytuple-setitem pydict-setitem))
-    (let* ((first-keyword-position
+             (dynamic-extent lisp-args)
+             (inline pytuple-new pytuple-setitem pydict-setitem))
+    (let* ((len (length lisp-args))
+           (first-keyword-position
              (loop :for arg :in lisp-args
                    :for pos :of-type (unsigned-byte 32) :from 0
                    :with first-keyword-position := nil
@@ -39,8 +41,8 @@ with-remote-objects, evaluates the last result and returns not just a handle."
            (idx 0))
       (declare (type (unsigned-byte 32) idx))
       (flet ((pythonize-list (list)
-               (let* ((tuple (pytuple-new (or first-keyword-position
-                                              (length list)))))
+               (declare (dynamic-extent list))
+               (let* ((tuple (pytuple-new (or first-keyword-position len))))
                  (assert (not (null-pointer-p tuple)))
                  (loop :for elt :in list
                        :for pyelt := (pythonize elt)
@@ -64,12 +66,12 @@ with-remote-objects, evaluates the last result and returns not just a handle."
                             (incf idx 2)))
                  dict)))
         (if (null first-keyword-position)
-            (values (length lisp-args)
+            (values len
                     (pythonize-list lisp-args)
                     nil)
             ;; The only translation of lisp keywords to python
             ;; is that of treating them like python keyword args
-            (values (length lisp-args)
+            (values len
                     (pythonize-list  (subseq lisp-args 0 first-keyword-position))
                     (pythonize-plist (subseq lisp-args first-keyword-position)))))))
 
@@ -159,7 +161,8 @@ It takes in a foreign-pointer to a python callable and returns a foreign pointer
          (let* ((return-value (if (null kwargs)
                                   (pyobject-callobject python-callable-pointer
                                                        pos-args)
-                                  (pyobject-call python-callable-pointer pos-args kwargs)))
+                                  (pyobject-call python-callable-pointer
+                                                 pos-args kwargs)))
                 (lisp-return-value
                   (or (may-be-lispify-array len return-value)
                       (%pycall-return-value return-value))))
