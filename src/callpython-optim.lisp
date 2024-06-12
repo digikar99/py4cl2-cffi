@@ -1,7 +1,8 @@
 (in-package :py4cl2-cffi)
 
 (define-compiler-macro pycall (&whole form python-callable &rest args)
-  (if (not +disable-pystop+)
+  (if (or (not +disable-pystop+)
+          (not (eq :initialized *python-state*)))
       form
       (cond ((and (typep python-callable 'cffi:foreign-pointer)
                   (every (lambda (arg) (typep arg 'cffi:foreign-pointer)) args))
