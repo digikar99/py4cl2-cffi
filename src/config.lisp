@@ -1,6 +1,7 @@
 (defpackage :py4cl2-cffi/config
   (:use :cl)
-  (:export #:*python-ldflags*
+  (:export #:+python-version-string+
+           #:*python-ldflags*
            #:*python-ignore-ldflags*
            #:*python-includes*
            #:*python-compile-command*
@@ -54,13 +55,15 @@ The second ~A corresponds to the numpy include files discovered
                      :separator '(#\newline #\tab #\space)))
             :test #'string=))
 
-  (let ((python-version-string
-          (second (return-value-as-list "python3 --version"))))
-    (if (uiop:version< python-version-string "3.8.0")
-        (defvar *python-ldflags*
-          (return-value-as-list "python3-config --ldflags"))
-        (defvar *python-ldflags*
-          (return-value-as-list "python3-config --embed --ldflags")))))
+  (alexandria:define-constant +python-version-string+
+    (second (return-value-as-list "python3 --version"))
+    :test #'string=)
+
+  (if (uiop:version< +python-version-string+ "3.8.0")
+      (defvar *python-ldflags*
+        (return-value-as-list "python3-config --ldflags"))
+      (defvar *python-ldflags*
+        (return-value-as-list "python3-config --embed --ldflags"))))
 
 
 (defvar *python-includes*
