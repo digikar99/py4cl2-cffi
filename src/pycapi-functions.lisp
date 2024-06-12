@@ -36,6 +36,9 @@
   (python-callable-pointer :pointer)
   (positional-args         :pointer)
   (keyword-args            :pointer))
+(define-pycapi-function (pyobject-callobject "PyObject_CallObject") :pointer
+  (python-callable-pointer :pointer)
+  (positional-args         :pointer))
 
 (define-pycapi-function (pyobject-str "PyObject_Str") :pointer
   (python-object-pointer :pointer))
@@ -75,18 +78,30 @@
   (attr-string :string)
   (attr-value-pointer :pointer))
 
+(define-pycapi-function (pydict-new "PyDict_New") :pointer)
 (define-pycapi-function (pydict-getitem "PyDict_GetItem") :pointer
   (python-object-pointer :pointer)
   (item-pointer :pointer))
 
-(define-pycapi-function (pydict-setitem "PyDict_SetItem") :pointer
+(define-pycapi-function (pydict-setitem "PyDict_SetItem") :int
   (python-object-pointer :pointer)
   (item-pointer :pointer)
   (value-pointer :pointer))
 
+(define-pycapi-function (pydict-getitemstring "PyDict_GetItemString") :pointer
+  (python-dict-pointer :pointer)
+  (item :string))
+
+
+(define-pycapi-function (pytuple-new "PyTuple_New") :pointer
+  (length :int))
 (declaim (ftype (function (cffi:foreign-pointer) fixnum)))
 (define-pycapi-function (pytuple-size "PyTuple_Size") :int
   (python-tuple-pointer :pointer))
+(define-pycapi-function (pytuple-setitem "PyTuple_SetItem") :int
+  (python-tuple-pointer :pointer)
+  (position :int)
+  (python-object-pointer :pointer))
 
 (define-pycapi-function (pyimport-addmodule "PyImport_AddModule") :pointer
   (name :string))

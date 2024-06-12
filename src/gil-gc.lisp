@@ -65,6 +65,7 @@
         ("Py_IncRef"          nil)
         ("Py_DecRef"          nil)
         ("PyObject_Call"      :new)
+        ("PyObject_CallObject":new)
         ("PyObject_Str"       :new)
         ("PyObject_Type"      :new)
         ("PyObject_TypeName"  nil)
