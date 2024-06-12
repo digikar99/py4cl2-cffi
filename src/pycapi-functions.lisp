@@ -7,7 +7,7 @@
        (defun ,lisp-name ,lambda-list
          (declare (optimize speed)
                   #+sbcl (sb-ext:muffle-conditions sb-ext:compiler-note))
-         ,(with-gensyms (pygil-held-p return-value)
+         ,(with-gensyms (return-value)
             `(let* ((,return-value)
                     (*gil* (pygil-ensure)))
                (unwind-protect

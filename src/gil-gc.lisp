@@ -48,13 +48,12 @@
        (pygil-release *gil*))))
 
 (defmacro without-python-gil (&body body)
-  (with-gensyms (count)
-    `(let ((*pygil-toplevel-p* t))
+  `(let ((*pygil-toplevel-p* t))
+     (when (boundp '*gil*)
+       (pygil-release *gil*))
+     (unwind-protect (locally ,@body)
        (when (boundp '*gil*)
-         (pygil-release *gil*))
-       (unwind-protect (locally ,@body)
-         (when (boundp '*gil*)
-           (setq *gil* (pygil-ensure)))))))
+         (setq *gil* (pygil-ensure))))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (define-constant +python-function-reference-type-alist+
