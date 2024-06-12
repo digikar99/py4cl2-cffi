@@ -7,7 +7,7 @@
 :CUSTOM_ID: performance-comparison
 :END:
 
-All the below code/scripts are run on an i7-8750H locked to 0.8GHz. Except for burgled-batteries3, all the others use python3.10. Julia version is 1.10. SBCL version is 2.3.11.
+All the below code/scripts are run on an i7-8750H locked to 0.8GHz. Except for burgled-batteries3, all the others use python3.10. Julia version is 1.10. SBCL version is 2.4.3.
 
 Burgled-batteries3 uses SBCL 1.5.4 and python3.6m. 
 
@@ -129,16 +129,17 @@ SBCL is free software, provided as is, with absolutely no warranty.
 It is mostly in the public domain; some portions are provided under
 BSD-style licenses.  See the CREDITS and COPYING files in the
 distribution for more information.
+gcc -I/media/common-storage/micromamba/envs/python310/include/python3.10 -I/media/common-storage/micromamba/envs/python310/include/python3.10 -c -Wall -Werror -fpic py4cl-utils.c && gcc -shared -o libpy4cl-utils.so py4cl-utils.o
 
 Evaluating performance of
   (LAMBDA (X) (DECLARE (OPTIMIZE SPEED)) (PYSTR X))
 on the basis of 1000000 runs...
-Calls per second: 390645.63
+Calls per second: 369280.6
 
 Evaluating performance of
   (LAMBDA (X) (DECLARE (OPTIMIZE SPEED)) (PYCALL "str" X))
 on the basis of 1000000 runs...
-Calls per second: 91112.33
+Calls per second: 164367.52
 #+end_src
 
 Or on CCL:
@@ -150,13 +151,13 @@ ccl --no-init --load ~/quicklisp/setup.lisp --load run-py4cl2-cffi.lisp --eval '
 #+begin_src
 Evaluating performance of
   (LAMBDA (X) (DECLARE (OPTIMIZE SPEED)) (PYSTR X))
-on the basis of 100000 runs...
-Calls per second: 72329.695
+on the basis of 1000000 runs...
+Calls per second: 76780.38
 
 Evaluating performance of
   (LAMBDA (X) (DECLARE (OPTIMIZE SPEED)) (PYCALL "str" X))
-on the basis of 100000 runs...
-Calls per second: 16083.091
+on the basis of 1000000 runs...
+Calls per second: 45005.156
 #+end_src
 
 * run-py4cl2-cffi-no-gil
@@ -180,16 +181,17 @@ SBCL is free software, provided as is, with absolutely no warranty.
 It is mostly in the public domain; some portions are provided under
 BSD-style licenses.  See the CREDITS and COPYING files in the
 distribution for more information.
+gcc -I/media/common-storage/micromamba/envs/python310/include/python3.10 -I/media/common-storage/micromamba/envs/python310/include/python3.10 -c -Wall -Werror -fpic py4cl-utils.c && gcc -shared -o libpy4cl-utils.so py4cl-utils.o
 
 Evaluating performance of
   (LAMBDA (X) (DECLARE (OPTIMIZE SPEED)) (PYSTR X))
 on the basis of 1000000 runs...
-Calls per second: 429549.03
+Calls per second: 409838.4
 
 Evaluating performance of
   (LAMBDA (X) (DECLARE (OPTIMIZE SPEED)) (PYCALL "str" X))
 on the basis of 1000000 runs...
-Calls per second: 120947.06
+Calls per second: 238323.47
 #+end_src
 
 * run-py4cl
@@ -265,9 +267,9 @@ Table summarizing number of calls per second that the particular library can rea
 | Python                          |  (x1) 1000000 | (x1) 1600000 |
 | burgled-batteries3              |  (x61)  16500 |            - |
 | PyCall.jl                       |  (x3)  320000 | (x3)  500000 |
-| py4cl2-cffi-no-gil (SBCL 2.4.3) |  (x8)  120000 | (x4)  430000 |
-| py4cl2-cffi (SBCL 2.4.3)        |  (x11)  91000 | (x4)  390000 |
-| py4cl2-cffi (SBCL 1.5.4)        |  (x22)  45000 | (x5)  290000 |
-| py4cl2-cffi (CCL)               |  (x42)  24000 | (x21)  76000 |
+| py4cl2-cffi-no-gil (SBCL 2.4.3) |  (x4)  240000 | (x4)  410000 |
+| py4cl2-cffi (SBCL 2.4.3)        |  (x6)  164000 | (x4)  370000 |
+| py4cl2-cffi (SBCL 1.5.4)        |  (x7)  148000 | (x4)  370000 |
+| py4cl2-cffi (CCL)               |  (x22)  45000 | (x20)  77000 |
 | py4cl (SBCL)                    |  (x250)  4000 |            - |
 | py4cl (CCL)                     |  (x500)  2000 |            - |

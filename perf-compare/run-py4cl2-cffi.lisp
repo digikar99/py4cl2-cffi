@@ -1,4 +1,6 @@
-(asdf:load-system "py4cl2-cffi")
+(asdf:load-system "py4cl2-cffi/config" :silent t)
+(setf py4cl2-cffi/config:*disable-pystop* t)
+(asdf:load-system "py4cl2-cffi" :force t :silent t)
 
 (defpackage :py4cl2-cffi-user
   (:use :cl :py4cl2-cffi)

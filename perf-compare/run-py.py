@@ -21,5 +21,5 @@ print("Evaluating performance of pystr_i through 1000000 calls...")
 print("Calls per second: ", calls_per_second(1000000, pystr), "\n")
 
 calls_per_second(1, pycall_str)
-print("Evaluating performance of pycall_str through 100000 calls...")
-print("Calls per second: ", calls_per_second(100000, pycall_str),)
+print("Evaluating performance of pycall_str through 1000000 calls...")
+print("Calls per second: ", calls_per_second(1000000, pycall_str),)

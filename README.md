@@ -36,7 +36,6 @@ See [this publication](https://zenodo.org/records/10997435) for the broad design
     - [Plotting](#plotting)
 - [Developer Thoughts on Garbage Collection](#developer-thoughts-on-garbage-collection)
 - [API Reference](#api-reference)
-    - [-](#-)
     - [\*defpymodule-silent-p\*](#defpymodule-silent-p)
     - [\*internal-features\*](#internal-features)
     - [\*lispifiers\*](#lispifiers)
@@ -171,7 +170,7 @@ The project is being tested on
 - [x] numpy arrays to non-CL arrays
 - [x] arbitrary module import
 - [x] numpy floats
-- [ ] optimization ~~[PyCall.jl](https://github.com/JuliaPy/PyCall.jl) is just about 2x slower than native CPython, while we are 10-20x as slow!~~ (See [./perf-compare/README.org](./perf-compare/README.org).)
+- [x] optimization (See [./perf-compare/README.org](./perf-compare/README.org).)
 - [ ] unloading python libraries to allow reloading python without restarting lisp (?)
 - [ ] playing nice with dumping a lisp image
 - [x] single threaded mode: some python libraries (including matplotlib) hate multithreaded environments
@@ -417,6 +416,132 @@ PYTHON-LISP-USER> (float-features:with-float-traps-masked t
 ```
 
 <img margin="auto" width="75%" src="./plt-example.png"></img>
+
+## Optimization
+
+Out of the box, py4cl2-cffi is about 10-15 times slower than native CPython.
+
+```lisp
+PYTHON-LISP-USER> (import-module "math")
+NIL
+PYTHON-LISP-USER> (time
+                   (loop for i below 100000
+                         do (pycall "math.sin" i)))
+Evaluation took:
+  1.112 seconds of real time
+  1.109842 seconds of total run time (1.105747 user, 0.004095 system)
+  [ Real times consist of 0.052 seconds GC time, and 1.060 seconds non-GC time. ]
+  [ Run times consist of 0.052 seconds GC time, and 1.058 seconds non-GC time. ]
+  99.82% CPU
+  2,448,781,258 processor cycles
+  41,682,272 bytes consed
+
+NIL
+```
+
+A simple way to speed up is to surround the block of code in `(with-python-gil ...)` or `(pygil-ensure ...)` and `(pygil-release)`. However, lisp implementations usually perform garbage collection from separate thread. So, if `pyobject-wrapper`-objects are generated, there finalizers will never run until the GIL is released from the main thread.
+
+```lisp
+PYTHON-LISP-USER> (time
+                   (with-python-gil
+                     (loop for i below 100000
+                           do (pycall "math.sin" i))))
+Evaluation took:
+  0.792 seconds of real time
+  0.794365 seconds of total run time (0.793760 user, 0.000605 system)
+  100.25% CPU
+  1,754,116,832 processor cycles
+  30,403,504 bytes consed
+
+NIL
+```
+
+A slightly more involved method involves setting `py4cl2-cffi/config:*disable-pystop*` to non-`NIL` before `py4cl2-cffi` is loaded. You may optionally need to compile `py4cl2-cffi` again. Thus -
+
+```lisp
+;;; On a fresh lisp image
+(asdf:load-system "py4cl2-cffi/config" :silent t)
+(setf py4cl2-cffi/config:*disable-pystop* t)
+(asdf:load-system "py4cl2-cffi" :force t)
+
+(defpackage :python-lisp-user
+  (:use :cl :py4cl2-cffi))
+
+(in-package :python-lisp-user)
+```
+
+This will allow the compiler macro of `pycall` to dump the pointer to the callable into the compiled code. For example, see the `SB-SYS:INT-SAP` below.
+
+```lisp
+PYTHON-LISP-USER> (disassemble
+                   (compile nil `(lambda (x)
+                                   (pycall "math.sin" x))))
+; disassembly for (LAMBDA (X))
+; Size: 35 bytes. Origin: #x557DD5CF                          ; (LAMBDA (X))
+; CF:       498B4510         MOV RAX, [R13+16]                ; thread.binding-stack-pointer
+; D3:       488945F8         MOV [RBP-8], RAX
+; D7:       488B15BAFFFFFF   MOV RDX, [RIP-70]                ; #.(SB-SYS:INT-SAP #X753F7547FD80)
+; DE:       488BFE           MOV RDI, RSI
+; E1:       B904000000       MOV ECX, 4
+; E6:       FF7508           PUSH QWORD PTR [RBP+8]
+; E9:       B8828FB550       MOV EAX, #x50B58F82              ; #<FDEFN PY4CL2-CFFI::%PYCALL>
+; EE:       FFE0             JMP RAX
+; F0:       CC10             INT3 16                          ; Invalid argument count trap
+NIL
+```
+
+The impact on performance:
+
+```lisp
+PYTHON-LISP-USER> (time
+                   (loop for i below 100000
+                         do (pycall "math.sin" i)))
+Evaluation took:
+  0.520 seconds of real time
+  0.521538 seconds of total run time (0.521249 user, 0.000289 system)
+  100.38% CPU
+  1,151,647,842 processor cycles
+  17,628,400 bytes consed
+
+NIL
+PYTHON-LISP-USER> (time
+                   (with-python-gil
+                     (loop for i below 100000
+                           do (pycall "math.sin" i))))
+Evaluation took:
+  0.324 seconds of real time
+  0.322341 seconds of total run time (0.322341 user, 0.000000 system)
+  99.38% CPU
+  711,752,998 processor cycles
+  9,600,240 bytes consed
+
+NIL
+```
+
+[defpymodule](#defpymodule) and [defpyfun](#defpyfun) add an `(import-module ...)` form to the lisp function bodies when `:safety` is non-NIL (default). With this, the function can work correctly even if it was called after a `(pystop)`. With `*disable-pystop*` set to NIL (default), `(pystop)` clears the global namespace. The `(import-module ...)` before the actual `pycall` can then import the module back to the global namespace. However, this incurs a performance penalty.
+
+```lisp
+PYTHON-LISP-USER> (defpyfun "sin" "math" :lisp-fun-name "PYSIN")
+PYSIN
+PYTHON-LISP-USER> (time
+                   (loop for i below 10000
+                         do (pysin i)))
+Evaluation took:
+  2.872 seconds of real time
+  2.928811 seconds of total run time (2.508456 user, 0.420355 system)
+  101.98% CPU
+  6,349,788,686 processor cycles
+  26,563,104 bytes consed
+
+NIL
+```
+
+By passing `:safety nil`, the `(import-module ...)` form can be avoided.
+
+```lisp
+
+NIL
+```
 
 # Developer Thoughts on Garbage Collection
 
