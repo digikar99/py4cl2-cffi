@@ -108,7 +108,9 @@ If the readtable case is :INVERT, it inverts the case of the name and returns it
                                                     (pycall "type" (pyvalue fullname)))
                                           :string)
                          :keyword)
-                 fullname
+                 (if +disable-pystop+
+                     (pyvalue* fullname)
+                     fullname)
                  lisp-package))
 
 (defmethod %get-arg-list ((callable-type (eql :|numpy.ufunc|))

@@ -287,8 +287,6 @@ py4cl_utils = ctypes.cdll.LoadLibrary(\"~A\")
          (removef *internal-features* :arrays)))
   (mapc #'raw-pyexec *additional-init-codes*))
 
-(defvar *disable-pystop* nil)
-
 (defun pystart ()
 
   (when (eq *python-state* :initialized)
@@ -417,6 +415,8 @@ RAW-PY, RAW-PYEVAL, RAW-PYEXEC are only provided for backward compatibility."
   (apply #'raw-py #\x code-strings))
 
 (defun pystop ()
+  (when +disable-pystop+
+    (return-from pystop))
   (when (python-alive-p)
     (trivial-garbage:gc :full t)
     (pygc)

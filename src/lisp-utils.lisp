@@ -1,5 +1,7 @@
 (in-package :py4cl2-cffi)
 
+(defconstant +disable-pystop+ py4cl2-cffi/config:*disable-pystop*)
+
 (deftype list-of (&rest types)
   (if types
       `(cons ,(first types) (list-of ,@(rest types)))

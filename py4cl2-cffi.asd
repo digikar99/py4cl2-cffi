@@ -50,6 +50,7 @@
                (:file "lispifiers")
                (:file "py-repr")
                (:file "callpython")
+               (:file "callpython-optim")
                (:file "arg-list")
                (:file "import-export")
                (:file "lisp-classes")

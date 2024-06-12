@@ -8,6 +8,7 @@
            #:*python-numpy-compile-command*
            #:*python-executable-path*
            #:*python-site-packages-path*
+           #:*disable-pystop*
            #:print-configuration
            #:shared-library-from-ldflag))
 
@@ -89,6 +90,9 @@ of the utility shared object/library that bridges the python C-API with lisp."
   (format t "  These are appended to sys.path after the embedded python starts.~%")
   (format t "Python executable used for site path:~%  ~A"
           *python-executable-path*))
+
+(defvar *disable-pystop* nil
+  "If non-NIL (PY4CL2-CFFI:PYSTOP) becomes a no-op.")
 
 (defvar *python-ignore-ldflags*
   ;; python3-config of older versions of python (such as python3.6) includes
