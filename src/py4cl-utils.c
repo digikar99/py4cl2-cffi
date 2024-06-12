@@ -4,6 +4,7 @@
 #include <Python.h>
 
 const char* PyTypeObject_Name(PyTypeObject* o){return o->tp_name;}
+const char* PyObject_TypeName(PyTypeObject* o){return Py_TYPE(o)->tp_name;}
 const char* PyTypeObject_Doc(PyTypeObject* o){return o->tp_doc;}
 
 Py_ssize_t Py_RefCnt(PyObject* o){return Py_REFCNT(o);}
@@ -27,3 +28,14 @@ PyObject* LispCallback_helper(int handle, PyObject* args, PyObject* kwargs){
 }
 
 void* ptr_idx(void** ptr, int idx){return ptr[idx];}
+
+// Source: http://www.cse.yorku.ca/~oz/hash.html
+unsigned long djb2_strhash(unsigned char *str){
+  unsigned long hash = 5381;
+  int c;
+
+  while ((c = *str++))
+    hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+
+  return hash;
+}

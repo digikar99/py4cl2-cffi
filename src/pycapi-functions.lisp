@@ -44,6 +44,23 @@
 
 (define-pycapi-function (pyobject-type "PyObject_Type") :pointer
   (python-object-pointer :pointer))
+(define-pycapi-function (pytypeobject-name "PyTypeObject_Name") :pointer
+  (python-type-object-pointer :pointer))
+(define-pycapi-function (pyobject-typename "PyObject_TypeName") :pointer
+  (python-object-pointer :pointer))
+
+(declaim (inline pyobject-typename/simple))
+(defun pyobject-typename/simple (python-object-pointer)
+  (declare (optimize speed))
+  (foreign-funcall "PyObject_TypeName" :pointer python-object-pointer :pointer))
+(declaim (notinline pyobject-typename/simple))
+
+(declaim (inline djb2-foreign-string-hash))
+(defun djb2-foreign-string-hash (foreign-string)
+  (declare (optimize speed))
+  (foreign-funcall "djb2_strhash" :pointer foreign-string :unsigned-long))
+(declaim (notinline djb2-foreign-string-hash))
+
 
 (define-pycapi-function
     (pyobject-getattrstring "PyObject_GetAttrString")
@@ -66,6 +83,10 @@
   (python-object-pointer :pointer)
   (item-pointer :pointer)
   (value-pointer :pointer))
+
+(declaim (ftype (function (cffi:foreign-pointer) fixnum)))
+(define-pycapi-function (pytuple-size "PyTuple_Size") :int
+  (python-tuple-pointer :pointer))
 
 (define-pycapi-function (pyimport-addmodule "PyImport_AddModule") :pointer
   (name :string))

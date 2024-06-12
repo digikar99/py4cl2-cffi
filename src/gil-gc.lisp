@@ -67,6 +67,7 @@
         ("PyObject_Call"      :new)
         ("PyObject_Str"       :new)
         ("PyObject_Type"      :new)
+        ("PyObject_TypeName"  nil)
         ("PyObject_GetAttrString" :new)
         ("PyObject_SetAttrString" nil)
         ("PyLong_FromLong"    :new)

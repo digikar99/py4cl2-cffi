@@ -123,5 +123,4 @@
       (load-foreign-library *numpy-utils-shared-object-path*))
     (setq *python-libraries-loaded-p* t)))
 
-#+cmucl
 (load-python-and-libraries)

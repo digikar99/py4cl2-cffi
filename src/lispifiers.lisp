@@ -4,8 +4,19 @@
 
 (defmacro define-lispifier (name (pyobject-var) &body body)
   (declare (type string name))
-  `(setf (gethash ,name *py-type-lispifier-table*)
-         (lambda (,pyobject-var) ,@body)))
+  ;; FIXME: If djb2 collides, we are in trouble. Let's hope that never happens!
+  (with-gensyms (cstr)
+    `(setf (gethash (with-foreign-string (,cstr ,name)
+                      (djb2-foreign-string-hash ,cstr))
+                    *py-type-lispifier-table*)
+           (lambda (,pyobject-var) ,@body))))
+
+(define-lispifier "NoneType" (o)
+  (if (boundp '+py-none+)
+      +py-none+
+      (progn
+        (pyuntrack o)
+        (make-tracked-pyobject-wrapper o))))
 
 (define-lispifier "UnknownLispObject" (o)
   (lisp-object (pyslot-value o "handle")))
@@ -32,7 +43,11 @@
 (define-lispifier "tuple" (o)
   (let ((py-size (pyforeign-funcall "PyTuple_Size" :pointer o :int)))
     (if (zerop py-size)
-        +py-empty-tuple+
+        (if (boundp '+py-empty-tuple+)
+            +py-empty-tuple+
+            (progn
+              (pyuntrack o)
+              (make-tracked-pyobject-wrapper o)))
         (loop :for i :below py-size
               :collect (lispify (pyforeign-funcall "PyTuple_GetItem" :pointer o
                                                                      :int i
@@ -151,42 +166,19 @@
 
 (defun lispify (pyobject)
   (declare (type foreign-pointer pyobject)
-           (optimize speed))
+           (optimize speed)
+           (inline gethash pyobject-typename/simple djb2-foreign-string-hash))
   (assert (eq :lisp *pyobject-translation-mode*))
-  (let* ((pyobject-type (pyforeign-funcall "PyObject_Type"
-                                           :pointer pyobject
-                                           :pointer))
-         (pytype-name-foreign (if (null-pointer-p pyobject-type)
-                                  nil
-                                  (pyforeign-funcall "PyTypeObject_Name"
-                                                     :pointer pyobject-type
-                                                     :pointer)))
-         (pytype-name (when pytype-name-foreign
-                        (foreign-string-to-lisp pytype-name-foreign)))
+  (let* ((pytype-name-foreign (pyobject-typename/simple pyobject))
+         (pytype-name-hash (djb2-foreign-string-hash pytype-name-foreign))
          ;; FIXME: What about names in modules?
-         (lispifier (gethash pytype-name *py-type-lispifier-table*)))
-    ;; (print (list pyobject pyobject-type pytype-name))
+         (lispifier (gethash pytype-name-hash *py-type-lispifier-table*)))
     (customize
-     (cond ((null-pointer-p pyobject-type)
-            nil)
-           ((locally (declare (type simple-base-string pytype-name))
-              (or (zerop (foreign-funcall "strcmp"
-                                          :pointer pytype-name-foreign
-                                          :string "NoneType"
-                                          :int))
-                  (null lispifier)
-                  (and (zerop (foreign-funcall "strcmp"
-                                          :pointer pytype-name-foreign
-                                          :string "tuple"
-                                          :int))
-                       (not (boundp '+py-empty-tuple+))
-                       (zerop (pyforeign-funcall "PyTuple_Size"
-                                                 :pointer pyobject :int)))))
-            (pyuntrack pyobject)
-            (pyuntrack pyobject-type)
-            (make-tracked-pyobject-wrapper pyobject))
-           (t
-            (funcall lispifier pyobject))))))
+     (if lispifier
+         (funcall lispifier pyobject)
+         (progn
+           (pyuntrack pyobject)
+           (make-tracked-pyobject-wrapper pyobject))))))
 
 (defvar *lispifiers*
   ()
