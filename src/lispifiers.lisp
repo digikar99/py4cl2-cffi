@@ -169,6 +169,10 @@
            (optimize speed)
            (inline gethash pyobject-typename/simple djb2-foreign-string-hash))
   (assert (eq :lisp *pyobject-translation-mode*))
+  ;; The performance impact of this check is less than 2%
+  ;; -- so it's worth it for a slightly more robust system.
+  (if (null-pointer-p pyobject)
+      (return-from lispify nil))
   (let* ((pytype-name-foreign (pyobject-typename/simple pyobject))
          (pytype-name-hash (djb2-foreign-string-hash pytype-name-foreign))
          ;; FIXME: What about names in modules?
