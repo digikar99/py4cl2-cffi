@@ -99,6 +99,7 @@
         ("PyModule_GetDict"   :borrowed)
         ("PyComplex_FromDoubles" :new)
         ("PyErr_Occurred"     :borrowed)
+        ("PyErr_NormalizeException" nil)
         ("PyLong_AsSsize_t"   nil)
         ("PyTypeObject_Name"  nil)
         ("PyArray_Descr_from_element_type_code" nil)

@@ -317,6 +317,10 @@ py4cl_utils = ctypes.cdll.LoadLibrary(\"~A\")
                          :pointer ptype
                          :pointer pvalue
                          :pointer ptraceback)
+      (pyforeign-funcall "PyErr_NormalizeException"
+                         :pointer ptype
+                         :pointer pvalue
+                         :pointer ptraceback)
       (let* ((type      (mem-aref ptype :pointer))
              (value     (mem-aref pvalue :pointer))
              (traceback (mem-aref ptraceback :pointer))
@@ -329,23 +333,32 @@ py4cl_utils = ctypes.cdll.LoadLibrary(\"~A\")
                                    :pointer)))
              (traceback-str
                (let ((*pyobject-translation-mode* :lisp))
-                 (if (null-pointer-p traceback)
-                     (pycall "traceback.format_exception_only" type value)
-                     (pycall "traceback.format_exception" type value traceback)))))
+                 (cond ((null-pointer-p value)
+                        (pycall "traceback.format_exception_only" type))
+                       ((null-pointer-p traceback)
+                        (pycall "traceback.format_exception_only" type value))
+                       (t
+                        (pycall "traceback.format_exception" type value traceback))))))
         (with-simple-restart (continue-ignoring-errors "")
-          (if traceback-str
-              (error 'pyerror
-                     :format-control "A python error occurred:~%  ~A~%~%~A"
-                     :format-arguments
-                     (list value-str
-                           (etypecase traceback-str
-                             (string traceback-str)
-                             (vector (apply #'uiop:strcat
-                                            (coerce traceback-str 'list)))
-                             (list (apply #'uiop:strcat traceback-str)))))
-              (error 'pyerror
-                     :format-control "A python error occurred:~%  ~A"
-                     :format-arguments (list value-str))))))))
+          (cond ((string= "" value-str)
+                 (error 'pyerror
+                        :format-control "A python error occurred:~%  ~A"
+                        :format-arguments
+                        (list (etypecase traceback-str
+                                (string traceback-str)
+                                (vector (apply #'uiop:strcat
+                                               (coerce traceback-str 'list)))
+                                (list (apply #'uiop:strcat traceback-str))))))
+                (t
+                 (error 'pyerror
+                        :format-control "A python error occurred:~%  ~A~%~%~A"
+                        :format-arguments
+                        (list value-str
+                              (etypecase traceback-str
+                                (string traceback-str)
+                                (vector (apply #'uiop:strcat
+                                               (coerce traceback-str 'list)))
+                                (list (apply #'uiop:strcat traceback-str))))))))))))
 
 (defvar *already-retrieving-exceptions* nil
   "Set to non-NIL inside PYTHON-MAY-BE-ERROR so that calling PYFOREIGN-FUNCALL
