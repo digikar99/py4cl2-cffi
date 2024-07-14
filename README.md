@@ -2,10 +2,11 @@ py4cl2-cffi - a CFFI approach to python interfacing in Common Lisp
 ---
 
 > Despite being featureful, I won't recommend using py4cl2-cffi in production or in long-term projects *yet*.
+> Numpy version 2 is unsupported atleast until 2025.
 
 Previous Common Lisp attempts: [burgled-batteries3](https://github.com/snmsts/burgled-batteries3) and [cl-python](https://github.com/metawilm/cl-python).
 
-New Common Lisp / SBCL attempt: [ouroboros](https://github.com/marcoheisig/ouroboros).
+New Common Lisp / SBCL attempt with support for calling Lisp from Python: [lang](https://github.com/marcoheisig/lang).
 
 Non Common Lisp approaches
 - see [this reddit thread](https://www.reddit.com/r/lisp/comments/yuipy7/pyffi_use_python_from_racket/) for PyFFI in racket, as well as Gambit Scheme
