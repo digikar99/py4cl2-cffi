@@ -122,3 +122,12 @@
   (ptype :pointer)
   (pvalue :pointer)
   (ptraceback :pointer))
+
+(defun pyerr-setstring/simple (type message)
+  (declare (type foreign-pointer type)
+           (type string message))
+  (with-python-gil/no-errors
+    (foreign-funcall "PyErr_SetString"
+                     :pointer type
+                     :string message
+                     :void)))

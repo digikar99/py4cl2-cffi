@@ -203,36 +203,32 @@ takes place."))
 
 (defcvar ("getattr_ptr" *getattr-ptr*) :pointer)
 (defcallback getattr-fn :pointer ((handle :int) (attr :pointer))
-  (let ((*pygil-toplevel-p* t))
-    (with-python-gil
-      (handler-case
-          (pythonize (python-getattr (lisp-object handle) (lispify attr)))
-        (error (c)
-          (pyforeign-funcall "PyErr_SetString"
-                             :pointer (pytype "Exception")
-                             :string
-                             (format nil "An error occured during lisp callback.~%~%~A~%"
-                                     (condition-backtrace c)))
-          (null-pointer))))))
+  (let ((*pygil-toplevel-p* nil))
+    (handler-case
+        (pythonize (python-getattr (lisp-object handle) (lispify attr)))
+      (error (c)
+        (pyerr-setstring/simple
+         (pytype "Exception")
+         (format nil "An error occured during lisp callback.~%~%~A~%"
+                 (condition-backtrace c)))
+        (null-pointer)))))
 
 (defcvar ("setattr_ptr" *setattr-ptr*) :pointer)
 (defcallback setattr-fn :pointer ((handle :int) (attr :pointer) (new-value :pointer))
-  (let ((*pygil-toplevel-p* t))
-    (with-python-gil
-      (handler-case
-          (python-setattr (lisp-object handle) (lispify attr) (lispify new-value))
-        (error (c)
-          (pyforeign-funcall "PyErr_SetString"
-                             :pointer (pytype "Exception")
-                             :string
-                             (format nil "An error occured during lisp callback.~%~%~A~%"
-                                     (condition-backtrace c)))))))
+  (let ((*pygil-toplevel-p* nil))
+    (handler-case
+        (python-setattr (lisp-object handle) (lispify attr) (lispify new-value))
+      (error (c)
+        (pyerr-setstring/simple
+         (pytype "Exception")
+         (format nil "An error occured during lisp callback.~%~%~A~%"
+                 (condition-backtrace c))))))
   (null-pointer))
 
 (defcvar ("lisp_callback_fn_ptr" *lisp-callback-fn-ptr*) :pointer)
 (defcallback lisp-callback-fn :pointer ((handle :int) (args :pointer) (kwargs :pointer))
   (declare (optimize debug))
-  (let ((*pygil-toplevel-p* t))
+  (let ((*pygil-toplevel-p* nil))
     (with-pygc
       (thread-global-let ((*pyobject-translation-mode* :lisp))
         (handler-case
@@ -253,11 +249,10 @@ takes place."))
                                                             (intern (lispify-name elt) :keyword)
                                                             elt)))))))
           (error (c)
-            (pyforeign-funcall "PyErr_SetString"
-                               :pointer (pytype "Exception")
-                               :string
-                               (format nil "An error occured during lisp callback.~%~%~A~%"
-                                       (condition-backtrace c)))
+            (pyerr-setstring/simple
+             (pytype "Exception")
+             (format nil "An error occured during lisp callback.~%~%~A~%"
+                     (condition-backtrace c)))
             (pythonize 0)))))))
 
 (defmethod pythonize ((o function))

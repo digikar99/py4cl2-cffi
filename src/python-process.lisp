@@ -269,7 +269,7 @@ can lead to memory leak.")))
         *getattr-ptr* (callback getattr-fn)
         *setattr-ptr* (callback setattr-fn))
   (raw-pyexec #.(format nil "import ctypes
-py4cl_utils = ctypes.cdll.LoadLibrary(\"~A\")
+py4cl_utils = ctypes.pydll.LoadLibrary(\"~A\")
 " (namestring *utils-shared-object-path*)))
   (raw-pyexec (read-file-into-string
                (asdf:component-pathname
