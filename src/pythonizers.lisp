@@ -72,10 +72,11 @@ the same lisp objects which are EQ to each other. Returns NIL in all other cases
                                                          :pointer pointer
                                                          :pointer)))
                      (ensure-non-null-pointer may-be-type)
-                     (lispify
-                      (pyforeign-funcall "PyObject_Str"
-                                         :pointer may-be-type
-                                         :pointer)))))
+                     (let ((*pyobject-translation-mode* :lisp))
+                       (lispify
+                        (pyforeign-funcall "PyObject_Str"
+                                           :pointer may-be-type
+                                           :pointer))))))
         (if *print-pyobject-wrapper-identity*
             (print-unreadable-object (o s :type t :identity t)
               (if *print-pyobject*
@@ -85,18 +86,20 @@ the same lisp objects which are EQ to each other. Returns NIL in all other cases
                       (format s (if (string= "<class 'str'>" type)
                                     "\"~A\""
                                     "~A")
-                              (lispify (pyforeign-funcall "PyObject_Str"
-                                                          :pointer pointer
-                                                          :pointer))))
+                              (let ((*pyobject-translation-mode* :lisp))
+                                (lispify (pyforeign-funcall "PyObject_Str"
+                                                            :pointer pointer
+                                                            :pointer)))))
                     (terpri s))
                   (format s ":POINTER ~A :TYPE ~A" pointer type)))
             (if *print-pyobject*
                 (format s (if (string= "<class 'str'>" type)
                               "\"~A\""
                               "~A")
-                        (lispify (pyforeign-funcall "PyObject_Str"
-                                                    :pointer pointer
-                                                    :pointer)))
+                        (let ((*pyobject-translation-mode* :lisp))
+                          (lispify (pyforeign-funcall "PyObject_Str"
+                                                      :pointer pointer
+                                                      :pointer))))
                 (format s ":POINTER ~A :TYPE ~A" pointer type)))))))
 
 (defvar +py-empty-tuple+)
