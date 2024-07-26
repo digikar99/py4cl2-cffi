@@ -55,6 +55,7 @@
                (:file "arg-list")
                (:file "import-export")
                (:file "lisp-classes")
+               (:file "iterate")
                (:file "do-after-load"))
   :perform (test-op (o c)
              (declare (ignore o c))

@@ -66,6 +66,8 @@
            #:+py-none-pointer+
 
            #:python-getattr
-           #:python-setattr))
+           #:python-setattr
+
+           #:pyfor))
 
 (in-package :py4cl2-cffi)
