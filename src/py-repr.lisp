@@ -4,6 +4,7 @@
   (pycall "repr" object))
 
 (defmethod py-repr ((float float))
+  #+sbcl (declare (sb-ext:muffle-conditions sb-ext:compiler-note))
   (cond ((float-features:float-nan-p float)
          (etypecase float
            (single-float "numpy.float32('nan')")
@@ -30,11 +31,11 @@
                                    (when dpos (setf (char repr dpos) #\e))
                                    repr)))
            (long-float (format nil "numpy.longdouble(\"~A\")"
-                                 (let* ((repr (write-to-string float))
-                                        (dpos (or (position #\l repr)
-                                                  (position #\L repr))))
-                                   (when dpos (setf (char repr dpos) #\e))
-                                   repr)))))))
+                               (let* ((repr (write-to-string float))
+                                      (dpos (or (position #\l repr)
+                                                (position #\L repr))))
+                                 (when dpos (setf (char repr dpos) #\e))
+                                 repr)))))))
 
 (defmethod py-repr ((object string))
   (cond ((find #\newline object)

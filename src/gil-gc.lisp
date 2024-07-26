@@ -192,7 +192,6 @@ This avoids inadvertent calls to DecRef during recursions.")
                     :pointer pyobject-pointer
                     :pointer)))
 
-(declaim (inline pygc))
 (defun pygc ()
   (declare (optimize speed))
   (when (and *top-level-p* *pygc-enabled*)

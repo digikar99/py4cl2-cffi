@@ -1,6 +1,7 @@
 (in-package :py4cl2-cffi)
 
 (define-compiler-macro pycall (&whole form python-callable &rest args)
+  #+sbcl (declare (sb-ext:muffle-conditions sb-ext:compiler-note))
   (if (or (not +disable-pystop+)
           (not (eq :initialized *python-state*)))
       form

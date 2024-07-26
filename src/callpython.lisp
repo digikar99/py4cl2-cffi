@@ -27,7 +27,7 @@ with-remote-objects, evaluates the last result and returns not just a handle."
     (declare (optimize speed)
              (dynamic-extent lisp-args)
              (inline pytuple-new pytuple-setitem pydict-setitem))
-    (let* ((len (length lisp-args))
+    (let* ((len (list-length lisp-args))
            (first-keyword-position
              (loop :for arg :in lisp-args
                    :for pos :of-type (unsigned-byte 32) :from 0
@@ -77,7 +77,6 @@ with-remote-objects, evaluates the last result and returns not just a handle."
 
   ;; If the RETURN-VALUE is an array amongst the inputs,
   ;; then avoid lispifying the return-value
-  (declaim (inline may-be-lispify-array))
   (defun may-be-lispify-array (len pyobject-ptr)
     (declare (type (unsigned-byte 32) len)
              (type foreign-pointer pyobject-ptr)
@@ -87,7 +86,6 @@ with-remote-objects, evaluates the last result and returns not just a handle."
             :do (when (= addr (aref python-array-pointers i))
                   (return (aref lisp-arrays i))))))
 
-  (declaim (inline clear-pythonize-array-cache))
   (defun clear-pythonize-array-cache (len)
     (declare (optimize speed)
              (type (unsigned-byte 32) len))

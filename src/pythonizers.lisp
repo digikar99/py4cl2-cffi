@@ -3,10 +3,13 @@
 (defvar *pyobject-translation-mode* :lisp)
 (declaim (type (member :foreign-pointer :wrapper :lisp)
                *pyobject-translation-mode*))
+
+(declaim (inline pyobject-wrapper-pointer))
+
 (defstruct pyobject-wrapper
   "A wrapper around a pointer to a python object.
 LOAD-FORM is used if the pyobject-wrapper is dumped into a compiled lisp file."
-  pointer
+  (pointer nil :type foreign-pointer)
   load-form)
 
 (defun make-tracked-pyobject-wrapper (pointer)
@@ -19,6 +22,7 @@ LOAD-FORM is used if the pyobject-wrapper is dumped into a compiled lisp file."
     pyobject-wrapper))
 
 (defun finalization-lambda (address)
+  (declare (type (unsigned-byte 64) address))
   (lambda ()
     (unless (zerop address)
       (with-python-gil/no-errors

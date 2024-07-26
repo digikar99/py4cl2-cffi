@@ -1,5 +1,6 @@
 (in-package :py4cl2-cffi)
 
+(declaim (type hash-table *py-type-lispifier-table*))
 (defvar *py-type-lispifier-table* (make-hash-table :test #'equal))
 
 (defmacro define-lispifier (name (pyobject-var) &body body)
@@ -178,7 +179,7 @@
          ;; FIXME: What about names in modules?
          (lispifier (gethash pytype-name-hash *py-type-lispifier-table*)))
     (customize
-     (if lispifier
+     (if (functionp lispifier)
          (funcall lispifier pyobject)
          (progn
            (pyuntrack pyobject)
