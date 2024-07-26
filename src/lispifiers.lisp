@@ -66,7 +66,7 @@
 
 (define-lispifier "dict" (o)
   (let ((py-size (pyforeign-funcall "PyDict_Size" :pointer o :long))
-        (hash-table (make-hash-table :test #'equalp))
+        (hash-table (make-hash-table :test #'equal))
         (py-keys (pyforeign-funcall "PyDict_Keys" :pointer o :pointer)))
     (loop :for i :below py-size
           :for py-key := (pyforeign-funcall "PyList_GetItem"
