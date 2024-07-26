@@ -340,7 +340,7 @@ Example
         ((list* name args)
          (apply #'pycall name args))
         (_
-         (%pythonize link)))))
+         link))))
 
 (defun chain* (&rest chain)
   (with-pygc
@@ -349,14 +349,61 @@ Example
           :do (setq value (%chain* link value))
           :finally (return value))))
 
+(defun (setf %chain*) (new-value link &optional initial-value)
+  ;; FIXME: This requires more testing and fixes
+  (declare (optimize speed))
+  (if initial-value
+      (optima:match link
+        ((list* 'aref args)
+         (apply #'(setf pyref) new-value initial-value args))
+        ((optima:guard _ (and (consp link)
+                              (consp (first link))))
+         ;; FIXME: Is this appropriate?
+         (funcall #'(setf %chain*)
+                  new-value
+                  (apply #'pymethod initial-value
+                         (mapcar #'chain* link))))
+        ((optima:guard (list* _ chain)
+                       (and (typep (first link) 'string-designator)
+                            (member (first link) '("@" "CHAIN") :test #'string=)))
+         (funcall #'(setf pyslot-value) new-value initial-value (apply #'chain* chain)))
+        ((list* name args)
+         ;; FIXME: Is this appropriate?
+         (funcall #'(setf %chain*)
+                  new-value
+                  (apply #'pymethod initial-value name args)))
+        (_
+         (funcall #'(setf pyslot-value) new-value initial-value link)))
+      (optima:match link
+        ((list* 'aref object args)
+         (apply #'(setf pyref) new-value object args))
+        ((optima:guard _ (and (consp link)
+                              (consp (first link))))
+         ;; FIXME: Is this appropriate?
+         (funcall #'(setf %chain*)
+                  new-value
+                  (apply #'pycall (mapcar #'chain* link))))
+        ((optima:guard (list* _ chain)
+                       (and (typep (first link) 'string-designator)
+                            (member (first link) '("@" "CHAIN") :test #'string=)))
+         (apply #'chain* chain))
+        ((list* name args)
+         ;; FIXME: Is this appropriate?
+         (funcall #'(setf %chain*)
+                  new-value
+                  (apply #'pycall name args)))
+        (_
+         (pyobject-pointer-translate (%pythonize link))))))
+
 (defun (setf chain*) (new-value &rest chain)
+  (declare (optimize debug))
   (let ((last  (lastcar chain))
         (chain (butlast chain)))
     (with-pygc
       (loop :with value := nil
             :for link :in chain
             :do (setq value (%chain* link value))
-            :finally (return (setf (pyslot-value value last) new-value))))))
+            :finally (return (setf (%chain* last value) new-value))))))
 
 (defmacro chain (&rest chain)
   "This is inspired by PARENSCRIPT:CHAIN, discussed in this issue:
