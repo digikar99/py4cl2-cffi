@@ -222,7 +222,8 @@ python callable, which is then retrieved using PYVALUE*"
 (declaim (inline pyobject-pointer-translate))
 (defun pyobject-pointer-translate (pyobject-pointer)
   (declare (optimize speed)
-           (type foreign-pointer pyobject-pointer))
+           (type foreign-pointer pyobject-pointer)
+           #+sbcl (sb-ext:muffle-conditions sb-ext:compiler-note))
   (ecase *pyobject-translation-mode*
     (:foreign-pointer pyobject-pointer)
     (:wrapper
