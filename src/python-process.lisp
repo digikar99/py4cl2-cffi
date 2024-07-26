@@ -576,15 +576,16 @@ Use PYVALUE* if you want to refer to names containing full-stops."
 
 (defun pyvalue (python-name-or-variable)
   "Get the value of a python-name-or-variable.
+
 Example:
 
-(pyvalue \"sys\") ;=> <module 'sys' (built-in)>
-(pyvalue \"sys.path\")
-;=>
-  #(\"/home/user/miniconda3/lib/python310.zip\"
-    \"/home/user/miniconda3/lib/python3.10\"
-    \"/home/user/miniconda3/lib/python3.10/lib-dynload\"
-    \"/home/user/miniconda3/lib/python3.10/site-packages\")
+    (pyvalue \"sys\") ;=> <module 'sys' (built-in)>
+    (pyvalue \"sys.path\")
+    ;=>
+      #(\"/home/user/miniconda3/lib/python310.zip\"
+        \"/home/user/miniconda3/lib/python3.10\"
+        \"/home/user/miniconda3/lib/python3.10/lib-dynload\"
+        \"/home/user/miniconda3/lib/python3.10/site-packages\")
 "
   (declare (type (or foreign-pointer pyobject-wrapper string)
                  python-name-or-variable))

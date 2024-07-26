@@ -423,26 +423,28 @@ NOTE: This is a new feature and hence unstable; recommended to avoid in producti
 
 (defmacro with-pythonizers ((&rest overriding-pythonizers) &body body)
   "Each entry of OVERRIDING-PYTHONIZERS is a two-element list of the form
-  (TYPE PYTHONIZER)
+
+    (TYPE PYTHONIZER)
+
 Here, TYPE is unevaluated, while PYTHONIZER will be evaluated; the PYTHONIZER is expected
 to take a default-pythonized object (see lisp-python types translation table in docs)
 and return the appropriate object user expects.
 
 For example,
 
-  ; A convenience function
-  (defun pyprint (object)
-    (pycall \"print\" object)
-    (pycall \"sys.stdout.flush\")
-    (values))
+    ; A convenience function
+    (defun pyprint (object)
+      (pycall \"print\" object)
+      (pycall \"sys.stdout.flush\")
+      (values))
 
-  (pyprint #(1 2 3)) ; prints [1, 2, 3] ; the default object
-  (with-pythonizers ((vector \"tuple\"))
-    (pyprint #(1 2 3))
-    (pyprint 5))
-  ; (1, 2, 3) ; coerced to tuple by the pythonizer
-  ; 5         ; pythonizer uncalled for non-VECTOR
-  5
+    (pyprint #(1 2 3)) ; prints [1, 2, 3] ; the default object
+    (with-pythonizers ((vector \"tuple\"))
+      (pyprint #(1 2 3))
+      (pyprint 5))
+    ; (1, 2, 3) ; coerced to tuple by the pythonizer
+    ; 5         ; pythonizer uncalled for non-VECTOR
+    5
 
 NOTE: This is a new feature and hence unstable; recommended to avoid in production code."
   `(let ((*pythonizers* (list* ,@(loop :for (type pythonizer) :in overriding-pythonizers

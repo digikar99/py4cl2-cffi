@@ -122,21 +122,23 @@ def _py4cl_non_callable(ele):
                       (safety t))
   "
 Defines a function which calls python
+
 Example
-  (py4cl:pyexec \"import math\")
-  (py4cl:defpyfun \"math.sqrt\")
-  (math.sqrt 42) -> 6.4807405
+
+    (py4cl:pyexec \"import math\")
+    (py4cl:defpyfun \"math.sqrt\")
+    (math.sqrt 42) -> 6.4807405
 
 Arguments:
 
-  FUN-NAME: name of the function in python, before import
-  PYMODULE-NAME: name of the module containing FUN-NAME
+- FUN-NAME: name of the function in python, before import
+- PYMODULE-NAME: name of the module containing FUN-NAME
 
-  AS: name of the function in python, after import
-  CACHE: if non-NIL, constructs the function body at macroexpansion time
-  LISP-FUN-NAME: name of the lisp symbol to which the function is bound*
-  LISP-PACKAGE: package (not its name) in which LISP-FUN-NAME will be interned
-  SAFETY: if T, adds an additional line in the function asking to import the
+- AS: name of the function in python, after import
+- CACHE: if non-NIL, constructs the function body at macroexpansion time
+- LISP-FUN-NAME: name of the lisp symbol to which the function is bound*
+- LISP-PACKAGE: package (not its name) in which LISP-FUN-NAME will be interned
+- SAFETY: if T, adds an additional line in the function asking to import the
     package or function, so that the function works even after PYSTOP is called.
     However, this increases the overhead of stream communication, and therefore,
     can reduce speed.
@@ -330,9 +332,11 @@ Arguments:
                          (silent *defpymodule-silent-p*))
   "
 Import a python module (and its submodules) as a lisp-package(s).
+
 Example:
-  (py4cl:defpymodule \"math\" :lisp-package \"M\")
-  (m:sqrt 4)   ; => 2.0
+
+    (py4cl:defpymodule \"math\" :lisp-package \"M\")
+    (m:sqrt 4)   ; => 2.0
 
 Arguments:
 

@@ -196,21 +196,23 @@ NOTE: This is a new feature and hence unstable; recommended to avoid in producti
 
 (defmacro with-lispifiers ((&rest overriding-lispifiers) &body body)
   "Each entry of OVERRIDING-LISPIFIERS is a two-element list of the form
-  (TYPE LISPIFIER)
+
+    (TYPE LISPIFIER)
+
 Here, TYPE is unevaluated, while LISPIFIER will be evaluated; the LISPIFIER is expected
 to take a default-lispified object (see lisp-python types translation table in docs)
 and return the appropriate object user expects.
 
 For example,
 
-  (raw-pyeval \"[1, 2, 3]\") ;=> #(1 2 3) ; the default lispified object
-  (with-lispifiers ((vector (lambda (x) (coerce x 'list))))
-    (print (raw-pyeval \"[1,2,3]\"))
-    (print (raw-pyeval \"5\")))
-  ; #(1 2 3) ; default lispified object
-  ; (1 2 3)  ; coerced to LIST by the lispifier
-  ; 5        ; lispifier uncalled for non-VECTOR
-  5
+    (raw-pyeval \"[1, 2, 3]\") ;=> #(1 2 3) ; the default lispified object
+    (with-lispifiers ((vector (lambda (x) (coerce x 'list))))
+      (print (raw-pyeval \"[1,2,3]\"))
+      (print (raw-pyeval \"5\")))
+    ; #(1 2 3) ; default lispified object
+    ; (1 2 3)  ; coerced to LIST by the lispifier
+    ; 5        ; lispifier uncalled for non-VECTOR
+    5
 
 NOTE: This is a new feature and hence unstable; recommended to avoid in production code."
   `(let ((*lispifiers* (list* ,@(loop :for (type lispifier) :in overriding-lispifiers

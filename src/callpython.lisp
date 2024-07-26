@@ -11,7 +11,7 @@ This is useful if performing operations on large datasets."
   "Ensures that all values returned by python functions
 and methods are kept in python, and only handles returned to lisp.
 This is useful if performing operations on large datasets. Unlike
-with-remote-objects, evaluates the last result and returns not just a handle."
+WITH-REMOTE-OBJECTS, evaluates the last result and returns not just a handle."
   `(with-pygc
      (thread-global-let ((*pyobject-translation-mode* :lisp))
        (lispify (pyobject-wrapper-pointer (with-remote-objects ,@body))))))
@@ -277,6 +277,23 @@ python callable, which is then retrieved using PYVALUE*"
              index)))
 
   (defun pyref (object &rest indices)
+    "Wrapper around python's __getitem__ along with support for slicing.
+
+Example
+
+    (pyref \"hello\" 1) ;=> \"e\"
+    ; NOTE: Python does not make a distinction between strings and characters
+
+    (pyref #(1 2 3) 1) ;=> 2
+    (pyref #(1 2 3 4 5) '(slice 3 5)) ;=> #(4 5)
+
+    (import-module \"numpy\")
+    (with-remote-objects*
+      (pyref (chain (\"numpy.arange\" 12) (\"reshape\" (3 4)))
+             `(slice ,+py-none+)
+             0))
+
+"
     (pymethod object "__getitem__"
               (if (= 1 (length indices))
                   (may-be-slice (first indices))
@@ -342,6 +359,80 @@ python callable, which is then retrieved using PYVALUE*"
             :finally (return (setf (pyslot-value value last) new-value))))))
 
 (defmacro chain (&rest chain)
+  "This is inspired by PARENSCRIPT:CHAIN, discussed in this issue:
+    https://github.com/bendudson/py4cl/issues/4
+
+In python it is quite common to apply a chain of method calls, data member
+access, and indexing operations to an object. To make this work smoothly in
+Lisp, there is the chain macro (Thanks to @kat-co and parenscript for the
+inspiration). This consists of a target object, followed by a chain of
+operations to apply. For example
+
+    (chain \"hello {0}\" (format \"world\") (capitalize)) ; => \"Hello world\"
+
+which is interpreted as: \"hello {0}\".format(\"world\").capitalize().
+
+Or -
+
+    (chain \"hello {0}\" (format \"world\") (capitalize) (aref 1)) ; => \"e\"
+
+which is interpreted as: \"hello {0}\".format(\"world\").capitalize()[1].
+
+CHAIN has two variants: CHAIN is a macro, with the elements of CHAIN
+unevaluated, while CHAIN* is a function with its elements (arguments) evaluated
+according to a normal lisp function call..
+
+Some more examples are as follows:
+
+    (chain (slice 3) stop) ; => 3
+    (let ((format-str \"hello {0}\")
+          (argument \"world\"))
+     (chain* format-str `(format ,argument))) ; => \"hello world\"
+
+Arguments to methods are lisp, since only the top level forms in chain are
+treated specially:
+
+    CL-USER> (chain (slice 3) stop)
+    3
+    CL-USER> (let ((format-str \"hello {0}\")
+                   (argument \"world\"))
+               (chain* format-str `(format ,argument)))
+    \"hello world\"
+    CL-USER> (chain* \"result: {0}\" `(format ,(+ 1 2)))
+    \"result: 3\"
+    CL-USER> (chain (aref \"hello\" 4))
+    \"o\"
+    CL-USER> (chain (aref \"hello\" (slice 2 4)))
+    \"ll\"
+    CL-USER> (chain (aref #2A((1 2 3) (4 5 6)) (slice 0 2)))
+    #2A((1 2 3) (4 5 6))
+    CL-USER> (chain (aref #2A((1 2 3) (4 5 6)) 1 (slice 0 2))) ; array[1, 0:2]
+    #(4 5)
+    CL-USER> (pyexec \"class TestClass:
+        def doThing(self, value = 42):
+            return value\")
+    CL-USER> (chain (\"TestClass\") (\"doThing\" :value 31))
+    31
+
+There is also `(SETF CHAIN)`. However, this is experimental. This requires that
+the python object remains as a wrapper. WITH-REMOTE-OBJECTS can ensure
+this. WITH-REMOTE-OBJECTS* additionally lispifies the return value:
+
+    CL-USER> (with-remote-objects*
+               (let ((lst (pycall \"list\" '(1 2 3))))
+                 (setf (chain* `(aref ,lst 0)) 4)
+                 lst))
+    #(4 2 3)
+
+Note that this modifies the value in python, so the above example only works
+because `lst` is a pyobject-wrapper, rather than a lisp object.
+The following therefore does not work:
+
+    CL-USER> (let ((lst (pycall \"list\" '(1 2 3))))
+               (setf (chain* `(aref ,lst 0)) 4)
+               lst)
+    #(1 2 3)
+"
   `(chain* ,@(loop :for link :in chain
                    :collect `(quote ,link))))
 

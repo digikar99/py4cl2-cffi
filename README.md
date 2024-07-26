@@ -45,6 +45,7 @@ See [this publication](https://zenodo.org/records/10997435) for the broad design
     - [\*print-pyobject-wrapper-identity\*](#print-pyobject-wrapper-identity)
     - [\*pygc-threshold\*](#pygc-threshold)
     - [\*pythonizers\*](#pythonizers)
+    - [+disable-pystop+](#disable-pystop)
     - [+py-empty-tuple+](#py-empty-tuple)
     - [+py-empty-tuple-pointer+](#py-empty-tuple-pointer)
     - [+py-none+](#py-none)
@@ -87,6 +88,7 @@ See [this publication](https://zenodo.org/records/10997435) for the broad design
     - [with-lispifiers](#with-lispifiers)
     - [with-pygc](#with-pygc)
     - [with-python-error-output](#with-python-error-output)
+    - [with-python-gil](#with-python-gil)
     - [with-python-output](#with-python-output)
     - [with-pythonizers](#with-pythonizers)
     - [with-remote-objects](#with-remote-objects)
@@ -674,6 +676,12 @@ python object.
 
 NOTE: This is a new feature and hence unstable; recommended to avoid in production code.
 
+### +disable-pystop+
+
+```lisp
+Constant: NIL
+```
+
 ### +py-empty-tuple+
 
 No documentation found for `+py-empty-tuple+`
@@ -696,6 +704,80 @@ No documentation found for `+py-none-pointer+`
 Macro: (chain &rest chain)
 ```
 
+This is inspired by PARENSCRIPT:CHAIN, discussed in this issue:
+    https://github.com/bendudson/py4cl/issues/4
+
+In python it is quite common to apply a chain of method calls, data member
+access, and indexing operations to an object. To make this work smoothly in
+Lisp, there is the chain macro (Thanks to @kat-co and parenscript for the
+inspiration). This consists of a target object, followed by a chain of
+operations to apply. For example
+
+    (chain "hello {0}" (format "world") (capitalize)) ; => "Hello world"
+
+which is interpreted as: "hello {0}".format("world").capitalize().
+
+Or -
+
+    (chain "hello {0}" (format "world") (capitalize) (aref 1)) ; => "e"
+
+which is interpreted as: "hello {0}".format("world").capitalize()[1].
+
+`chain` has two variants: `chain` is a macro, with the elements of `chain`
+unevaluated, while [chain\*](#chain) is a function with its elements (arguments) evaluated
+according to a normal lisp function call..
+
+Some more examples are as follows:
+
+    (chain (slice 3) stop) ; => 3
+    (let ((format-str "hello {0}")
+          (argument "world"))
+     (chain* format-str `(format ,argument))) ; => "hello world"
+
+Arguments to methods are lisp, since only the top level forms in chain are
+treated specially:
+
+    CL-USER> (chain (slice 3) stop)
+    3
+    CL-USER> (let ((format-str "hello {0}")
+                   (argument "world"))
+               (chain* format-str `(format ,argument)))
+    "hello world"
+    CL-USER> (chain* "result: {0}" `(format ,(+ 1 2)))
+    "result: 3"
+    CL-USER> (chain (aref "hello" 4))
+    "o"
+    CL-USER> (chain (aref "hello" (slice 2 4)))
+    "ll"
+    CL-USER> (chain (aref #2A((1 2 3) (4 5 6)) (slice 0 2)))
+    #2A((1 2 3) (4 5 6))
+    CL-USER> (chain (aref #2A((1 2 3) (4 5 6)) 1 (slice 0 2))) ; array[1, 0:2]
+    #(4 5)
+    CL-USER> (pyexec "class TestClass:
+        def doThing(self, value = 42):
+            return value")
+    CL-USER> (chain ("TestClass") ("doThing" :value 31))
+    31
+
+There is also `(SETF chain)`. However, this is more experimental. It requires that
+the python object remains as a wrapper. [with-remote-objects](#with-remote-objects) can ensure
+this. [with-remote-objects\*](#with-remote-objects) additionally lispifies the return value:
+
+    CL-USER> (with-remote-objects*
+               (let ((lst (pycall "list" '(1 2 3))))
+                 (setf (chain* `(aref ,lst 0)) 4)
+                 lst))
+    #(4 2 3)
+
+Note that this modifies the value in python, so the above example only works
+because `lst` is a pyobject-wrapper, rather than a lisp object.
+The following therefore does not work:
+
+    CL-USER> (let ((lst (pycall "list" '(1 2 3))))
+               (setf (chain* `(aref ,lst 0)) 4)
+               lst)
+    #(1 2 3)
+
 ### chain\*
 
 ```lisp
@@ -717,47 +799,44 @@ Macro: (defpyfun fun-name &optional pymodule-name &key (as fun-name) (cache t)
 
 
 Defines a function which calls python
+
 Example
-  (py4cl:pyexec "import math")
-  (py4cl:defpyfun "math.sqrt")
-  (math.sqrt 42) -> 6.4807405
+
+    (py4cl:pyexec "import math")
+    (py4cl:defpyfun "math.sqrt")
+    (math.sqrt 42) -> 6.4807405
 
 Arguments:
 
-  FUN-NAME: name of the function in python, before import
-  PYMODULE-NAME: name of the module containing `fun-name`
+- FUN-NAME: name of the function in python, before import
+- PYMODULE-NAME: name of the module containing `fun-name`
 
-  AS: name of the function in python, after import
-  CACHE: if non-NIL, constructs the function body at macroexpansion time
-  LISP-FUN-NAME: name of the lisp symbol to which the function is bound*
-  LISP-PACKAGE: package (not its name) in which `lisp-fun-name` will be interned
-  SAFETY: if T, adds an additional line in the function asking to import the
+- AS: name of the function in python, after import
+- CACHE: if non-NIL, constructs the function body at macroexpansion time
+- LISP-FUN-NAME: name of the lisp symbol to which the function is bound*
+- LISP-PACKAGE: package (not its name) in which `lisp-fun-name` will be interned
+- SAFETY: if T, adds an additional line in the function asking to import the
     package or function, so that the function works even after [pystop](#pystop) is called.
     However, this increases the overhead of stream communication, and therefore,
     can reduce speed.
-
+  
 
 ### defpymodule
 
 ```lisp
-Macro: (defpymodule pymodule-name &optional (submodules NIL) &key
-        (cache t) (continue-ignoring-errors t)
+Macro: (defpymodule pymodule-name &optional (submodules NIL) &key (cache t)
+        (continue-ignoring-errors t)
         (lisp-package (lispify-name pymodule-name)) (reload t)
         (recompile-on-change NIL) (safety t) (silent *defpymodule-silent-p*))
 ```
 
 
 Import a python module (and its submodules) as a lisp-package(s).
-Example:
-  (py4cl:defpymodule "math" :lisp-package "M")
-  (m:sqrt 4)   ; => 2.0
 
-Arguments:
-
-Import a python module (and its submodules) as a lisp-package(s).
 Example:
-  (py4cl:defpymodule "math" :lisp-package "M")
-  (m:sqrt 4)   ; => 2.0
+
+    (py4cl:defpymodule "math" :lisp-package "M")
+    (m:sqrt 4)   ; => 2.0
 
 Arguments:
 
@@ -769,19 +848,20 @@ Arguments:
       hidden as well as non-hidden submodules
     - can be a LIST or nested alist of submodule names. Each element of the list
       is either a string, or a nested alist mapping the submodule
-      name to its subsubmodule names in the same format as SUBMODULES
+      name to its subsubmodule names in the same format as `submodules`
 
 - CONTINUE-IGNORING-ERRORS: This is set to non-NIL for convenience.
-    Set to NIL while debugging. When this is NIL, any and all kinds of errors
+    Set to NIL while debugging. When this is NIL, all kinds of errors
     will be signalled instead of being suppressed silently.
 
 -  CACHE: if non-NIL, produces the DEFPACKAGE and DEFUN forms at macroexpansion time to speed-up future reloads of the system
 - LISP-PACKAGE: lisp package, in which to intern (and export) the callables
 - RECOMPILE-ON-CHANGE: the name of the ASDF system to recompile if the python version of
-    PYMODULE-NAME changes; this only has effect if CACHE is non-NIL
-- RELOAD: redefine the LISP-PACKAGE if T
+    `pymodule-name` changes; this only has effect if `cache` is non-NIL
+- RELOAD: redefine the `lisp-package` if T
 - SAFETY: value of safety to pass to defpyfun; see defpyfun
 - SILENT: prints "status" lines when NIL
+
 
 ### disable-pygc
 
@@ -900,6 +980,24 @@ Like [pyobject-wrapper-eq](#pyobject-wrapper-eq) but assumes that `o1` and `o2` 
 Function: (pyref object &rest indices)
 ```
 
+Wrapper around python's __getitem__ along with support for slicing.
+
+Example
+
+    (pyref "hello" 1) ;=> "e"
+    ; NOTE: Python does not make a distinction between strings and characters
+
+    (pyref #(1 2 3) 1) ;=> 2
+    (pyref #(1 2 3 4 5) '(slice 3 5)) ;=> #(4 5)
+
+    (import-module "numpy")
+    (with-remote-objects*
+      (pyref (chain ("numpy.arange" 12) ("reshape" (3 4)))
+             `(slice ,+py-none+)
+             0))
+
+
+
 ### pyslot-list
 
 ```lisp
@@ -975,15 +1073,16 @@ Function: (pyvalue python-name-or-variable)
 ```
 
 Get the value of a python-name-or-variable.
+
 Example:
 
-(pyvalue "sys") ;=> <module 'sys' (built-in)>
-(pyvalue "sys.path")
-;=>
-  #("/home/user/miniconda3/lib/python310.zip"
-    "/home/user/miniconda3/lib/python3.10"
-    "/home/user/miniconda3/lib/python3.10/lib-dynload"
-    "/home/user/miniconda3/lib/python3.10/site-packages")
+    (pyvalue "sys") ;=> <module 'sys' (built-in)>
+    (pyvalue "sys.path")
+    ;=>
+      #("/home/user/miniconda3/lib/python310.zip"
+        "/home/user/miniconda3/lib/python3.10"
+        "/home/user/miniconda3/lib/python3.10/lib-dynload"
+        "/home/user/miniconda3/lib/python3.10/site-packages")
 
 
 ### pyversion-info
@@ -1027,21 +1126,23 @@ Macro: (with-lispifiers (&rest overriding-lispifiers) &body body)
 ```
 
 Each entry of `overriding-lispifiers` is a two-element list of the form
-  (TYPE LISPIFIER)
+
+    (TYPE LISPIFIER)
+
 Here, TYPE is unevaluated, while LISPIFIER will be evaluated; the LISPIFIER is expected
 to take a default-lispified object (see lisp-python types translation table in docs)
 and return the appropriate object user expects.
 
 For example,
 
-  (raw-pyeval "[1, 2, 3]") ;=> #(1 2 3) ; the default lispified object
-  (with-lispifiers ((vector (lambda (x) (coerce x 'list))))
-    (print (raw-pyeval "[1,2,3]"))
-    (print (raw-pyeval "5")))
-  ; #(1 2 3) ; default lispified object
-  ; (1 2 3)  ; coerced to LIST by the lispifier
-  ; 5        ; lispifier uncalled for non-VECTOR
-  5
+    (raw-pyeval "[1, 2, 3]") ;=> #(1 2 3) ; the default lispified object
+    (with-lispifiers ((vector (lambda (x) (coerce x 'list))))
+      (print (raw-pyeval "[1,2,3]"))
+      (print (raw-pyeval "5")))
+    ; #(1 2 3) ; default lispified object
+    ; (1 2 3)  ; coerced to LIST by the lispifier
+    ; 5        ; lispifier uncalled for non-VECTOR
+    5
 
 NOTE: This is a new feature and hence unstable; recommended to avoid in production code.
 
@@ -1062,6 +1163,12 @@ Macro: (with-python-error-output &body forms-decl)
 
 Gets the output of the python program executed in `forms-decl` in the form a string.
 
+### with-python-gil
+
+```lisp
+Macro: (with-python-gil &body body)
+```
+
 ### with-python-output
 
 ```lisp
@@ -1077,26 +1184,28 @@ Macro: (with-pythonizers (&rest overriding-pythonizers) &body body)
 ```
 
 Each entry of `overriding-pythonizers` is a two-element list of the form
-  (TYPE PYTHONIZER)
+
+    (TYPE PYTHONIZER)
+
 Here, TYPE is unevaluated, while PYTHONIZER will be evaluated; the PYTHONIZER is expected
 to take a default-pythonized object (see lisp-python types translation table in docs)
 and return the appropriate object user expects.
 
 For example,
 
-  ; A convenience function
-  (defun pyprint (object)
-    (pycall "print" object)
-    (pycall "sys.stdout.flush")
-    (values))
+    ; A convenience function
+    (defun pyprint (object)
+      (pycall "print" object)
+      (pycall "sys.stdout.flush")
+      (values))
 
-  (pyprint #(1 2 3)) ; prints [1, 2, 3] ; the default object
-  (with-pythonizers ((vector "tuple"))
-    (pyprint #(1 2 3))
-    (pyprint 5))
-  ; (1, 2, 3) ; coerced to tuple by the pythonizer
-  ; 5         ; pythonizer uncalled for non-VECTOR
-  5
+    (pyprint #(1 2 3)) ; prints [1, 2, 3] ; the default object
+    (with-pythonizers ((vector "tuple"))
+      (pyprint #(1 2 3))
+      (pyprint 5))
+    ; (1, 2, 3) ; coerced to tuple by the pythonizer
+    ; 5         ; pythonizer uncalled for non-VECTOR
+    5
 
 NOTE: This is a new feature and hence unstable; recommended to avoid in production code.
 
@@ -1119,4 +1228,4 @@ Macro: (with-remote-objects* &body body)
 Ensures that all values returned by python functions
 and methods are kept in python, and only handles returned to lisp.
 This is useful if performing operations on large datasets. Unlike
-with-remote-objects, evaluates the last result and returns not just a handle.
+[with-remote-objects](#with-remote-objects), evaluates the last result and returns not just a handle.
