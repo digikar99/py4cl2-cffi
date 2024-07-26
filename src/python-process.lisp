@@ -305,7 +305,12 @@ py4cl_utils = ctypes.pydll.LoadLibrary(\"~A\")
   (:report (lambda (condition stream)
              (with-slots (format-control format-arguments)
                  condition
-               (apply #'format stream format-control format-arguments)))))
+               (apply #'format stream format-control format-arguments))))
+  (:documentation "A lisp error to indicate all kinds of python error."))
+
+(define-condition simple-pyerror (pyerror)
+  ((type :initarg :type))
+  (:documentation "A specialization of PYERROR to hold the python error type."))
 
 (defun python-error-fetch ()
   "Fetches the python error, already assuming that it has occurred."
@@ -324,6 +329,8 @@ py4cl_utils = ctypes.pydll.LoadLibrary(\"~A\")
       (let* ((type      (mem-aref ptype :pointer))
              (value     (mem-aref pvalue :pointer))
              (traceback (mem-aref ptraceback :pointer))
+             (type-str  (foreign-string-to-lisp
+                         (pytypeobject-name type)))
              (value-str
                (foreign-string-to-lisp
                 (pyforeign-funcall "PyUnicode_AsUTF8"
@@ -341,7 +348,8 @@ py4cl_utils = ctypes.pydll.LoadLibrary(\"~A\")
                         (pycall "traceback.format_exception" type value traceback))))))
         (with-simple-restart (continue-ignoring-errors "")
           (cond ((string= "" value-str)
-                 (error 'pyerror
+                 (error 'simple-pyerror
+                        :type type-str
                         :format-control "A python error occurred:~%  ~A"
                         :format-arguments
                         (list (etypecase traceback-str
@@ -350,7 +358,8 @@ py4cl_utils = ctypes.pydll.LoadLibrary(\"~A\")
                                                (coerce traceback-str 'list)))
                                 (list (apply #'uiop:strcat traceback-str))))))
                 (t
-                 (error 'pyerror
+                 (error 'simple-pyerror
+                        :type type-str
                         :format-control "A python error occurred:~%  ~A~%~%~A"
                         :format-arguments
                         (list value-str

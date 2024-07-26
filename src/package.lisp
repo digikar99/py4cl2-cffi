@@ -23,6 +23,7 @@
            #:raw-pyexec
            #:pyexec
            #:pyerror
+           #:simple-pyerror
            #:pyvalue
 
            #:pythonize

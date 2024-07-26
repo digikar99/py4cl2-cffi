@@ -85,6 +85,7 @@ See [this publication](https://zenodo.org/records/10997435) for the broad design
     - [pyversion-info](#pyversion-info)
     - [raw-pyeval](#raw-pyeval)
     - [raw-pyexec](#raw-pyexec)
+    - [simple-pyerror](#simple-pyerror)
     - [with-lispifiers](#with-lispifiers)
     - [with-pygc](#with-pygc)
     - [with-python-error-output](#with-python-error-output)
@@ -910,6 +911,7 @@ python callable, which is then retrieved using PYVALUE*
 Condition
 ```
 
+A lisp error to indicate all kinds of python error.
 
 ### pyeval
 
@@ -1118,6 +1120,21 @@ Unlike PY4CL or PY4CL2, the use of RAW-PY, [raw-pyeval](#raw-pyeval) and `raw-py
 Instead, use [pycall](#pycall), [pyvalue](#pyvalue), (SETF [pyvalue](#pyvalue)), [pyslot-value](#pyslot-value), (SETF [pyslot-value](#pyslot-value)), and [pymethod](#pymethod).
 
 RAW-PY, [raw-pyeval](#raw-pyeval), `raw-pyexec` are only provided for backward compatibility.
+
+### simple-pyerror
+
+```lisp
+Condition
+```
+
+A specialization of PYERROR to hold the python error type.
+
+<u>**Direct Slots**</u>
+
+**type**
+```lisp
+Initargs: :TYPE
+```
 
 ### with-lispifiers
 
