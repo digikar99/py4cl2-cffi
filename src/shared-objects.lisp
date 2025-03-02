@@ -43,11 +43,19 @@
         (declare (ignore error-output))
         (let* ((numpy-installed-p
                  (zerop error-status))
+               (numpy-version
+                 (first
+                  (uiop:parse-version
+                   (uiop:run-program
+                    "python3 -c 'import numpy; print(numpy.__version__, end=\"\")'"
+                    :output :string))))
                (program-string
                  (format nil
                          *python-numpy-compile-command*
                          (format nil "~{~a~^ ~}" *python-includes*)
-                         (format nil "~A/core/include/"
+                         (format nil (ecase numpy-version
+                                       (1 "~A/core/include/")
+                                       (2 "~A/_core/include/"))
                                  (string-trim (list #\newline) numpy-path)))))
           (when numpy-installed-p
             (format t "~&~A~%" program-string)
