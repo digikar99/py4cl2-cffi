@@ -38,24 +38,18 @@
         ((asdf:component-pathname (asdf:find-system "py4cl2-cffi")))
       (multiple-value-bind (numpy-path error-output error-status)
           (uiop:run-program
-           "cd ~/; python3 -c 'import numpy; print(numpy.__path__[0])'"
+           (concatenate 'string "cd ~/;"
+			(format nil "~A -c 'import numpy; print(numpy.__path__[0])'"
+				py4cl2-cffi/config:*python-executable-path*))
            :output :string :ignore-error-status t)
         (declare (ignore error-output))
         (let* ((numpy-installed-p
                  (zerop error-status))
-               (numpy-version
-                 (first
-                  (uiop:parse-version
-                   (uiop:run-program
-                    "python3 -c 'import numpy; print(numpy.__version__, end=\"\")'"
-                    :output :string))))
                (program-string
                  (format nil
                          *python-numpy-compile-command*
                          (format nil "~{~a~^ ~}" *python-includes*)
-                         (format nil (ecase numpy-version
-                                       (1 "~A/core/include/")
-                                       (2 "~A/_core/include/"))
+                         (format nil "~A/core/include/"
                                  (string-trim (list #\newline) numpy-path)))))
           (when numpy-installed-p
             (format t "~&~A~%" program-string)
@@ -75,9 +69,11 @@
           (ignore-errors
            (with-standard-io-syntax
              (read-file-into-string numpy-installed-p-file)))
-      (let* ((numpy-installed-p (zerop (nth-value 2
-                                                  (uiop:run-program
-                                                   "python3 -c 'import numpy'"
+      (let* ((numpy-installed-p
+	       (zerop (nth-value 2
+                                 (uiop:run-program
+                                  (format nil "~A -c 'import numpy'"
+					  py4cl2-cffi/config:*python-executable-path*)
                                                    :ignore-error-status t))))
              (numpy-installed-p-new
                (with-standard-io-syntax
