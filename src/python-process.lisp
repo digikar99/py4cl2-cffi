@@ -237,17 +237,14 @@ can lead to memory leak.")))
                          *python-site-packages-path*))))
   (import-module "traceback")
   (when *numpy-installed-p*
-    (float-features:with-float-traps-masked t
-      (ignore-some-conditions
-          (floating-point-overflow floating-point-invalid-operation)
-        (handler-case
-            (import-module "numpy")
-          (error (e)
-            (warn (format nil "Could not import numpy: ~S~%" e))))
-        (pushnew :typed-arrays *internal-features*)
-        (when (member :typed-arrays *internal-features*)
-          (setq *numpy-c-api-pointer*
-                (with-python-gil (foreign-funcall "import_numpy" :pointer)))))))
+    (handler-case
+        (import-module "numpy")
+      (error (e)
+        (warn (format nil "Could not import numpy: ~S~%" e))))
+    (pushnew :typed-arrays *internal-features*)
+    (when (member :typed-arrays *internal-features*)
+      (setq *numpy-c-api-pointer*
+            (with-python-gil (foreign-funcall "import_numpy" :pointer)))))
   (import-module "fractions")
   (raw-pyexec "from fractions import Fraction")
 
