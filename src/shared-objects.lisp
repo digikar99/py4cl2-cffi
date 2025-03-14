@@ -48,14 +48,15 @@
                   (uiop:parse-version
                    (uiop:run-program
                     "python3 -c 'import numpy; print(numpy.__version__, end=\"\")'"
-                    :output :string))))
+                    :output :string
+                    :ignore-error-status t))))
                (program-string
                  (format nil
                          *python-numpy-compile-command*
                          (format nil "~{~a~^ ~}" *python-includes*)
-                         (format nil (ecase numpy-version
-                                       (1 "~A/core/include/")
-                                       (2 "~A/_core/include/"))
+                         (format nil (if (eql 2 numpy-version)
+                                         "~A/_core/include/"
+                                         "~A/core/include/")
                                  (string-trim (list #\newline) numpy-path)))))
           (when numpy-installed-p
             (format t "~&~A~%" program-string)
