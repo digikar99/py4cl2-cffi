@@ -11,7 +11,7 @@ jobs:
         lisp: [sbcl, ccl, ecl]
         os: [ubuntu-22.04]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 8
+    timeout-minutes: 13
 
     continue-on-error: true
 
