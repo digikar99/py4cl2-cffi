@@ -37,19 +37,29 @@
     (uiop:with-current-directory
         ((asdf:component-pathname (asdf:find-system "py4cl2-cffi")))
       (multiple-value-bind (numpy-path error-output error-status)
-          (uiop:run-program
+	  (uiop:run-program
            (concatenate 'string "cd ~/;"
 			(format nil "~A -c 'import numpy; print(numpy.__path__[0])'"
 				py4cl2-cffi/config:*python-executable-path*))
            :output :string :ignore-error-status t)
         (declare (ignore error-output))
         (let* ((numpy-installed-p
-                 (zerop error-status))
+                (zerop error-status))
+	       (numpy-version
+                 (first
+                  (uiop:parse-version
+                   (uiop:run-program
+                    (format nil "~A -c 'import numpy; print(numpy.__version__, end=\"\")'"
+			    py4cl2-cffi/config:*python-executable-path*)
+                    :output :string
+                    :ignore-error-status t))))               
                (program-string
                  (format nil
                          *python-numpy-compile-command*
                          (format nil "~{~a~^ ~}" *python-includes*)
-                         (format nil "~A/core/include/"
+                         (format nil (if (eql numpy-version 2)
+                                         "~A/_core/include/"
+                                         "~A/core/include/")
                                  (string-trim (list #\newline) numpy-path)))))
           (when numpy-installed-p
             (format t "~&~A~%" program-string)
