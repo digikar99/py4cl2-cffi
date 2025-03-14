@@ -11,7 +11,7 @@ jobs:
         lisp: [sbcl]
         os: [macos-13, macos-14]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 3
+    timeout-minutes: 7
 
     continue-on-error: true
 
