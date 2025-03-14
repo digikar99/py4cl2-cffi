@@ -53,14 +53,6 @@ The second ~A corresponds to the numpy include files discovered
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
 
-  (defvar *python-executable-path*
-    (if (uiop:getenv "PY4CL2-CONFIG-PYTHON-EXECUTABLE-PATH")
-	(uiop:getenv "PY4CL2-CONFIG-PYTHON-EXECUTABLE-PATH")
-	(first (return-value-as-list "which python3")))
-    "The path to python executable. This will be used to set sys.path.
-This is useful in cases such as venv when python3-config does not lead
-to expected paths.")
-  
   (defun return-value-as-list (cmd)
     (remove ""
             (mapcar (lambda (value)
@@ -71,6 +63,14 @@ to expected paths.")
                                        :error-output *error-output*)
                      :separator '(#\newline #\tab #\space)))
             :test #'string=))
+  
+  (defvar *python-executable-path*
+    (if (uiop:getenv "PY4CL2-CONFIG-PYTHON-EXECUTABLE-PATH")
+	(uiop:getenv "PY4CL2-CONFIG-PYTHON-EXECUTABLE-PATH")
+	(first (return-value-as-list "which python3")))
+    "The path to python executable. This will be used to set sys.path.
+This is useful in cases such as venv when python3-config does not lead
+to expected paths.")
 
   (alexandria:define-constant +python-version-string+
       (second (return-value-as-list (format nil "~A --version"
