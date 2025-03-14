@@ -277,9 +277,8 @@ If the readtable case is :INVERT, it inverts the case of the name and returns it
                                 ,@keyword-pass))))
                  (rest
                   `((,@positional ,@(when optional `(&optional ,@optional)) &rest ,rest)
-                    (() (pycall ,fullname
-                                ;; FIXME
-                                ,@positional-pass "*" (pythonize ,rest)))))
+                    (() (apply #'pycall
+                               ,fullname ,@positional-pass ,rest))))
                  (t
                   `((,@positional ,@(when optional `(&optional ,@optional)))
                     (() (pycall ,fullname ,@positional-pass)))))))))

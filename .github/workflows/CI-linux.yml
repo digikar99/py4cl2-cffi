@@ -4,12 +4,13 @@ jobs:
 
   test:
 
-    name: ${{ matrix.lisp }}, ${{ matrix.os }}
+    name: ${{ matrix.lisp }}, ${{ matrix.os }}, numpy==${{ matrix.numpy }}
 
     strategy:
       matrix:
         lisp: [sbcl, ccl, ecl]
         os: [ubuntu-22.04]
+        numpy: [1, 2]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 13
 
@@ -43,11 +44,13 @@ jobs:
     # We avoid caching the apt and python modules; need to deal with recursive dependencies
 
     - name: Install python modules
+      env:
+        NUMPY: ${{ matrix.numpy }}
       run: | # need to use sudo
         sudo apt install python3-pip
         python3 -m venv ./py4cl2-cffi/
         source ./py4cl2-cffi/bin/activate
-        pip3 install numpy==1.*
+        pip3 install numpy==$NUMPY.*
         pip3 install networkx
         pip3 install matplotlib
 
