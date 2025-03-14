@@ -13,7 +13,7 @@
 (defun import-function (name from &key (as nil))
   (declare (type string name))
   (python-start-if-not-alive)
-  (pyforeign-funcall "PyImport_ImportModule" :string from :pointer)
+  (pyimport-importmodule from)
   (python-may-be-error)
   (cond (as
          (check-type as string)
@@ -27,13 +27,13 @@
 (defun import-module (name &key (as nil))
   (declare (type string name))
   (python-start-if-not-alive)
-  (let ((module-ptr (pyforeign-funcall "PyImport_ImportModule" :string name :pointer)))
+  (let ((module-ptr (pyimport-importmodule name)))
     (python-may-be-error)
     (cond (as
            (check-type as string)
            (raw-py #\x (format nil "import ~A as ~A" name as))
            (setf (py-module-pointer as) module-ptr)
-          (python-may-be-error))
+           (python-may-be-error))
           (t
            (raw-py #\x (format nil "import ~A" name))
            (setf (py-module-pointer name) module-ptr)
