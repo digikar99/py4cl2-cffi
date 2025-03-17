@@ -19,7 +19,7 @@
 ;; set it *explicitly* externally using an environment variable, e.g., via including
 ;; something like
 ;;
-;; (setf (uiop:getenv "PY4CL2-CONFIG-PYTHON-EXECUTABLE-PATH")	
+;; (setf (uiop:getenv "PY4CL2_CONFIG_PYTHON_EXECUTABLE_PATH")	
 ;;      "/usr/local/Caskroom/miniconda/base/bin/python3")
 ;;
 ;; into .sbclrc
@@ -65,8 +65,8 @@ The second ~A corresponds to the numpy include files discovered
             :test #'string=))
   
   (defvar *python-executable-path*
-    (if (uiop:getenv "PY4CL2-CONFIG-PYTHON-EXECUTABLE-PATH")
-	(uiop:getenv "PY4CL2-CONFIG-PYTHON-EXECUTABLE-PATH")
+    (if (uiop:getenv "PY4CL2_CONFIG_PYTHON_EXECUTABLE_PATH")
+	(uiop:getenv "PY4CL2_CONFIG_PYTHON_EXECUTABLE_PATH")
 	(first (return-value-as-list "which python3")))
     "The path to python executable. This will be used to set sys.path.
 This is useful in cases such as venv when python3-config does not lead
