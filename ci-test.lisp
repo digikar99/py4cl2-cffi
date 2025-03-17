@@ -20,8 +20,10 @@
 #-:ccl
 (progn
   (ql:quickload "py4cl2-cffi/single-threaded")
-  (py4cl2-cffi/single-threaded:pystart)
-  (assert (string= "42" (py4cl2-cffi/single-threaded:pycall "str" 42)))
+  ;; (py4cl2-cffi/single-threaded:pystart)
+  (funcall (symbol-function (intern "PYSTART" (find-package "PY4CL2-CFFI/SINGLE-THREADED"))))
+  ;; (assert (string= "42" (py4cl2-cffi/single-threaded:pycall "str" 42)))
+  (assert (string= "42" (funcall (symbol-function (intern "PYCALL" (find-package "PY4CL2-CFFI/SINGLE-THREADED"))) "str" 42)))
   (terpri)
   (format t "!!Preliminary SINGLE-THREADED TESTS RAN SUCCESSFULLY!!")
   (uiop:quit 0))
