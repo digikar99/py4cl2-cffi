@@ -14,7 +14,7 @@
   (values-list (return-value-as-list (format nil "~A -c \"
 import sys
 print(sys.base_exec_prefix)
-print(sys.exec_prefix)\"" py4cl2-cffi/config:*python-executable-path*))))
+print(sys.exec_prefix)\"" *python-executable-path*))))
 
 (defun configure ()
   (multiple-value-bind (base-exec-prefix exec-prefix)

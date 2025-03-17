@@ -74,7 +74,7 @@ to expected paths.")
 
   (alexandria:define-constant +python-version-string+
       (second (return-value-as-list (format nil "~A --version"
-					    py4cl2-cffi/config:*python-executable-path*)))
+					    *python-executable-path*)))
     :test #'string=)
 
   (if (uiop:version< +python-version-string+ "3.8.0")
@@ -90,7 +90,7 @@ to expected paths.")
 (defvar *python-site-packages-path*
   (return-value-as-list
    (format nil "~A -c 'import sys; print(\"\\n\".join(sys.path))'"
-	   py4cl2-cffi/config:*python-executable-path*)))
+	   *python-executable-path*)))
 
 (defun print-configuration ()
   "Prints the ldflags and includes that will be used for the compilation
