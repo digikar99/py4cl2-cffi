@@ -50,14 +50,14 @@
                   (uiop:parse-version
                    (uiop:run-program
                     (format nil "~A -c 'import numpy; print(numpy.__version__, end=\"\")'"
-			    py4cl2-cffi/config:*python-executable-path*)
+			                      *python-executable-path*)
                     :output :string
                     :ignore-error-status t))))               
                (program-string
                  (format nil
                          *python-numpy-compile-command*
                          (format nil "~{~a~^ ~}" *python-includes*)
-                         (format nil (if (eql numpy-version 2)
+                         (format nil (if (eql 2 numpy-version)
                                          "~A/_core/include/"
                                          "~A/core/include/")
                                  (string-trim (list #\newline) numpy-path)))))
