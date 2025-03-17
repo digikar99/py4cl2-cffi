@@ -37,19 +37,22 @@
     (uiop:with-current-directory
         ((asdf:component-pathname (asdf:find-system "py4cl2-cffi")))
       (multiple-value-bind (numpy-path error-output error-status)
-          (uiop:run-program
-           "cd ~/; python3 -c 'import numpy; print(numpy.__path__[0])'"
+	  (uiop:run-program
+           (concatenate 'string "cd ~/;"
+			(format nil "~A -c 'import numpy; print(numpy.__path__[0])'"
+				py4cl2-cffi/config:*python-executable-path*))
            :output :string :ignore-error-status t)
         (declare (ignore error-output))
         (let* ((numpy-installed-p
-                 (zerop error-status))
-               (numpy-version
+                (zerop error-status))
+	       (numpy-version
                  (first
                   (uiop:parse-version
                    (uiop:run-program
-                    "python3 -c 'import numpy; print(numpy.__version__, end=\"\")'"
+                    (format nil "~A -c 'import numpy; print(numpy.__version__, end=\"\")'"
+			                      *python-executable-path*)
                     :output :string
-                    :ignore-error-status t))))
+                    :ignore-error-status t))))               
                (program-string
                  (format nil
                          *python-numpy-compile-command*
@@ -76,9 +79,11 @@
           (ignore-errors
            (with-standard-io-syntax
              (read-file-into-string numpy-installed-p-file)))
-      (let* ((numpy-installed-p (zerop (nth-value 2
-                                                  (uiop:run-program
-                                                   "python3 -c 'import numpy'"
+      (let* ((numpy-installed-p
+	       (zerop (nth-value 2
+                                 (uiop:run-program
+                                  (format nil "~A -c 'import numpy'"
+					  py4cl2-cffi/config:*python-executable-path*)
                                                    :ignore-error-status t))))
              (numpy-installed-p-new
                (with-standard-io-syntax

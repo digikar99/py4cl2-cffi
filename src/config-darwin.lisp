@@ -11,17 +11,17 @@
 
 (defun python-system ()
   "The path to the Python install or where the virtual environment originates."
-  (values-list (return-value-as-list "python3 -c \"
+  (values-list (return-value-as-list (format nil "~A -c \"
 import sys
 print(sys.base_exec_prefix)
-print(sys.exec_prefix)\"")))
+print(sys.exec_prefix)\"" *python-executable-path*))))
 
 (defun configure ()
   (multiple-value-bind (base-exec-prefix exec-prefix)
       (python-system)
     (let* ((python-version (ppcre:register-groups-bind (version)
-                               ("^.+\/(.+)?$" base-exec-prefix :sharedp t)
-                             version)))
+			       ("^(\\d+\\.\\d+)" +python-version-string+ :sharedp t)
+			     version)))
       (setq py4cl2-cffi/config:*python-ldflags*
             (list (format nil "-L'~A' -L'lib/~A' -l'~A'"
                           exec-prefix
@@ -34,8 +34,8 @@ print(sys.exec_prefix)\"")))
              "gcc ~A -c -Wall -Werror -fpic py4cl-utils.c && "
              (format
               nil
-              "gcc -L'~A/lib' -framework CoreFoundation -dynamiclib -o libpy4cl-utils.dylib py4cl-utils.o -lpython~A"
-              base-exec-prefix python-version))
+              "gcc -L'~A/lib' -Wl,-rpath,'~A/lib' -framework CoreFoundation -dynamiclib -o libpy4cl-utils.dylib py4cl-utils.o -lpython~A"
+              base-exec-prefix base-exec-prefix python-version))
 
             py4cl2-cffi/config:*python-numpy-compile-command*
             (concatenate

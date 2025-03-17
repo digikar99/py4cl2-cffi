@@ -14,9 +14,17 @@
 
 (in-package :py4cl2-cffi/config)
 
-;; Use python3-config or equivalent to discover these values
-
-;; TODO: Could set up better defaults for different OS
+;; Basic principle: We aim to use python3-config or equivalent to discover these values
+;; However, whenever there is a problem with getting the python-executable path, then we
+;; set it *explicitly* externally using an environment variable, e.g., via including
+;; something like
+;;
+;; (setf (uiop:getenv "PY4CL2_CONFIG_PYTHON_EXECUTABLE_PATH")	
+;;      "/usr/local/Caskroom/miniconda/base/bin/python3")
+;;
+;; into .sbclrc
+;;
+;; Then, we use that path (if set) for inferring the other values
 
 (declaim (type list
                *python-ldflags*
@@ -55,9 +63,18 @@ The second ~A corresponds to the numpy include files discovered
                                        :error-output *error-output*)
                      :separator '(#\newline #\tab #\space)))
             :test #'string=))
+  
+  (defvar *python-executable-path*
+    (if (uiop:getenv "PY4CL2_CONFIG_PYTHON_EXECUTABLE_PATH")
+	(uiop:getenv "PY4CL2_CONFIG_PYTHON_EXECUTABLE_PATH")
+	(first (return-value-as-list "which python3")))
+    "The path to python executable. This will be used to set sys.path.
+This is useful in cases such as venv when python3-config does not lead
+to expected paths.")
 
   (alexandria:define-constant +python-version-string+
-    (second (return-value-as-list "python3 --version"))
+      (second (return-value-as-list (format nil "~A --version"
+					    *python-executable-path*)))
     :test #'string=)
 
   (if (uiop:version< +python-version-string+ "3.8.0")
@@ -70,15 +87,10 @@ The second ~A corresponds to the numpy include files discovered
 (defvar *python-includes*
   (return-value-as-list "python3-config --includes"))
 
-(defvar *python-executable-path*
-  (first (return-value-as-list "which python3"))
-  "The path to python executable. This will be used to set sys.path.
-This is useful in cases such as venv when python3-config does not lead
-to expected paths.")
-
 (defvar *python-site-packages-path*
   (return-value-as-list
-   "python3 -c 'import sys; print(\"\\n\".join(sys.path))'"))
+   (format nil "~A -c 'import sys; print(\"\\n\".join(sys.path))'"
+	   *python-executable-path*)))
 
 (defun print-configuration ()
   "Prints the ldflags and includes that will be used for the compilation
