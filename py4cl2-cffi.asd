@@ -14,7 +14,7 @@
 (defsystem "py4cl2-cffi"
   :pathname #P"src/"
   :description "CFFI based alternative to PY4CL2, primarily developed for performance reasons."
-  :author "Shubhamkar Ayare <shubhamayare@yahoo.co.in>"
+  :author "Shubhamkar Ayare <digikar@proton.me>"
   :license "MIT"
   :version "0.3.0" ; beta
   ;; Certain systems like Allegro CL 11 on M* Mac do not seem to
