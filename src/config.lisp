@@ -9,6 +9,7 @@
            #:*python-executable-path*
            #:*python-site-packages-path*
            #:*disable-pystop*
+           #:*python-call-mode*
            #:print-configuration
            #:shared-library-from-ldflag))
 
@@ -113,6 +114,27 @@ of the utility shared object/library that bridges the python C-API with lisp."
   '("-lpthread" "-ldl" "-lutil" "-lanl" "-lm" "-lrt")
   "A list of ldflags that will be ignored during the compilation of
 the utility shared object/library.")
+
+(declaim (type (member :standard :dedicated-thread) *python-call-mode*))
+(defvar *python-call-mode* :standard
+  "PY4CL2-CFFI:+PYTHON-CALL-MODE+ is a constant assigned to the value of
+PY4CL2-CFFI/CONFIG:*PYTHON-CALL-MODE* at compile time. Thus, if
+PY4CL2-CFFI/CONFIG:*PYTHON-CALL-MODE* is changed, PY4CL2-CFFi must be recompiled.
+
+Possible values are :STANDARD and :DEDICATED-THREAD
+
+- When the value is :DEDICATED-THREAD, a dedicated thread is used for starting
+  the embedded python interpreter. All calls to python from lisp are made
+  through this thread. This may be required for using libraries like matplotlib
+  that expect all calls from the single thread that loads the library. On the
+  other hand, in emacs, each lisp buffer may communicate to the lisp process
+  (and thus python) through separate threads. It is however possible to
+  configure emacs and slime/swank to communicate using a single thread. See
+  SWANK:*COMMUNICATION-STYLE*. Python call mode provides a way of sidestepping
+  the slime/swank configuration.
+
+- When the value is :STANDARD, no such thread is created. Calls to python can
+  take place from any thread.")
 
 (defun %shared-library-from-ldflag (ldflag)
   "Given a ldflag, for example, \"-lpython3.10\", return the shared library name
