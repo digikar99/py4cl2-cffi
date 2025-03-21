@@ -7,6 +7,7 @@ jobs:
     name: ${{ matrix.lisp }}, ${{ matrix.os }}
 
     strategy:
+      fail-fast: false
       matrix:
         lisp: [sbcl, acl]
         os: [macos-13, macos-14]
@@ -16,8 +17,6 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     timeout-minutes: 3
-
-    continue-on-error: true
 
     steps:
 

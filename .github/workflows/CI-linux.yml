@@ -7,13 +7,12 @@ jobs:
     name: ${{ matrix.lisp }}, ${{ matrix.os }}
 
     strategy:
+      fail-fast: false
       matrix:
         lisp: [sbcl, ccl, ecl]
         os: [ubuntu-22.04]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 8
-
-    continue-on-error: true
 
     steps:
 
