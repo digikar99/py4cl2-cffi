@@ -1,0 +1,1 @@
+("cffi" :git "https://github.com/cffi/cffi" :depth 1)

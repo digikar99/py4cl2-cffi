@@ -34,6 +34,12 @@ jobs:
         ls -l
         bash <(curl -s https://raw.githubusercontent.com/digikar99/lisp-travis-lite/master/run.sh)
 
+    - name: Download download-dependencies
+      run: |
+        git clone https://github.com/digikar99/download-dependencies $HOME/quicklisp/local-projects/download-dependencies
+        cl --eval '(progn (ql:quickload "download-dependencies")
+                     (in-package :download-dependencies))' --eval '(let ((*dependencies-home* (first ql:*local-project-directories*))) (ensure-system "py4cl2-cffi"))'
+
     - name: Test without numpy
       run: |
         ls
@@ -58,11 +64,6 @@ jobs:
         python3-config --includes
         python3-config --ldflags
         find '/usr/lib' -name "libpython*.so"
-
-    - name: Download download-dependencies
-      run: |
-        source ./py4cl2-cffi/bin/activate
-        git clone https://github.com/digikar99/download-dependencies $HOME/quicklisp/local-projects/download-dependencies
 
 
     - name: Download Tests
