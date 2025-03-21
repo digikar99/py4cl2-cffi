@@ -9,7 +9,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        lisp: [sbcl, ccl, ecl]
+        lisp: [sbcl, ccl, ecl, acl]
         os: [ubuntu-22.04]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 8
