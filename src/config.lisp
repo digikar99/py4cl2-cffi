@@ -9,6 +9,7 @@
            #:*python-executable-path*
            #:*python-site-packages-path*
            #:*disable-pystop*
+           #:*python-call-mode*
            #:print-configuration
            #:shared-library-from-ldflag))
 
@@ -113,6 +114,11 @@ of the utility shared object/library that bridges the python C-API with lisp."
   '("-lpthread" "-ldl" "-lutil" "-lanl" "-lm" "-lrt")
   "A list of ldflags that will be ignored during the compilation of
 the utility shared object/library.")
+
+(declaim (type (member :single-threaded :multi-threaded) *python-call-mode*))
+(defvar *python-call-mode* :multi-threaded
+  "PY4CL2-CFFI:+PYTHON-CALL-MODE+ is a constant assigned to the value of
+PY4CL2-CFFI/CONFIG:*PYTHON-CALL-MODE* at compile time. Thus, if PY4CL2-CFFI/CONFIG:*PYTHON-CALL-MODE* is changed, PY4CL2-CFFi must be recompiled.")
 
 (defun %shared-library-from-ldflag (ldflag)
   "Given a ldflag, for example, \"-lpython3.10\", return the shared library name

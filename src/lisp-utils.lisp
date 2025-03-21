@@ -1,6 +1,7 @@
 (in-package :py4cl2-cffi)
 
 (defconstant +disable-pystop+ py4cl2-cffi/config:*disable-pystop*)
+(defconstant +python-call-mode+ py4cl2-cffi/config:*python-call-mode*)
 
 (deftype list-of (&rest types)
   (if types

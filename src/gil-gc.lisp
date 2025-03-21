@@ -123,17 +123,21 @@ Handles the reference counting of the return values but not the arguments."
                 (string name-and-options)
                 (cons (first name-and-options)))))
     (with-gensyms (ptr)
-      `(let ((,ptr (with-python-gil
-                     (foreign-funcall ,name-and-options ,@args))))
-         ,(case (progn
-                  (assert (assoc name +python-function-reference-type-alist+
-                                 :test #'string=))
-                  (first (assoc-value +python-function-reference-type-alist+ name
-                                      :test #'string=)))
-            (:new      `(pytrack ,ptr))
-            (:stolen   `(with-python-gil (foreign-funcall "Py_IncRef" :pointer ,ptr)))
-            (:borrowed `()))
-         ,ptr))))
+      (ecase +python-call-mode+
+        (:multi-threaded
+         `(let ((,ptr (with-python-gil
+                        (foreign-funcall ,name-and-options ,@args))))
+            ,(case (progn
+                     (assert (assoc name +python-function-reference-type-alist+
+                                    :test #'string=))
+                     (first (assoc-value +python-function-reference-type-alist+ name
+                                         :test #'string=)))
+               (:new      `(pytrack ,ptr))
+               (:stolen   `(with-python-gil (foreign-funcall "Py_IncRef" :pointer ,ptr)))
+               (:borrowed `()))
+            ,ptr))
+        (:single-threaded
+         (error "Not implemented"))))))
 
 ;;; Object Handles - for not really translated lisp objects
 
