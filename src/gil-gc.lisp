@@ -32,12 +32,15 @@
 (defun pyeval-restore-thread (thread-state)
   (foreign-funcall "PyEval_RestoreThread" :pointer thread-state))
 
+(defmacro with-python-error (&body body)
+  `(unwind-protect (locally ,@body)
+     (python-may-be-error)))
+
 (defmacro with-python-gil (&body body)
   `(let* ((*gil* (pygil-ensure)))
      (unwind-protect
           (let ((*pygil-toplevel-p* nil))
-            (unwind-protect (locally ,@body)
-              (python-may-be-error)))
+            (with-python-error ,@body))
        (pygil-release *gil*))))
 
 (defmacro with-python-gil/no-errors (&body body)
@@ -123,21 +126,27 @@ Handles the reference counting of the return values but not the arguments."
                 (string name-and-options)
                 (cons (first name-and-options)))))
     (with-gensyms (ptr)
-      (ecase +python-call-mode+
-        (:multi-threaded
-         `(let ((,ptr (with-python-gil
-                        (foreign-funcall ,name-and-options ,@args))))
-            ,(case (progn
-                     (assert (assoc name +python-function-reference-type-alist+
-                                    :test #'string=))
-                     (first (assoc-value +python-function-reference-type-alist+ name
-                                         :test #'string=)))
-               (:new      `(pytrack ,ptr))
-               (:stolen   `(with-python-gil (foreign-funcall "Py_IncRef" :pointer ,ptr)))
-               (:borrowed `()))
-            ,ptr))
-        (:single-threaded
-         (error "Not implemented"))))))
+      `(let ((,ptr ,(ecase +python-call-mode+
+                      (:single-threaded
+                       `(if (eq *pymain-thread* (bt:current-thread))
+                            (with-python-error
+                              (foreign-funcall ,name-and-options ,@args))
+                            (funcall/single-threaded
+                             (lambda ()
+                               (with-python-error
+                                 (foreign-funcall ,name-and-options ,@args))))))
+                      (:multi-threaded
+                       `(with-python-gil
+                          (foreign-funcall ,name-and-options ,@args))))))
+         ,(case (progn
+                  (assert (assoc name +python-function-reference-type-alist+
+                                 :test #'string=))
+                  (first (assoc-value +python-function-reference-type-alist+ name
+                                      :test #'string=)))
+            (:new      `(pytrack ,ptr))
+            (:stolen   `(with-python-gil (foreign-funcall "Py_IncRef" :pointer ,ptr)))
+            (:borrowed `()))
+         ,ptr))))
 
 ;;; Object Handles - for not really translated lisp objects
 
