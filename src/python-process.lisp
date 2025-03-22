@@ -210,7 +210,7 @@ execution of THUNK as a string."
   "A list of strings each of which should be python code. All the code
 will be executed by PYSTART.")
 
-(defun %pystart-multi-threaded (&key (verbose t))
+(defun %pystart-multi-threaded (&key (verbose t) (release-gil t))
 
   (with-verbosity "(Re)Creating unix named pipes for handling stdout and stderr asynchronously"
     (when (probe-file *py-output-stream-pipe*)
@@ -226,12 +226,13 @@ will be executed by PYSTART.")
 
   (foreign-funcall "Py_Initialize")
 
-  (with-verbosity "Releasing python GIL for multi-threaded lisp environments"
-    (when (pygil-held-p)
-      (setq *py-thread-state* (pyeval-save-thread))
+  (when release-gil
+    (with-verbosity "Releasing python GIL for multi-threaded lisp environments"
       (when (pygil-held-p)
-        (warn "Python GIL was not released from the main thread. This means on implementations (like SBCL) that call lisp object finalizers from a separate thread may never get a chance to run, and thus python foreign objects associated with PYOBJECT-WRAPPER
-can lead to memory leak."))))
+        (setq *py-thread-state* (pyeval-save-thread))
+        (when (pygil-held-p)
+          (warn "Python GIL was not released from the main thread. This means on implementations (like SBCL) that call lisp object finalizers from a separate thread may never get a chance to run, and thus python foreign objects associated with PYOBJECT-WRAPPER
+can lead to memory leak.")))))
 
   (with-verbosity "Loading python modules: sys, traceback"
     (import-module "sys")
@@ -332,7 +333,7 @@ py4cl_utils = ctypes.pydll.LoadLibrary(\"~A\")
              (%py-single-threaded-loop)
              (bt:signal-semaphore *pymain-thread-result-semaphore*)))
          :name "py4cl2-cffi-python-main-thread"))
-  (funcall/single-threaded #'%pystart-multi-threaded :verbose verbose))
+  (funcall/single-threaded #'%pystart-multi-threaded :verbose verbose :release-gil nil))
 
 (defun pystart (&key (verbose t))
 
