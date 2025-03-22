@@ -68,3 +68,19 @@
 (defun condition-backtrace (condition)
   (with-output-to-string (s)
     (uiop:print-condition-backtrace condition :stream s)))
+
+(defvar *verbosity-depth* 0)
+(defmacro with-verbosity (message &body body)
+  (with-gensyms (values)
+    `(let ((,values))
+       (when verbose
+         (loop :repeat *verbosity-depth* :do (write-string "  " *error-output*))
+         (format *error-output* ,message)
+         (format *error-output* "... ")
+         (force-output *error-output*))
+       (setf ,values (multiple-value-list
+                      (thread-global-let ((*verbosity-depth* (1+ *verbosity-depth*)))
+                        ,@body)))
+       (when verbose
+         (format *error-output* "Done.~%"))
+       (values-list ,values))))

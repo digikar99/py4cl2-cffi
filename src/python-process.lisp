@@ -210,79 +210,106 @@ execution of THUNK as a string."
   "A list of strings each of which should be python code. All the code
 will be executed by PYSTART.")
 
+(defun %pystart-multi-threaded (&key (verbose t))
 
-(defun %pystart-multi-threaded ()
+  (with-verbosity "(Re)Creating unix named pipes for handling stdout and stderr asynchronously"
+    (when (probe-file *py-output-stream-pipe*)
+      (delete-file *py-output-stream-pipe*))
+    (mkfifo *py-output-stream-pipe*)
+    (when (probe-file *py-error-output-stream-pipe*)
+      (delete-file *py-error-output-stream-pipe*))
+    (mkfifo *py-error-output-stream-pipe*))
 
-  (when (probe-file *py-output-stream-pipe*)
-    (delete-file *py-output-stream-pipe*))
-  (mkfifo *py-output-stream-pipe*)
-  (when (probe-file *py-error-output-stream-pipe*)
-    (delete-file *py-error-output-stream-pipe*))
-  (mkfifo *py-error-output-stream-pipe*)
+  (with-verbosity "Loading foreign libraries"
+    (load-python-and-libraries))
 
-  (load-python-and-libraries)
+
   (foreign-funcall "Py_Initialize")
-  (when (pygil-held-p)
-    (setq *py-thread-state* (pyeval-save-thread))
+
+  (with-verbosity "Releasing python GIL for multi-threaded lisp environments"
     (when (pygil-held-p)
-      (warn "Python GIL was not released from the main thread. This means on implementations (like SBCL) that call lisp object finalizers from a separate thread may never get a chance to run, and thus python foreign objects associated with PYOBJECT-WRAPPER
-can lead to memory leak.")))
-  (import-module "sys")
-  (etypecase *python-site-packages-path*
-    (list
-     (raw-pyexec (format nil "sys.path += [~{\"~A\"~^, ~}]"
-                         *python-site-packages-path*)))
-    (string
-     (raw-pyexec (format nil "sys.path.append('~A')"
-                         *python-site-packages-path*))))
-  (import-module "traceback")
-  (when *numpy-installed-p*
-    (handler-case
-        (import-module "numpy")
-      (error (e)
-        (warn (format nil "Could not import numpy: ~S~%" e))))
-    (pushnew :typed-arrays *internal-features*)
-    (when (member :typed-arrays *internal-features*)
-      (setq *numpy-c-api-pointer*
-            (with-python-gil (foreign-funcall "import_numpy" :pointer)))))
-  (import-module "fractions")
+      (setq *py-thread-state* (pyeval-save-thread))
+      (when (pygil-held-p)
+        (warn "Python GIL was not released from the main thread. This means on implementations (like SBCL) that call lisp object finalizers from a separate thread may never get a chance to run, and thus python foreign objects associated with PYOBJECT-WRAPPER
+can lead to memory leak."))))
+
+  (with-verbosity "Loading python modules: sys, traceback"
+    (import-module "sys")
+    (etypecase *python-site-packages-path*
+      (list
+       (raw-pyexec (format nil "sys.path += [~{\"~A\"~^, ~}]"
+                           *python-site-packages-path*)))
+      (string
+       (raw-pyexec (format nil "sys.path.append('~A')"
+                           *python-site-packages-path*))))
+    (import-module "traceback"))
+
+  (if *numpy-installed-p*
+      (with-verbosity "Numpy was found. Loading numpy"
+        (handler-case
+            (import-module "numpy")
+          (error (e)
+            (warn (format nil "Could not import numpy: ~S~%" e))))
+        (pushnew :typed-arrays *internal-features*)
+        (when (member :typed-arrays *internal-features*)
+          (setq *numpy-c-api-pointer*
+                (with-python-gil (foreign-funcall "import_numpy" :pointer)))))
+      (with-verbosity "Numpy was not found. Skipping numpy.~%"))
+
+  (with-verbosity "Loading python module: fractions"
+    (import-module "fractions"))
   (raw-pyexec "from fractions import Fraction")
 
-  (python-output-thread)
-  (raw-pyexec (format nil "sys.stdout = open('~A', 'w')"
-                      *py-output-stream-pipe*))
-  (raw-pyexec (format nil "sys.stderr = open('~A', 'w')"
-                      *py-error-output-stream-pipe*))
+  (with-verbosity "Starting threads for read/write stdout and stderr from python to lisp"
+    (python-output-thread))
 
-  (dolist (mod '("__main__" "builtins" "sys"))
-    (setf (py-module-pointer mod)
-          (pyforeign-funcall "PyImport_AddModule" :string mod :pointer)))
-  (setq *py-global-dict*
-        (pyforeign-funcall "PyModule_GetDict" :pointer (py-module-pointer "__main__") :pointer))
-  (setq *py-builtins-dict*
-        (pyforeign-funcall "PyModule_GetDict" :pointer (py-module-pointer "builtins") :pointer))
+  (with-verbosity "Opening named pipes from python"
+    (raw-pyexec (format nil "sys.stdout = open('~A', 'w')"
+                        *py-output-stream-pipe*))
+    (raw-pyexec (format nil "sys.stderr = open('~A', 'w')"
+                        *py-error-output-stream-pipe*)))
 
-  (setf *lisp-callback-fn-ptr* (callback lisp-callback-fn)
-        *getattr-ptr* (callback getattr-fn)
-        *setattr-ptr* (callback setattr-fn))
-  (raw-pyexec #.(format nil "import ctypes
+  (with-verbosity "Linking __main__, builtins, sys modules to lisp places"
+    (dolist (mod '("__main__" "builtins" "sys"))
+      (setf (py-module-pointer mod)
+            (pyforeign-funcall "PyImport_AddModule" :string mod :pointer)))
+    (setq *py-global-dict*
+          (pyforeign-funcall "PyModule_GetDict" :pointer (py-module-pointer "__main__") :pointer))
+    (setq *py-builtins-dict*
+          (pyforeign-funcall "PyModule_GetDict" :pointer (py-module-pointer "builtins") :pointer)))
+
+  (with-verbosity "Setting up foreign callbacks"
+    (setf *lisp-callback-fn-ptr* (callback lisp-callback-fn)
+          *getattr-ptr* (callback getattr-fn)
+          *setattr-ptr* (callback setattr-fn))
+    (raw-pyexec #.(format nil "import ctypes
 py4cl_utils = ctypes.pydll.LoadLibrary(\"~A\")
-" (namestring *utils-shared-object-path*)))
-  (raw-pyexec (read-file-into-string
-               (asdf:component-pathname
-                (asdf:find-component (asdf:find-system "py4cl2-cffi") "py4cl.py"))))
-  (raw-pyexec "import decimal; Decimal = decimal.Decimal")
-  (setq +py-empty-tuple-pointer+ (pycall* "tuple"))
-  (setq +py-empty-tuple+ (pycall "tuple"))
-  (setq +py-none-pointer+ (pyvalue* "None"))
-  (setq +py-none+ (pyvalue "None"))
-  (cond ((and *numpy-installed-p*
-              (not (member :arrays *internal-features*)))
-         (push :arrays *internal-features*))
-        ((and (not *numpy-installed-p*)
-              (member :arrays *internal-features*))
-         (removef *internal-features* :arrays)))
-  (mapc #'raw-pyexec *additional-init-codes*))
+" (namestring *utils-shared-object-path*))))
+
+  (with-verbosity "Reading py4cl.py"
+    (raw-pyexec (read-file-into-string
+                 (asdf:component-pathname
+                  (asdf:find-component (asdf:find-system "py4cl2-cffi") "py4cl.py")))))
+
+  (with-verbosity "Importing python module: decimal"
+    (raw-pyexec "import decimal; Decimal = decimal.Decimal"))
+
+  (with-verbosity "Linking empty tuple and None values to lisp places"
+    (setq +py-empty-tuple-pointer+ (pycall* "tuple"))
+    (setq +py-empty-tuple+ (pycall "tuple"))
+    (setq +py-none-pointer+ (pyvalue* "None"))
+    (setq +py-none+ (pyvalue "None")))
+
+  (with-verbosity "Populating *internal-features*"
+    (cond ((and *numpy-installed-p*
+                (not (member :arrays *internal-features*)))
+           (push :arrays *internal-features*))
+          ((and (not *numpy-installed-p*)
+                (member :arrays *internal-features*))
+           (removef *internal-features* :arrays))))
+
+  (with-verbosity "Running *additional-init-codes*"
+    (mapc #'raw-pyexec *additional-init-codes*)))
 
 (defun %py-single-threaded-loop ()
   (destructuring-bind (fun &rest args)
@@ -292,29 +319,34 @@ py4cl_utils = ctypes.pydll.LoadLibrary(\"~A\")
       (error (c)
         (condition-backtrace c)))))
 
-(defun %pystart-single-threaded ()
+(defun %pystart-single-threaded (&key (verbose t))
   (setq *pymain-thread*
         (bt:make-thread
          (lambda ()
            ;; Wait for input
-           (print :waiting)
+           (when verbose
+             (loop :repeat *verbosity-depth* :do (write-string "  " *error-output*))
+             (format *error-output* "Started: pymain-thread~%"))
            (loop :do
              (bt:wait-on-semaphore *pymain-thread-fun-args-semaphore*)
              (%py-single-threaded-loop)
              (bt:signal-semaphore *pymain-thread-result-semaphore*)))
          :name "py4cl2-cffi-python-main-thread"))
-  (funcall/single-threaded #'%pystart-multi-threaded))
+  (funcall/single-threaded #'%pystart-multi-threaded :verbose verbose))
 
-(defun pystart ()
+(defun pystart (&key (verbose t))
 
   (when (eq *python-state* :initialized)
     (return-from pystart))
 
-  (thread-global-let ((*python-state* :initializing))
-    (ecase +python-call-mode+
-      (:single-threaded (%pystart-single-threaded))
-      (:multi-threaded (%pystart-multi-threaded))))
-  (setq *python-state* :initialized)
+  (with-verbosity "Starting embedded python interpreter"
+    (when verbose (terpri *error-output*))
+    (thread-global-let ((*python-state* :initializing))
+      (ecase +python-call-mode+
+        (:single-threaded (%pystart-single-threaded :verbose verbose))
+        (:multi-threaded (%pystart-multi-threaded :verbose verbose))))
+    (setq *python-state* :initialized))
+
   t)
 
 (define-condition pyerror (error)
