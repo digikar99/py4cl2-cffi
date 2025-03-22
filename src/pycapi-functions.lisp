@@ -110,21 +110,31 @@
 (defun pyimport-importmodule (name)
   (declare (optimize speed)
            #+sbcl (sb-ext:muffle-conditions sb-ext:compiler-note))
-  (let* ((return-value) (*gil* (pygil-ensure)))
-    (unwind-protect
-         (let ((*pygil-toplevel-p* nil))
+  (flet ((import-with-float-traps (name)
+           (float-features:with-float-traps-masked t
+             ;; FIXME: We aren't quite sure if masking float traps is
+             ;; the right thing to do. But it certainly makes for more
+             ;; convenient user experience.
+             (foreign-funcall "PyImport_ImportModule" :string name :pointer))))
+    (let ((return-value))
+      (ecase +python-call-mode+
+        (:single-threaded
+         (unwind-protect
+              (setq return-value
+                    (funcall/single-threaded #'import-with-float-traps name))
+           (python-may-be-error))
+         (pytrack return-value)
+         return-value)
+        (:multi-threaded
+         (let* ((*gil* (pygil-ensure)))
            (unwind-protect
-                (setq return-value
-                      (float-features:with-float-traps-masked t
-                        ;; FIXME: We aren't quite sure if masking float traps is
-                        ;; the right thing to do. But it certainly makes for more
-                        ;; convenient user experience.
-                        (foreign-funcall "PyImport_ImportModule" :string name
-                                                                 :pointer)))
-             (python-may-be-error))
-           (pytrack return-value)
-           return-value)
-      (pygil-release *gil*))))
+                (let ((*pygil-toplevel-p* nil))
+                  (unwind-protect
+                       (setq return-value (import-with-float-traps name))
+                    (python-may-be-error))
+                  (pytrack return-value)
+                  return-value)
+             (pygil-release *gil*))))))))
 (declaim (notinline pyimport-importmodule))
 
 (define-pycapi-function (pymodule-getdict "PyModule_GetDict") :pointer
