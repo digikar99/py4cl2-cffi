@@ -328,10 +328,11 @@ py4cl_utils = ctypes.pydll.LoadLibrary(\"~A\")
            (when verbose
              (loop :repeat *verbosity-depth* :do (write-string "  " *error-output*))
              (format *error-output* "Started: pymain-thread~%"))
-           (loop :do
-             (bt:wait-on-semaphore *pymain-thread-fun-args-semaphore*)
-             (%py-single-threaded-loop)
-             (bt:signal-semaphore *pymain-thread-result-semaphore*)))
+           (float-features:with-float-traps-masked t
+             (loop :do
+               (bt:wait-on-semaphore *pymain-thread-fun-args-semaphore*)
+               (%py-single-threaded-loop)
+               (bt:signal-semaphore *pymain-thread-result-semaphore*))))
          :name "py4cl2-cffi-python-main-thread"))
   (funcall/single-threaded #'%pystart-multi-threaded :verbose verbose :release-gil nil))
 
