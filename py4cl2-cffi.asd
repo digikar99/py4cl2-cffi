@@ -42,6 +42,7 @@
                (:static-file "py4cl-numpy-utils.c")
                (:static-file "numpy-installed-p.txt")
                (:file "shared-objects")
+               (:file "single-threaded-utils")
                (:file "gil-gc")
                (:file "pycapi-functions")
                (:file "numpy")
