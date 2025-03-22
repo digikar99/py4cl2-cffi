@@ -314,9 +314,9 @@ py4cl_utils = ctypes.pydll.LoadLibrary(\"~A\")
 
 (defun %py-single-threaded-loop ()
   (destructuring-bind (fun &rest args)
-      (pymain-call)
+      (pop *pymain-call-stack*)
     ;; (setf (pymain-result) (apply fun args))
-    (handler-case (setf (pymain-result) (apply fun args))
+    (handler-case (push (apply fun args) *pymain-value-stack*)
       (error (c)
         (condition-backtrace c)))))
 
