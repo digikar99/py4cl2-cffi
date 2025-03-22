@@ -211,7 +211,7 @@ execution of THUNK as a string."
 will be executed by PYSTART.")
 
 
-(defun %pystart ()
+(defun %pystart-multi-threaded ()
 
   (when (probe-file *py-output-stream-pipe*)
     (delete-file *py-output-stream-pipe*))
@@ -284,13 +284,36 @@ py4cl_utils = ctypes.pydll.LoadLibrary(\"~A\")
          (removef *internal-features* :arrays)))
   (mapc #'raw-pyexec *additional-init-codes*))
 
+(defun %py-single-threaded-loop ()
+  (destructuring-bind (fun &rest args)
+      (pymain-call)
+    ;; (setf (pymain-result) (apply fun args))
+    (handler-case (setf (pymain-result) (apply fun args))
+      (error (c)
+        (condition-backtrace c)))))
+
+(defun %pystart-single-threaded ()
+  (setq *pymain-thread*
+        (bt:make-thread
+         (lambda ()
+           ;; Wait for input
+           (print :waiting)
+           (loop :do
+             (bt:wait-on-semaphore *pymain-thread-fun-args-semaphore*)
+             (%py-single-threaded-loop)
+             (bt:signal-semaphore *pymain-thread-result-semaphore*)))
+         :name "py4cl2-cffi-python-main-thread"))
+  (funcall/single-threaded #'%pystart-multi-threaded))
+
 (defun pystart ()
 
   (when (eq *python-state* :initialized)
     (return-from pystart))
 
-  (let ((*python-state* :initializing))
-    (%pystart))
+  (thread-global-let ((*python-state* :initializing))
+    (ecase +python-call-mode+
+      (:single-threaded (%pystart-single-threaded))
+      (:multi-threaded (%pystart-multi-threaded))))
   (setq *python-state* :initialized)
   t)
 
