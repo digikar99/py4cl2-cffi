@@ -341,7 +341,9 @@ py4cl_utils = ctypes.pydll.LoadLibrary(\"~A\")
   (when (eq *python-state* :initialized)
     (return-from pystart))
 
-  (with-verbosity "Starting embedded python interpreter"
+  (with-verbosity (ecase +python-call-mode+
+                    (:dedicated-thread "Starting embedded python interpreter in dedicated thread")
+                    (:standard "Starting embedded python interpreter without any dedicated thread"))
     (when verbose (terpri *error-output*))
     (thread-global-let ((*python-state* :initializing))
       (ecase +python-call-mode+
