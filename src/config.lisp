@@ -10,6 +10,7 @@
            #:*python-site-packages-path*
            #:*disable-pystop*
            #:*python-call-mode*
+           #:*pystart-verbosity*
            #:print-configuration
            #:shared-library-from-ldflag))
 
@@ -135,6 +136,10 @@ Possible values are :STANDARD and :DEDICATED-THREAD
 
 - When the value is :STANDARD, no such thread is created. Calls to python can
   take place from any thread.")
+
+(declaim (type boolean *pystart-verbosity*))
+(defvar *pystart-verbosity* t
+  "Default value of :VERBOSE argument to PY4CL2-CFFI:PYSTART")
 
 (defun %shared-library-from-ldflag (ldflag)
   "Given a ldflag, for example, \"-lpython3.10\", return the shared library name

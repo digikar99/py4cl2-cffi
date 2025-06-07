@@ -334,7 +334,7 @@ py4cl_utils = ctypes.pydll.LoadLibrary(\"~A\")
          :name "py4cl2-cffi-python-main-thread"))
   (funcall/dedicated-thread #'%pystart-standard :verbose verbose :release-gil nil))
 
-(defun pystart (&key (verbose t))
+(defun pystart (&key (verbose *pystart-verbosity*))
 
   (when (eq *python-state* :initialized)
     (return-from pystart))
