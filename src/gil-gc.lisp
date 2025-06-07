@@ -144,7 +144,11 @@ Handles the reference counting of the return values but not the arguments."
                   (first (assoc-value +python-function-reference-type-alist+ name
                                       :test #'string=)))
             (:new      `(pytrack ,ptr))
-            (:stolen   `(with-python-gil (foreign-funcall "Py_IncRef" :pointer ,ptr)))
+            (:stolen   (ecase +python-call-mode+
+                         (:dedicated-thread
+                          `(with-python-gil (foreign-funcall "Py_IncRef" :pointer ,ptr)))
+                         (:standard
+                          `(with-python-error (foreign-funcall "Py_IncRef" :pointer ,ptr)))))
             (:borrowed `()))
          ,ptr))))
 
