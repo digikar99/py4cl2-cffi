@@ -49,6 +49,16 @@
                   (funcall/dedicated-thread #',lisp-name))))))
        (declaim (notinline ,lisp-name)))))
 
+(declaim (inline py-decref))
+(defun py-decref (address)
+  (etypecase address
+    (cffi:foreign-pointer
+     (foreign-funcall "Py_DecRef" :pointer address))
+    ((unsigned-byte 64)
+     (foreign-funcall "Py_DecRef" :uint64 address))))
+(declaim (notinline py-decref))
+
+
 (define-pycapi-function (pyobject-call "PyObject_Call") :pointer
   (python-callable-pointer :pointer)
   (positional-args         :pointer)
