@@ -23,10 +23,16 @@ LOAD-FORM is used if the pyobject-wrapper is dumped into a compiled lisp file."
 
 (defun finalization-lambda (address)
   (declare (type (unsigned-byte 64) address))
-  (lambda ()
-    (unless (zerop address)
-      (with-python-gil/no-errors
-        (foreign-funcall "Py_DecRef" :pointer (make-pointer address))))))
+  (ecase +python-call-mode+
+    (:standard
+     (lambda ()
+       (unless (zerop address)
+         (with-python-gil/no-errors
+           (foreign-funcall "Py_DecRef" :pointer (make-pointer address))))))
+    (:dedicated-thread
+     (lambda ()
+       (unless (zerop address)
+         (funcall/dedicated-thread #'py-decref address))))))
 
 (defun pytrack* (pyobject-wrapper)
   "Call this function when the foreign function of the Python C-API returns
