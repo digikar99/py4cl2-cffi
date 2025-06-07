@@ -517,8 +517,8 @@ RAW-PY, RAW-PYEVAL, RAW-PYEXEC are only provided for backward compatibility."
   (when (python-alive-p)
     (ecase +python-call-mode+
       (:dedicated-thread
-       (funcall/dedicated-thread #'%pystop-multi-threaded))
-      (:standard- (%pystop-multi-threaded))))
+       (funcall/dedicated-thread #'%pystop-standard))
+      (:standard (%pystop-standard))))
   nil)
 
 (defun pytype (name)
