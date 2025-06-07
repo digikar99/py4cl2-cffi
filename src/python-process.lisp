@@ -320,19 +320,20 @@ py4cl_utils = ctypes.pydll.LoadLibrary(\"~A\")
           *pymain-result-stack*)))
 
 (defun %pystart-dedicated-thread (&key (verbose t))
-  (setq *pymain-thread*
-        (bt:make-thread
-         (lambda ()
-           ;; Wait for input
-           (when verbose
-             (loop :repeat *verbosity-depth* :do (write-string "  " *error-output*))
-             (format *error-output* "Started: pymain-thread~%"))
-           (float-features:with-float-traps-masked t
-             (loop :do
-               (bt:wait-on-semaphore *pymain-thread-fun-args-semaphore*)
-               (%py-dedicated-thread-loop)
-               (bt:signal-semaphore *pymain-thread-result-semaphore*))))
-         :name "py4cl2-cffi-python-main-thread"))
+  (unless (boundp '*pymain-thread*)
+    (setq *pymain-thread*
+          (bt:make-thread
+           (lambda ()
+             ;; Wait for input
+             (when verbose
+               (loop :repeat *verbosity-depth* :do (write-string "  " *error-output*))
+               (format *error-output* "Started: pymain-thread~%"))
+             (float-features:with-float-traps-masked t
+               (loop :do
+                 (bt:wait-on-semaphore *pymain-thread-fun-args-semaphore*)
+                 (%py-dedicated-thread-loop)
+                 (bt:signal-semaphore *pymain-thread-result-semaphore*))))
+           :name "py4cl2-cffi-python-main-thread")))
   (funcall/dedicated-thread #'%pystart-standard :verbose verbose :release-gil nil))
 
 (defun pystart (&key (verbose *pystart-verbosity*))
@@ -488,28 +489,35 @@ Instead, use PYCALL, PYVALUE, (SETF PYVALUE), PYSLOT-VALUE, (SETF PYSLOT-VALUE),
 RAW-PY, RAW-PYEVAL, RAW-PYEXEC are only provided for backward compatibility."
   (apply #'raw-py #\x code-strings))
 
+(defun %pystop-standard ()
+  (trivial-garbage:gc :full t)
+  (pygc)
+  (pycall (pyvalue* "sys.stdout.close"))
+  (pycall (pyvalue* "sys.stderr.close"))
+  (pymethod *py-global-dict* "clear")
+  (setq *py-module-pointer-table* (make-hash-table :test #'equal))
+  (setq *py-module-dict-pointer-table* (make-hash-table :test #'equal))
+  (setq *py-global-dict* nil)
+  (setq *py-builtins-dict* nil)
+  (setq *python-state* :uninitialized)
+  (makunbound '+empty-tuple+)
+  (makunbound '+empty-tuple-pointer+)
+  (makunbound '+py-none+)
+  (makunbound '+py-none-pointer+)
+  (bt:destroy-thread *py-output-reader-thread*)
+  (bt:destroy-thread *py-error-output-reader-thread*)
+  (sleep 0.01)
+  nil)
+
 (defun pystop ()
   (when +disable-pystop+
     (return-from pystop))
   (when (python-alive-p)
-    (trivial-garbage:gc :full t)
-    (pygc)
-    (pycall (pyvalue* "sys.stdout.close"))
-    (pycall (pyvalue* "sys.stderr.close"))
-    (pymethod *py-global-dict* "clear")
-    (setq *py-module-pointer-table* (make-hash-table :test #'equal))
-    (setq *py-module-dict-pointer-table* (make-hash-table :test #'equal))
-    (setq *py-global-dict* nil)
-    (setq *py-builtins-dict* nil)
-    (setq *python-state* :uninitialized)
-    (makunbound '+empty-tuple+)
-    (makunbound '+empty-tuple-pointer+)
-    (makunbound '+py-none+)
-    (makunbound '+py-none-pointer+)
-    (bt:destroy-thread *py-output-reader-thread*)
-    (bt:destroy-thread *py-error-output-reader-thread*)
-    (sleep 0.01)
-    nil))
+    (ecase +python-call-mode+
+      (:dedicated-thread
+       (funcall/dedicated-thread #'%pystop-multi-threaded))
+      (:standard- (%pystop-multi-threaded))))
+  nil)
 
 (defun pytype (name)
   (python-start-if-not-alive)
