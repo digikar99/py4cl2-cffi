@@ -37,18 +37,26 @@
      (python-may-be-error)))
 
 (defmacro with-python-gil (&body body)
-  `(let* ((*gil* (pygil-ensure)))
-     (unwind-protect
-          (let ((*pygil-toplevel-p* nil))
-            (with-python-error ,@body))
-       (pygil-release *gil*))))
+  (ecase +python-call-mode+
+    (:standard
+     `(let* ((*gil* (pygil-ensure)))
+        (unwind-protect
+             (let ((*pygil-toplevel-p* nil))
+               (with-python-error ,@body))
+          (pygil-release *gil*))))
+    (:dedicated-thread
+     `(with-python-error ,@body))))
 
 (defmacro with-python-gil/no-errors (&body body)
-  `(let* ((*gil* (pygil-ensure)))
-     (unwind-protect
-          (let ((*pygil-toplevel-p* nil))
-            ,@body)
-       (pygil-release *gil*))))
+  (ecase +python-call-mode+
+    (:standard
+     `(let* ((*gil* (pygil-ensure)))
+        (unwind-protect
+             (let ((*pygil-toplevel-p* nil))
+               ,@body)
+          (pygil-release *gil*))))
+    (:dedicated-thread
+     `(locally ,@body))))
 
 (defmacro without-python-gil (&body body)
   `(let ((*pygil-toplevel-p* t))
