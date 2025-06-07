@@ -27,7 +27,7 @@
          (push (cons fun args) *pymain-call-stack*)
          (bt:signal-semaphore *pymain-thread-fun-args-semaphore*)
          (bt:wait-on-semaphore *pymain-thread-result-semaphore*)
-         (ensure-no-error (pop *pymain-result-stack*)))))
+         (values-list (ensure-no-error (pop *pymain-result-stack*))))))
 
 (defun apply/dedicated-thread (fun &rest args)
   (declare (optimize speed))
@@ -37,4 +37,4 @@
          (push (apply #'list* fun args) *pymain-call-stack*)
          (bt:signal-semaphore *pymain-thread-fun-args-semaphore*)
          (bt:wait-on-semaphore *pymain-thread-result-semaphore*)
-         (ensure-no-error (pop *pymain-result-stack*)))))
+         (values-list (ensure-no-error (pop *pymain-result-stack*))))))
