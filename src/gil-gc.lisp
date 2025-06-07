@@ -130,9 +130,15 @@
   "Wraps CFFI:FOREIGN-FUNCALL in WITH-PYTHON-GIL
 
 Handles the reference counting of the return values but not the arguments."
-  (let ((name (etypecase name-and-options
+  (let* ((name (etypecase name-and-options
                 (string name-and-options)
-                (cons (first name-and-options)))))
+                (cons (first name-and-options))))
+         (return-value-reftype
+           (progn
+             (assert (assoc name +python-function-reference-type-alist+
+                            :test #'string=))
+             (first (assoc-value +python-function-reference-type-alist+ name
+                                 :test #'string=)))))
     (with-gensyms (ptr)
       `(let ((,ptr ,(ecase +python-call-mode+
                       (:dedicated-thread
@@ -146,11 +152,7 @@ Handles the reference counting of the return values but not the arguments."
                       (:standard
                        `(with-python-gil
                           (foreign-funcall ,name-and-options ,@args))))))
-         ,(case (progn
-                  (assert (assoc name +python-function-reference-type-alist+
-                                 :test #'string=))
-                  (first (assoc-value +python-function-reference-type-alist+ name
-                                      :test #'string=)))
+         ,(case return-value-reftype
             (:new      `(pytrack ,ptr))
             (:stolen   (ecase +python-call-mode+
                          (:dedicated-thread
