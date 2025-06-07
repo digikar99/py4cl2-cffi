@@ -108,7 +108,12 @@ jobs:
 
     # Testing it on the second load confirms that functionalities do not
     # solely eval-when compile-toplevel, and that they persist across multiple loads.
-    - name: Run Tests
+    - name: Run Standard Tests
       run: |
         source ./py4cl2-cffi/bin/activate
         cl --load "$EXOTIC_DIR/$HOME/work/py4cl2-cffi/py4cl2-cffi/ci-test.lisp" || cl --load "$EXOTIC_DIR/$HOME/work/py4cl2-cffi/py4cl2-cffi/ci-test.lisp"
+
+    - name: Run Dedicated-Thread Tests
+      run: |
+        source ./py4cl2-cffi/bin/activate
+        cl --load "$EXOTIC_DIR/$HOME/work/py4cl2-cffi/py4cl2-cffi/ci-test-dedicated.lisp" || cl --load "$EXOTIC_DIR/$HOME/work/py4cl2-cffi/py4cl2-cffi/ci-test-dedicated.lisp"
