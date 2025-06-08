@@ -512,12 +512,13 @@ RAW-PY, RAW-PYEVAL, RAW-PYEXEC are only provided for backward compatibility."
   nil)
 
 (defun pystop ()
+  "When +PYTHON-CALL-MODE+ is :DEDICATED-THREAD or when +DISABLE-PYSTOP+ is T
+this is a NO-OP."
   (when +disable-pystop+
     (return-from pystop))
   (when (python-alive-p)
     (ecase +python-call-mode+
-      (:dedicated-thread
-       (funcall/dedicated-thread #'%pystop-standard))
+      (:dedicated-thread nil)
       (:standard (%pystop-standard))))
   nil)
 
