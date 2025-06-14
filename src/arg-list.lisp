@@ -108,7 +108,7 @@ If the readtable case is :INVERT, it inverts the case of the name and returns it
                                                     (pycall "type" (pyvalue fullname)))
                                           :string)
                          :keyword)
-                 (if +disable-pystop+
+                 (if (optimize-speed-p)
                      (pyvalue* fullname)
                      fullname)
                  lisp-package))

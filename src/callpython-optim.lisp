@@ -1,9 +1,13 @@
 (in-package :py4cl2-cffi)
 
+(defun optimize-speed-p ()
+  (and +disable-pystop+
+       (eq :initialized *python-state*)
+       (member :sbcl *features*)))
+
 (define-compiler-macro pycall (&whole form python-callable &rest args)
   #+sbcl (declare (sb-ext:muffle-conditions sb-ext:compiler-note))
-  (if (or (not +disable-pystop+)
-          (not (eq :initialized *python-state*)))
+  (if (not (optimize-speed-p))
       form
       (cond ((and (typep python-callable 'cffi:foreign-pointer)
                   (every (lambda (arg) (typep arg 'cffi:foreign-pointer)) args))
