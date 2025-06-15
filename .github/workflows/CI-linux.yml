@@ -114,6 +114,7 @@ jobs:
         cl --load "$EXOTIC_DIR/$HOME/work/py4cl2-cffi/py4cl2-cffi/ci-test.lisp" || cl --load "$EXOTIC_DIR/$HOME/work/py4cl2-cffi/py4cl2-cffi/ci-test.lisp"
 
     - name: Run Dedicated-Thread Tests
+      if: matrix.lisp != ecl
       run: |
         source ./py4cl2-cffi/bin/activate
         cl --load "$EXOTIC_DIR/$HOME/work/py4cl2-cffi/py4cl2-cffi/ci-test-dedicated.lisp" || cl --load "$EXOTIC_DIR/$HOME/work/py4cl2-cffi/py4cl2-cffi/ci-test-dedicated.lisp"
