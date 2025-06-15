@@ -1,5 +1,5 @@
 (in-package :cl-user)
-(declaim (optimize (speed 1)))
+(declaim (optimize (speed 1) (safety 3) (debug 1)))
 (push :ci *features*)
 (when (eq :linux (uiop:operating-system))
   (push (print (pathname (uiop:getenv "EXOTIC_DIR")))
