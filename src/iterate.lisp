@@ -17,3 +17,6 @@
        (with ,pygen = (pycall "iter" ,pyobject-wrapper))
        (for ,var = (handler-case (pycall "next" ,pygen)
                      (pyerror-stop-iteration () (finish)))))))
+
+(setf (documentation 'pyfor 'variable)
+      "`(iterate (PYFOR var IN pyobject-wrapper) ...)`")

@@ -2,13 +2,14 @@ py4cl2-cffi - a CFFI approach to python interfacing in Common Lisp
 ---
 
 > Despite being featureful, I won't recommend using py4cl2-cffi in production or in long-term projects *yet*.
-> Numpy version 2 is unsupported atleast until 2025.
 
-Previous Common Lisp attempts: [burgled-batteries3](https://github.com/snmsts/burgled-batteries3) and [cl-python](https://github.com/metawilm/cl-python).
+Previous Common Lisp attempts:
+- [burgled-batteries3](https://github.com/snmsts/burgled-batteries3)
+- [cl-python](https://github.com/metawilm/cl-python).
 
-New Common Lisp / SBCL attempt with support for calling Lisp from Python: [lang](https://github.com/marcoheisig/lang).
+Common Lisp / SBCL attempt with support for calling Lisp from Python: [lang](https://github.com/marcoheisig/lang).
 
-Non Common Lisp approaches
+Other language approaches
 - see [this reddit thread](https://www.reddit.com/r/lisp/comments/yuipy7/pyffi_use_python_from_racket/) for PyFFI in racket, as well as Gambit Scheme
 - [PyCall in Julia](https://github.com/JuliaPy/PyCall.jl)
 
@@ -38,6 +39,7 @@ See [this publication](https://zenodo.org/records/10997435) for the broad design
     - [Optimization](#optimization)
 - [Developer Thoughts on Garbage Collection](#developer-thoughts-on-garbage-collection)
 - [API Reference](#api-reference)
+- [py4cl2-cffi](#py4cl2-cffi)
     - [\*defpymodule-silent-p\*](#defpymodule-silent-p)
     - [\*internal-features\*](#internal-features)
     - [\*lispifiers\*](#lispifiers)
@@ -50,6 +52,7 @@ See [this publication](https://zenodo.org/records/10997435) for the broad design
     - [+py-empty-tuple-pointer+](#py-empty-tuple-pointer)
     - [+py-none+](#py-none)
     - [+py-none-pointer+](#py-none-pointer)
+    - [+python-call-mode+](#python-call-mode)
     - [chain](#chain)
     - [chain\*](#chain)
     - [define-lispifier](#define-lispifier)
@@ -64,6 +67,7 @@ See [this publication](https://zenodo.org/records/10997435) for the broad design
     - [pyerror](#pyerror)
     - [pyeval](#pyeval)
     - [pyexec](#pyexec)
+    - [pyfor](#pyfor)
     - [pygenerator](#pygenerator)
     - [pyhelp](#pyhelp)
     - [pymethod](#pymethod)
@@ -146,15 +150,15 @@ Unlike `py4cl` and `py4cl2`, `py4cl2-cffi` can only use one python version in a 
 The project is being tested on
 
 - SBCL, CCL, ECL for Linux on Github Actions.
-- SBCL for MacOS / amd64
-- SBCL for MacOS / arm64 (M* macs)
+- SBCL for MacOS 13 / amd64
+- SBCL for MacOS 15 / arm64 (M* macs)
 
 # Status
 
 - [x] garbage collection touches
     - An effort has been made to keep track of reference counts; but if something is missed, and users notice a memory leak, feel free to [raise an issue](https://github.com/digikar99/py4cl2/issues/new)!
     - trivial-garbage:finalize is used to establish the decref process for the pointer corresponding to the pyobject. However, this requires holding the GIL, and so, the user might need to evaluate `(py4cl2-cffi::pygil-release)` at the top level to release the GIL of the current thread, so that the finalizer thread can then acquire it.
-- [ ] documentation: see the docstrings for the moment; these need to be collected into a more user-friendly reference along with a couple of other things.
+- [x] documentation: see the docstrings for the moment; these need to be collected into a more user-friendly reference along with a couple of other things.
 - [x] function return-values
 - [x] function arguments
 - [x] integers
@@ -178,7 +182,7 @@ The project is being tested on
 - [x] optimization (See [./perf-compare/README.org](./perf-compare/README.org).)
 - [ ] unloading python libraries to allow reloading python without restarting lisp (?)
 - [ ] playing nice with dumping a lisp image
-- [x] single threaded mode: some python libraries (including matplotlib) hate multithreaded environments
+- [x] dedicated threaded mode: some python libraries (including matplotlib) hate multithreaded environments
 
 ... and much more ...
 
@@ -401,7 +405,14 @@ PYTHON-LISP-USER> (with-lispifiers ((array (lambda (o)
 
 ## Plotting
 
-See https://github.com/digikar99/py4cl2-cffi/issues/11
+If you are using Emacs/SLIME or any other multithreaded lisp development environment, you may run into segmentation faults while using matplotlib. This is because matplotlib expects itself from the same main thread that initiated the (embedded) python. There are two options to solve this problem (see [this discussion](https://github.com/digikar99/py4cl2-cffi/issues/11)):
+
+1. Set `(setf swank:*communication-style* nil)` in `swank.lisp`
+2. Or, `(setf py4cl2-cffi/config:*python-call-mode* :dedicated-thread)` and then `(asdf:load-system "py4cl2-cffi" :force t)`
+
+The later option allocates a dedicated thread to initialize and call python code. Unfortunately, this is both brittle (lisp process may hang) and incurs a performance penalty.
+
+Following either option should allow you to use matplotlib:
 
 ```lisp
 PYTHON-LISP-USER> (import-module "matplotlib.pyplot" :as "plt")
@@ -699,6 +710,31 @@ No documentation found for `+py-none+`
 
 No documentation found for `+py-none-pointer+`
 
+### +python-call-mode+
+
+```lisp
+Constant: DEDICATED-THREAD
+```
+
+PY4CL2-CFFI:+PYTHON-CALL-MODE+ is a constant assigned to the value of
+PY4CL2-CFFI/CONFIG:*PYTHON-CALL-MODE* at compile time. Thus, if
+PY4CL2-CFFI/CONFIG:*PYTHON-CALL-MODE* is changed, PY4CL2-CFFi must be recompiled.
+
+Possible values are :STANDARD and :DEDICATED-THREAD
+
+- When the value is :DEDICATED-THREAD, a dedicated thread is used for starting
+  the embedded python interpreter. All calls to python from lisp are made
+  through this thread. This may be required for using libraries like matplotlib
+  that expect all calls from the single thread that loads the library. On the
+  other hand, in emacs, each lisp buffer may communicate to the lisp process
+  (and thus python) through separate threads. It is however possible to
+  configure emacs and slime/swank to communicate using a single thread. See
+  SWANK:*COMMUNICATION-STYLE*. Python call mode provides a way of sidestepping
+  the slime/swank configuration.
+
+- When the value is :STANDARD, no such thread is created. Calls to python can
+  take place from any thread.
+
 ### chain
 
 ```lisp
@@ -760,7 +796,7 @@ treated specially:
     CL-USER> (chain ("TestClass") ("doThing" :value 31))
     31
 
-There is also `(SETF chain)`. However, this is more experimental. It requires that
+There is also `(SETF `chain`)`. However, this is experimental. This requires that
 the python object remains as a wrapper. [with-remote-objects](#with-remote-objects) can ensure
 this. [with-remote-objects\*](#with-remote-objects) additionally lispifies the return value:
 
@@ -778,6 +814,7 @@ The following therefore does not work:
                (setf (chain* `(aref ,lst 0)) 4)
                lst)
     #(1 2 3)
+
 
 ### chain\*
 
@@ -820,7 +857,7 @@ Arguments:
     package or function, so that the function works even after [pystop](#pystop) is called.
     However, this increases the overhead of stream communication, and therefore,
     can reduce speed.
-  
+
 
 ### defpymodule
 
@@ -913,6 +950,7 @@ Condition
 
 A lisp error to indicate all kinds of python error.
 
+
 ### pyeval
 
 ```lisp
@@ -924,6 +962,10 @@ Function: (pyeval &rest args)
 ```lisp
 Function: (pyexec &rest args)
 ```
+
+### pyfor
+
+`(iterate (PYFOR var IN pyobject-wrapper) ...)`
 
 ### pygenerator
 
@@ -1015,7 +1057,7 @@ Function: (pyslot-value object slot-name)
 ### pystart
 
 ```lisp
-Function: (pystart)
+Function: (pystart &key (verbose *pystart-verbosity*))
 ```
 
 ### pystop
@@ -1023,6 +1065,9 @@ Function: (pystart)
 ```lisp
 Function: (pystop)
 ```
+
+When +PYTHON-CALL-MODE+ is :DEDICATED-THREAD or when +DISABLE-PYSTOP+ is T
+this is a NO-OP.
 
 ### python-alive-p
 
