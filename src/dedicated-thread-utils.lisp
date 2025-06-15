@@ -20,6 +20,14 @@
                value))
       value))
 
+(defun funcall/dedicated-thread* (fun &rest args)
+  (declare (optimize speed))
+  (bt:with-lock-held (*pymain-call-lock*)
+    (push (cons fun args) *pymain-call-stack*)
+    (bt:signal-semaphore *pymain-thread-fun-args-semaphore*)
+    (bt:wait-on-semaphore *pymain-thread-result-semaphore*)
+    (values-list (ensure-no-error (pop *pymain-result-stack*)))))
+
 (defun funcall/dedicated-thread (fun &rest args)
   (declare (optimize speed))
   (cond ((eq *pymain-thread* (bt:current-thread))
@@ -31,6 +39,11 @@
            (bt:wait-on-semaphore *pymain-thread-result-semaphore*)
            (values-list (ensure-no-error (pop *pymain-result-stack*)))))))
 
+(define-compiler-macro funcall/dedicated-thread (&whole call-form fun-form &rest args-form)
+  (if (eq t (macroexpand 'in-dedicated-python-thread))
+      `(funcall ,fun-form ,@args-form)
+      call-form))
+
 (defun apply/dedicated-thread (fun &rest args)
   (declare (optimize speed))
   (cond ((eq *pymain-thread* (bt:current-thread))
@@ -41,3 +54,21 @@
            (bt:signal-semaphore *pymain-thread-fun-args-semaphore*)
            (bt:wait-on-semaphore *pymain-thread-result-semaphore*)
            (values-list (ensure-no-error (pop *pymain-result-stack*)))))))
+
+(define-compiler-macro apply/dedicated-thread (&whole call-form fun-form &rest args-form)
+  (if (eq t (macroexpand 'in-dedicated-python-thread))
+      `(apply ,fun-form ,@args-form)
+      call-form))
+
+(defmacro with-dedicated-python-thread-if-required (&body body)
+  (let ((fun (gensym)))
+    (ecase +python-call-mode+
+      (:dedicated-thread
+       `(flet ((,fun ()
+                 (symbol-macrolet ((in-dedicated-python-thread t))
+                   ,@body)))
+          (if (eq *pymain-thread* (bt:current-thread))
+              (,fun)
+              (funcall/dedicated-thread* #',fun))))
+      (:standard
+       `(progn ,@body)))))

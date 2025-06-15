@@ -116,56 +116,58 @@ It takes in a foreign-pointer to a python callable and returns a foreign pointer
            (optimize speed))
   ;; It is not appropriate to use PYGC here.
   ;; We expect the task of GC-ing to be performed by higher level functions.
-  (labels ((pin-and-call (&rest rem-args)
-             (cond ((null rem-args)
-                    (multiple-value-bind (len pos-args kwargs)
-                        (pythonize-args args)
-                      ;; PyObject_Call returns a new reference
-                      (let* ((return-value
-                               (if (null kwargs)
-                                   (pyobject-callobject python-callable-pointer
-                                                        pos-args)
-                                   (pyobject-call python-callable-pointer
-                                                  pos-args kwargs))))
-                        (clear-pythonize-array-cache len)
-                        return-value)))
-                   ((and (arrayp (car rem-args))
-                         (not (eq t (array-element-type (car rem-args)))))
-                    (cffi:with-pointer-to-vector-data
-                        (ptr (array-storage (car rem-args)))
-                      #-ccl (declare (ignore ptr))
-                      (apply #'pin-and-call (rest rem-args))))
-                   (t
-                    (apply #'pin-and-call (rest rem-args))))))
-    (apply #'pin-and-call args)))
+  (with-dedicated-python-thread-if-required
+    (labels ((pin-and-call (&rest rem-args)
+               (cond ((null rem-args)
+                      (multiple-value-bind (len pos-args kwargs)
+                          (pythonize-args args)
+                        ;; PyObject_Call returns a new reference
+                        (let* ((return-value
+                                 (if (null kwargs)
+                                     (pyobject-callobject python-callable-pointer
+                                                          pos-args)
+                                     (pyobject-call python-callable-pointer
+                                                    pos-args kwargs))))
+                          (clear-pythonize-array-cache len)
+                          return-value)))
+                     ((and (arrayp (car rem-args))
+                           (not (eq t (array-element-type (car rem-args)))))
+                      (cffi:with-pointer-to-vector-data
+                          (ptr (array-storage (car rem-args)))
+                        #-ccl (declare (ignore ptr))
+                        (apply #'pin-and-call (rest rem-args))))
+                     (t
+                      (apply #'pin-and-call (rest rem-args))))))
+      (apply #'pin-and-call args))))
 
 (defun %pycall (python-callable-pointer &rest args)
   (declare (type foreign-pointer python-callable-pointer)
            (optimize speed)
            (inline pyobject-callobject pyobject-call))
-  (ecase *pyobject-translation-mode*
-    (:foreign-pointer (apply #'%pycall* python-callable-pointer args))
-    (:wrapper
-     (let ((pyobject-pointer (apply #'%pycall* python-callable-pointer args)))
-       (pyuntrack pyobject-pointer)
-       (make-tracked-pyobject-wrapper pyobject-pointer)))
-    (:lisp
-     (with-pygc
-       ;; We can't just rely on %PYCALL* because we also need to deal with
-       ;; PYTHONIZED-ARGS while lispifying the values
-       (multiple-value-bind (len pos-args kwargs)
-           (pythonize-args args)
-         ;; PyObject_Call returns a new reference
-         (let* ((return-value (if (null kwargs)
-                                  (pyobject-callobject python-callable-pointer
-                                                       pos-args)
-                                  (pyobject-call python-callable-pointer
-                                                 pos-args kwargs)))
-                (lisp-return-value
-                  (or (may-be-lispify-array len return-value)
-                      (%pycall-return-value return-value))))
-           (clear-pythonize-array-cache len)
-           lisp-return-value))))))
+  (with-dedicated-python-thread-if-required
+    (ecase *pyobject-translation-mode*
+      (:foreign-pointer (apply #'%pycall* python-callable-pointer args))
+      (:wrapper
+       (let ((pyobject-pointer (apply #'%pycall* python-callable-pointer args)))
+         (pyuntrack pyobject-pointer)
+         (make-tracked-pyobject-wrapper pyobject-pointer)))
+      (:lisp
+       (with-pygc
+         ;; We can't just rely on %PYCALL* because we also need to deal with
+         ;; PYTHONIZED-ARGS while lispifying the values
+         (multiple-value-bind (len pos-args kwargs)
+             (pythonize-args args)
+           ;; PyObject_Call returns a new reference
+           (let* ((return-value (if (null kwargs)
+                                    (pyobject-callobject python-callable-pointer
+                                                         pos-args)
+                                    (pyobject-call python-callable-pointer
+                                                   pos-args kwargs)))
+                  (lisp-return-value
+                    (or (may-be-lispify-array len return-value)
+                        (%pycall-return-value return-value))))
+             (clear-pythonize-array-cache len)
+             lisp-return-value)))))))
 
 (labels ((pythonizep (value)
            "Determines if VALUE should be pythonized."
@@ -234,8 +236,9 @@ python callable, which is then retrieved using PYVALUE*"
   "If PYTHON-CALLABLE is a string or symbol, it is treated as the name of a
 python callable, which is then retrieved using PYVALUE*"
   (declare (optimize speed))
-  (python-start-if-not-alive)
-  (pyobject-pointer-translate (apply #'pycall* python-callable args)))
+  (with-dedicated-python-thread-if-required
+    (python-start-if-not-alive)
+    (pyobject-pointer-translate (apply #'pycall* python-callable args))))
 
 (defun pyslot-value* (object slot-name)
   (let* ((object-pointer (%pythonize object))
