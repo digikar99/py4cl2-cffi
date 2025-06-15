@@ -61,14 +61,18 @@
       call-form))
 
 (defmacro with-dedicated-python-thread-if-required (&body body)
-  (let ((fun (gensym)))
-    (ecase +python-call-mode+
-      (:dedicated-thread
-       `(flet ((,fun ()
-                 (symbol-macrolet ((in-dedicated-python-thread t))
-                   ,@body)))
-          (if (eq *pymain-thread* (bt:current-thread))
-              (,fun)
-              (funcall/dedicated-thread* #',fun))))
-      (:standard
-       `(progn ,@body)))))
+  (if (member :sbcl cl:*features*)
+      (let ((fun (gensym)))
+        (ecase +python-call-mode+
+          (:dedicated-thread
+           (if (eq t (macroexpand-1 'in-dedicated-python-thread))
+               `(progn ,@body)
+               `(flet ((,fun ()
+                         (symbol-macrolet ((in-dedicated-python-thread t))
+                           ,@body)))
+                  (if (eq *pymain-thread* (bt:current-thread))
+                      (,fun)
+                      (funcall/dedicated-thread* #',fun)))))
+          (:standard
+           `(progn ,@body))))
+      `(progn ,@body)))
