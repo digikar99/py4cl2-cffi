@@ -50,4 +50,7 @@
                                          #-(or sbcl ccl ecl)
                                          (error "Don't know how to obtain ARRAY-STORAGE on ~S"
                                                 (lisp-implementation-type))))
-                (t (setq array (cl:array-displacement array)))))))
+                (t (let ((displaced (cl:array-displacement array)))
+                     (if displaced
+                         (setq array displaced)
+                         (return (copy-seq array)))))))))
