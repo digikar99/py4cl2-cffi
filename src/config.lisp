@@ -1,6 +1,7 @@
 (defpackage :py4cl2-cffi/config
   (:use :cl)
   (:export #:+python-version-string+
+           #:+numpy-version-string+
            #:*python-ldflags*
            #:*python-ignore-ldflags*
            #:*python-includes*
@@ -34,25 +35,6 @@
 
 (declaim (type string *python-compile-command*))
 
-(defvar *python-compile-command*
-  (concatenate
-   'string
-   "gcc ~A -c -Wall -Werror -fpic py4cl-utils.c && "
-   "gcc -shared -o libpy4cl-utils.so py4cl-utils.o")
-  "~A corresponds to the *python-includes*
-")
-
-(defvar *python-numpy-compile-command*
-  (concatenate
-   'string
-   "gcc ~A -I'~A' -c -Wall -Werror -fpic py4cl-numpy-utils.c && "
-   "gcc -shared -o libpy4cl-numpy-utils.so py4cl-numpy-utils.o")
-  "The first~A corresponds to the *python-includes*
-The second ~A corresponds to the numpy include files discovered
-  in shared-objects.lisp
-")
-
-
 (eval-when (:compile-toplevel :load-toplevel :execute)
 
   (defun return-value-as-list (cmd)
@@ -79,11 +61,40 @@ to expected paths.")
 					    *python-executable-path*)))
     :test #'string=)
 
+  (alexandria:define-constant +numpy-version-string+
+      (uiop:run-program
+       (format nil "~A -c 'import numpy; print(numpy.__version__, end=\"\")'"
+               *python-executable-path*)
+       :output :string
+       :ignore-error-status t)
+    :test #'string=)
+
   (if (uiop:version< +python-version-string+ "3.8.0")
       (defvar *python-ldflags*
         (return-value-as-list "python3-config --ldflags"))
       (defvar *python-ldflags*
         (return-value-as-list "python3-config --embed --ldflags"))))
+
+
+(defvar *python-compile-command*
+  (concatenate
+   'string
+   "gcc ~A -c -Wall -Werror -fpic py4cl-utils.c && "
+   (format nil "gcc -shared -o libpy4cl-utils-~A.so py4cl-utils.o"
+           +python-version-string+))
+  "~A corresponds to the *python-includes*
+")
+
+(defvar *python-numpy-compile-command*
+  (concatenate
+   'string
+   "gcc ~A -I'~A' -c -Wall -Werror -fpic py4cl-numpy-utils.c && "
+   (format nil "gcc -shared -o libpy4cl-numpy-utils-~A-~A.so py4cl-numpy-utils.o"
+           +python-version-string+ +numpy-version-string+))
+  "The first~A corresponds to the *python-includes*
+The second ~A corresponds to the numpy include files discovered
+  in shared-objects.lisp
+")
 
 
 (defvar *python-includes*

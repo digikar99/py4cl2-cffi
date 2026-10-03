@@ -12,12 +12,15 @@
   (defvar *utils-shared-object-path*
     (merge-pathnames
      (asdf:component-pathname (asdf:find-system "py4cl2-cffi"))
-     (pathname (%shared-library-from-ldflag "-lpy4cl-utils"))))
+     (pathname (%shared-library-from-ldflag
+                (format nil "-lpy4cl-utils-~A" +python-version-string+)))))
 
   (defvar *numpy-utils-shared-object-path*
     (merge-pathnames
      (asdf:component-pathname (asdf:find-system "py4cl2-cffi"))
-     (pathname (%shared-library-from-ldflag "-lpy4cl-numpy-utils"))))
+     (pathname (%shared-library-from-ldflag
+                (format nil "-lpy4cl-numpy-utils-~A-~A"
+                        +python-version-string+ +numpy-version-string+)))))
 
   (defvar *numpy-installed-p*)
 
@@ -45,19 +48,17 @@
         (declare (ignore error-output))
         (let* ((numpy-installed-p
                 (zerop error-status))
-	       (numpy-version
-                 (first
-                  (uiop:parse-version
-                   (uiop:run-program
-                    (format nil "~A -c 'import numpy; print(numpy.__version__, end=\"\")'"
-			                      *python-executable-path*)
-                    :output :string
-                    :ignore-error-status t))))               
+               (python-version
+                 +python-version-string+)
+               (numpy-version
+                 +numpy-version-string+)
+               (numpy-major-version
+                 (first (uiop:parse-version numpy-version)))
                (program-string
                  (format nil
                          *python-numpy-compile-command*
                          (format nil "~{~a~^ ~}" *python-includes*)
-                         (format nil (if (eql 2 numpy-version)
+                         (format nil (if (eql 2 numpy-major-version)
                                          "~A/_core/include/"
                                          "~A/core/include/")
                                  (string-trim (list #\newline) numpy-path)))))
