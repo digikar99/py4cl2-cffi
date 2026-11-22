@@ -262,10 +262,11 @@ python callable, which is then retrieved using PYVALUE*"
 (defun pymethod (object method-name &rest args)
   (declare (optimize debug))
   (python-start-if-not-alive)
-  (with-pygc
-    (let* ((object-pointer (%pythonize object))
-           (method         (%pyslot-value object-pointer method-name)))
-      (apply #'%pycall method args))))
+  (with-dedicated-python-thread-if-required
+    (with-pygc
+      (let* ((object-pointer (%pythonize object))
+             (method         (%pyslot-value object-pointer method-name)))
+        (apply #'%pycall method args)))))
 
 (defun pyhelp (string-or-python-callable)
   (pycall "help" string-or-python-callable)
