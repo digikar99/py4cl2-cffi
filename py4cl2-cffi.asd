@@ -38,9 +38,10 @@
   :components ((:static-file "py4cl.py")
                (:file "package")
                (:file "lisp-utils")
-               (:static-file "py4cl-utils.c")
-               (:static-file "py4cl-numpy-utils.c")
-               (:static-file "numpy-installed-p.txt")
+               (:module "c"
+                :components ((:static-file "py4cl-utils.c")
+                             (:static-file "py4cl-numpy-utils.c")
+                             (:static-file "numpy-installed-p.txt")))
                (:file "shared-objects")
                (:file "dedicated-thread-utils")
                (:file "gil-gc")

@@ -4,26 +4,34 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
 
+  (defvar *shared-objects-directory*
+    (ensure-directories-exist
+     (asdf:system-relative-pathname "py4cl2-cffi"
+                                    (merge-pathnames "c/" "src/"))))
+
   (defvar *utils-source-file-path*
     (merge-pathnames
-     (asdf:component-pathname (asdf:find-system "py4cl2-cffi"))
+     (asdf:system-relative-pathname "py4cl2-cffi" "src/")
      #p"py4cl-utils.c"))
 
   (defvar *utils-shared-object-path*
     (merge-pathnames
-     (asdf:component-pathname (asdf:find-system "py4cl2-cffi"))
-     (pathname (%shared-library-from-ldflag "-lpy4cl-utils"))))
+     *shared-objects-directory*
+     (pathname (%shared-library-from-ldflag
+                (format nil "-lpy4cl-utils-~A" +python-version-string+)))))
 
   (defvar *numpy-utils-shared-object-path*
     (merge-pathnames
-     (asdf:component-pathname (asdf:find-system "py4cl2-cffi"))
-     (pathname (%shared-library-from-ldflag "-lpy4cl-numpy-utils"))))
+     *shared-objects-directory*
+     (pathname (%shared-library-from-ldflag
+                (format nil "-lpy4cl-numpy-utils-~A-~A"
+                        +python-version-string+ +numpy-version-string+)))))
 
   (defvar *numpy-installed-p*)
 
   (defun compile-base-utils-shared-object ()
     (uiop:with-current-directory
-        ((asdf:component-pathname (asdf:find-system "py4cl2-cffi")))
+        (*shared-objects-directory*)
       (let* ((program-string
                (format nil
                        *python-compile-command*
@@ -35,7 +43,7 @@
 
   (defun may-be-compile-numpy-utils-shared-object ()
     (uiop:with-current-directory
-        ((asdf:component-pathname (asdf:find-system "py4cl2-cffi")))
+        (*shared-objects-directory*)
       (multiple-value-bind (numpy-path error-output error-status)
 	  (uiop:run-program
            (concatenate 'string "cd ~/;"
@@ -45,19 +53,17 @@
         (declare (ignore error-output))
         (let* ((numpy-installed-p
                 (zerop error-status))
-	       (numpy-version
-                 (first
-                  (uiop:parse-version
-                   (uiop:run-program
-                    (format nil "~A -c 'import numpy; print(numpy.__version__, end=\"\")'"
-			                      *python-executable-path*)
-                    :output :string
-                    :ignore-error-status t))))               
+               (python-version
+                 +python-version-string+)
+               (numpy-version
+                 +numpy-version-string+)
+               (numpy-major-version
+                 (first (uiop:parse-version numpy-version)))
                (program-string
                  (format nil
                          *python-numpy-compile-command*
                          (format nil "~{~a~^ ~}" *python-includes*)
-                         (format nil (if (eql 2 numpy-version)
+                         (format nil (if (eql 2 numpy-major-version)
                                          "~A/_core/include/"
                                          "~A/core/include/")
                                  (string-trim (list #\newline) numpy-path)))))
@@ -74,7 +80,8 @@
   (let* ((numpy-installed-p-file
            (asdf:component-pathname
             (asdf:find-component
-             "py4cl2-cffi" "numpy-installed-p.txt"))))
+             (asdf:find-component "py4cl2-cffi" "c")
+              "numpy-installed-p.txt"))))
     (multiple-value-bind (numpy-installed-p-old error)
           (ignore-errors
            (with-standard-io-syntax
@@ -132,8 +139,12 @@
       (mapc (lambda (library)
               (load-foreign-library library :search-path search-paths))
             libraries))
+    (unless (uiop:file-exists-p *utils-shared-object-path*)
+      (compile-base-utils-shared-object))
     (load-foreign-library *utils-shared-object-path*)
     (when *numpy-installed-p*
+      (unless (uiop:file-exists-p *numpy-utils-shared-object-path*)
+        (may-be-compile-numpy-utils-shared-object))
       (load-foreign-library *numpy-utils-shared-object-path*))
     (setq *python-libraries-loaded-p* t)))
 

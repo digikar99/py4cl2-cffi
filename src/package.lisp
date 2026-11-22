@@ -1,7 +1,9 @@
 (defpackage :py4cl2-cffi
   (:use :cl :cffi :alexandria :py4cl2-cffi/config :iterate)
   (:import-from #:py4cl2-cffi/config
-                #:%shared-library-from-ldflag)
+                #:%shared-library-from-ldflag
+                #:+python-version-string+
+                #:+numpy-version-string+)
   (:export #:*internal-features*
 
            #:+disable-pystop+
