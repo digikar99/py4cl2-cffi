@@ -434,11 +434,12 @@ from inside PYTHON-MAY-BE-ERROR does not lead to an infinite recursion.")
   (declare (optimize speed))
   (python-start-if-not-alive)
   (unless *already-retrieving-exceptions*
-    (let ((*already-retrieving-exceptions* t))
-      (with-python-gil
-        (let ((may-be-error-type (pyerr-occurred/simple)))
-          (unless (null-pointer-p may-be-error-type)
-            (python-error-fetch)))))))
+    (thread-global-let ((*already-retrieving-exceptions* t))
+      (with-dedicated-python-thread-if-required
+        (with-python-gil
+          (let ((may-be-error-type (pyerr-occurred/simple)))
+            (unless (null-pointer-p may-be-error-type)
+              (python-error-fetch))))))))
 
 (defun raw-py (cmd-char &rest code-strings)
   "CMD-CHAR should be #\e for eval and #\x for exec.
