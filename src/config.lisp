@@ -56,18 +56,22 @@
 This is useful in cases such as venv when python3-config does not lead
 to expected paths.")
 
-  (alexandria:define-constant +python-version-string+
-      (second (return-value-as-list (format nil "~A --version"
-					    *python-executable-path*)))
-    :test #'string=)
+  ;; It is tempting to use alexandria:define-constant for the below
+  ;;   +python-version-string+ and +numpy-version-string+
+  ;; However, it does not interact nicely with compiled code, when
+  ;; these values change across fresh reloads of the fasls. At least
+  ;; not on SBCL 2.6.4.
 
-  (alexandria:define-constant +numpy-version-string+
-      (uiop:run-program
-       (format nil "~A -c 'import numpy; print(numpy.__version__, end=\"\")'"
-               *python-executable-path*)
-       :output :string
-       :ignore-error-status t)
-    :test #'string=)
+  (defvar +python-version-string+
+    (second (return-value-as-list (format nil "~A --version"
+                                          *python-executable-path*))))
+
+  (defvar +numpy-version-string+
+    (uiop:run-program
+     (format nil "~A -c 'import numpy; print(numpy.__version__, end=\"\")'"
+             *python-executable-path*)
+     :output :string
+     :ignore-error-status t))
 
   (if (uiop:version< +python-version-string+ "3.8.0")
       (defvar *python-ldflags*

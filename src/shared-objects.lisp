@@ -139,8 +139,12 @@
       (mapc (lambda (library)
               (load-foreign-library library :search-path search-paths))
             libraries))
+    (unless (uiop:file-exists-p *utils-shared-object-path*)
+      (compile-base-utils-shared-object))
     (load-foreign-library *utils-shared-object-path*)
     (when *numpy-installed-p*
+      (unless (uiop:file-exists-p *numpy-utils-shared-object-path*)
+        (may-be-compile-numpy-utils-shared-object))
       (load-foreign-library *numpy-utils-shared-object-path*))
     (setq *python-libraries-loaded-p* t)))
 
